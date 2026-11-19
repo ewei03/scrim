@@ -5,7 +5,7 @@ puzzle, share the link, everyone plays on their own time, and the lobby crowns
 a winner. Persistent rankings, head-to-head records and an archive live on the
 crew.
 
-**v0.1 games:** Wordle. Desktop Chrome only.
+**v0.1 games:** Wordle, today's puzzle only. Desktop Chrome only.
 
 Results get in automatically through the **Scrim Chrome extension**: play
 Wordle on nytimes.com as usual, and when you finish, the extension reads the
@@ -63,7 +63,7 @@ Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run each file in `supabase/migrations/` in order
-   (`0001_init.sql`, `0002_table_grants.sql`, `0003_extension.sql`).
+   (`0001_init.sql` through `0004_today_only.sql`).
 3. **Authentication → Sign In / Providers:**
    - enable **Allow anonymous sign-ins** (guest play)
    - enable **Allow manual linking** (lets guests attach Google later)
@@ -89,5 +89,6 @@ When Scrim gets a real domain, add it to the `scrim-bridge.js` `matches` in
 
 ## Roadmap
 
+- Archive puzzles (lobbies for past days); today only for now
 - v0.2 Connections adapter
 - v0.3 Krillion adapter (extension content script + adapter)

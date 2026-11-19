@@ -13,6 +13,7 @@ import { timeLeft } from "@/lib/time";
 import type { Crew, Lobby } from "@/lib/types";
 
 type OpenLobby = Lobby & { crews: { name: string }; entries: { user_id: string }[] };
+type CrewWithCount = Crew & { crew_members: { count: number }[] };
 
 export function Home() {
   const { status, error } = useAuth();
@@ -38,7 +39,7 @@ function Landing() {
         <li>Start a crew and a lobby</li>
         <li>Share the invite link</li>
         <li>Everyone plays on their own time</li>
-        <li>Paste your result — scores stay hidden until you do</li>
+        <li>Finish the game and your score lands automatically — others stay hidden until you have</li>
         <li>The lobby crowns a winner, stats keep score forever</li>
       </ol>
       <SignIn title="Jump in" />
@@ -49,7 +50,7 @@ function Landing() {
 function Dashboard() {
   const { user } = useAuth();
   const router = useRouter();
-  const [crews, setCrews] = useState<Crew[] | null>(null);
+  const [crews, setCrews] = useState<CrewWithCount[] | null>(null);
   const [open, setOpen] = useState<OpenLobby[]>([]);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +59,7 @@ function Dashboard() {
     (async () => {
       const sb = supabase();
       const [c, l] = await Promise.all([
-        sb.from("crews").select("*").order("created_at"),
+        sb.from("crews").select("*, crew_members(count)").order("created_at"),
         sb
           .from("lobbies")
           .select("*, crews(name), entries(user_id)")
@@ -67,7 +68,7 @@ function Dashboard() {
           .order("closes_at"),
       ]);
       if (c.error || l.error) setError(errorMessage(c.error ?? l.error));
-      setCrews(c.data ?? []);
+      setCrews((c.data as CrewWithCount[]) ?? []);
       setOpen((l.data as OpenLobby[]) ?? []);
     })();
   }, []);
@@ -89,14 +90,15 @@ function Dashboard() {
       {open.length > 0 && (
         <section className="stack">
           <h2>Open lobbies</h2>
-          <ul className="list">
+          <ul className="list list-live">
             {open.map((l) => {
               const game = getGame(l.game);
               const done = l.entries.some((e) => e.user_id === user?.id);
               return (
                 <li key={l.id}>
-                  <Link href={`/l/${l.invite_code}`} className="list-row">
+                  <Link href={`/l/${l.invite_code}`} className={`list-row ${done ? "" : "todo"}`}>
                     <span>
+                      <span className="live-dot" aria-hidden>●</span>
                       <strong>
                         {game.name} {game.puzzleLabel(l.puzzle_id)}
                       </strong>{" "}
@@ -119,15 +121,23 @@ function Dashboard() {
         {crews.length === 0 ? (
           <p className="muted">No crews yet. Start one, or open an invite link from a friend.</p>
         ) : (
-          <ul className="list">
-            {crews.map((c) => (
-              <li key={c.id}>
-                <Link href={`/c/${c.invite_code}`} className="list-row">
-                  <strong>{c.name}</strong>
-                  <span className="muted">→</span>
-                </Link>
-              </li>
-            ))}
+          <ul className="crew-grid">
+            {crews.map((c) => {
+              const members = c.crew_members[0]?.count ?? 0;
+              return (
+                <li key={c.id}>
+                  <Link href={`/c/${c.invite_code}`} className="crew-card">
+                    <span className="crew-name">{c.name}</span>
+                    <span className="crew-meta">
+                      <span>
+                        {members} {members === 1 ? "member" : "members"}
+                      </span>
+                      <span aria-hidden>→</span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
         <form className="row" onSubmit={createCrew}>

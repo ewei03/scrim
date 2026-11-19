@@ -1,4 +1,4 @@
-// Runs the real migration in an in-memory Postgres (PGlite) with a minimal
+// Runs the real migrations in an in-memory Postgres (PGlite) with a minimal
 // stand-in for Supabase's auth schema, then exercises the RPCs and RLS rules
 // as different users.
 import { readdirSync, readFileSync } from "node:fs";
@@ -31,7 +31,7 @@ const EVE = "00000000-0000-0000-0000-00000000000e";
 
 let db: PGlite;
 
-/** Run a query as a signed-in user, with RLS applied. */
+/** Run a query as a signed-in user (or anon when null), with RLS applied. */
 async function as<T = Record<string, unknown>>(user: string | null, sql: string, params: unknown[] = []) {
   return db.transaction(async (tx) => {
     await tx.query(`set local role ${user ? "authenticated" : "anon"}`);
@@ -47,6 +47,10 @@ const solve = (puzzle: string, guesses: number, rows?: string) =>
 let crewId: string;
 let lobbyId: string;
 let lobbyCode: string;
+/** Today's Wordle number by UTC date, which is always "today" somewhere. */
+let T: string;
+/** A past puzzle. */
+let OLD: string;
 
 beforeAll(async () => {
   db = new PGlite();
@@ -57,7 +61,22 @@ beforeAll(async () => {
      ($1, '{"display_name":"Ann"}'), ($2, '{"full_name":"Bob Google"}'), ($3, '{}')`,
     [ANN, BOB, EVE],
   );
+  const { rows } = await db.query<{ n: number }>(
+    "select ((now() at time zone 'UTC')::date - date '2021-06-19') as n",
+  );
+  T = String(rows[0].n);
+  OLD = String(rows[0].n - 5);
 });
+
+const createLobby = (user: string, crew: string, puzzle: string, extra = "") =>
+  as<{ id: string; invite_code: string }>(
+    user,
+    `select * from create_lobby($1, 'wordle', $2, now() + interval '1 day'${extra})`,
+    [crew, puzzle],
+  );
+
+const createCrew = async (user: string, name: string) =>
+  (await as<{ id: string; invite_code: string }>(user, "select * from create_crew($1)", [name]))[0];
 
 describe("schema", () => {
   it("creates profiles for new users", async () => {
@@ -76,29 +95,32 @@ describe("schema", () => {
   });
 
   it("creates a crew and a lobby, deduplicating lobbies per puzzle", async () => {
-    const [crew] = await as<{ id: string }>(ANN, "select * from create_crew('Breakfast Club')");
-    crewId = crew.id;
-    const create = `select * from create_lobby($1, 'wordle', '1612', now() + interval '1 day')`;
-    const [a] = await as<{ id: string; invite_code: string }>(ANN, create, [crewId]);
-    const [b] = await as<{ id: string }>(ANN, create, [crewId]);
+    crewId = (await createCrew(ANN, "Breakfast Club")).id;
+    const [a] = await createLobby(ANN, crewId, T);
+    const [b] = await createLobby(ANN, crewId, T);
     expect(b.id).toBe(a.id);
     lobbyId = a.id;
     lobbyCode = a.invite_code;
+  });
+
+  it("only allows today's puzzle", async () => {
+    await expect(createLobby(ANN, crewId, OLD)).rejects.toThrow(/today's puzzle/);
+    await expect(createLobby(ANN, crewId, String(Number(T) + 5))).rejects.toThrow(/today's puzzle/);
   });
 
   it("rejects unsupported games and past deadlines", async () => {
     await expect(
       as(ANN, `select create_lobby($1, 'spelling-bee', '1', now() + interval '1 day')`, [crewId]),
     ).rejects.toThrow(/Unsupported game/);
-    await expect(as(ANN, `select create_lobby($1, 'wordle', '1613', now() - interval '1 hour')`, [crewId])).rejects.toThrow(
-      /future/,
-    );
+    await expect(
+      as(ANN, `select create_lobby($1, 'wordle', $2, now() - interval '1 hour')`, [crewId, T]),
+    ).rejects.toThrow(/future/);
   });
 
   it("hides crews and lobbies from non-members", async () => {
     expect(await as(EVE, "select * from crews")).toHaveLength(0);
     expect(await as(EVE, "select * from lobbies")).toHaveLength(0);
-    await expect(as(EVE, `select submit_entry($1, $2, '', 'paste')`, [lobbyId, solve("1612", 1)])).rejects.toThrow(
+    await expect(as(EVE, `select submit_entry($1, $2, '', 'paste')`, [lobbyId, solve(T, 1)])).rejects.toThrow(
       /not found/,
     );
   });
@@ -109,10 +131,7 @@ describe("schema", () => {
   });
 
   it("hides results until you submit your own", async () => {
-    await as(BOB, `select submit_entry($1, $2, 'Wordle 1,612 2/6', 'paste')`, [
-      lobbyId,
-      solve("1612", 2, grid("y.y..", "ggggg")),
-    ]);
+    await as(BOB, `select submit_entry($1, $2, 'Wordle 2/6', 'paste')`, [lobbyId, solve(T, 2, grid("y.y..", "ggggg"))]);
 
     const before = await as<{ display_name: string; hidden: boolean; result: unknown }>(
       ANN,
@@ -122,10 +141,12 @@ describe("schema", () => {
     expect(before).toMatchObject([{ display_name: "Bob Google", hidden: true, result: null }]);
     expect(await as(ANN, "select * from entries")).toHaveLength(0);
 
-    await as(ANN, `select submit_entry($1, $2, '', 'manual')`, [lobbyId, solve("1612", 2)]);
-    const after = await as<{ hidden: boolean; result: { guesses: number } }>(ANN, "select * from get_lobby_board($1)", [
-      lobbyId,
-    ]);
+    await as(ANN, `select submit_entry($1, $2, '', 'manual')`, [lobbyId, solve(T, 2)]);
+    const after = await as<{ hidden: boolean; result: { guesses: number } }>(
+      ANN,
+      "select * from get_lobby_board($1)",
+      [lobbyId],
+    );
     expect(after.map((r) => [r.hidden, r.result.guesses])).toEqual([
       [false, 2],
       [false, 2],
@@ -134,20 +155,18 @@ describe("schema", () => {
   });
 
   it("validates results server-side", async () => {
-    await as(EVE, "select join_crew($1)", [
-      (await as<{ invite_code: string }>(ANN, "select invite_code from crews"))[0].invite_code,
-    ]);
+    await as(EVE, "select join_lobby($1)", [lobbyCode]);
     const submit = (result: string) => as(EVE, `select submit_entry($1, $2, '', 'paste')`, [lobbyId, result]);
-    await expect(submit(solve("1611", 3))).rejects.toThrow(/#1611.*#1612/);
-    await expect(submit(solve("1612", 9))).rejects.toThrow(/between 1 and 6/);
-    await expect(submit(solve("1612", 2, grid("ggggg", "ggggg")))).rejects.toThrow(/does not match/);
-    await expect(submit(solve("1612", 1, grid("hello")))).rejects.toThrow(/Invalid grid row/);
+    await expect(submit(solve(OLD, 3))).rejects.toThrow(new RegExp(`#${OLD}.*#${T}`));
+    await expect(submit(solve(T, 9))).rejects.toThrow(/between 1 and 6/);
+    await expect(submit(solve(T, 2, grid("ggggg", "ggggg")))).rejects.toThrow(/does not match/);
+    await expect(submit(solve(T, 1, grid("hello")))).rejects.toThrow(/Invalid grid row/);
 
     // Junk fields are dropped; misses are stored without guesses.
-    await submit(`{"puzzle":"1612","solved":false,"guesses":4,"hard":true,"evil":1}`);
+    await submit(`{"puzzle":"${T}","solved":false,"guesses":4,"hard":true,"evil":1}`);
     const [row] = await as<{ result: object }>(EVE, "select result from entries where user_id = $1", [EVE]);
-    expect(row.result).toEqual({ puzzle: "1612", solved: false, hard: true });
-    await expect(submit(solve("1612", 3))).rejects.toThrow(/already submitted/);
+    expect(row.result).toEqual({ puzzle: T, solved: false, hard: true });
+    await expect(submit(solve(T, 3))).rejects.toThrow(/already submitted/);
   });
 
   it("only lets the host void entries and close the lobby", async () => {
@@ -156,22 +175,20 @@ describe("schema", () => {
     await expect(as(BOB, "select void_entry($1)", [eve.id])).rejects.toThrow(/Only the host/);
     await as(ANN, "select void_entry($1)", [eve.id]);
     await as(ANN, "select close_lobby($1)", [lobbyId]);
-    await expect(as(EVE, `select submit_entry($1, $2, '', 'manual')`, [lobbyId, solve("1612", 1)])).rejects.toThrow(
+    await expect(as(EVE, `select submit_entry($1, $2, '', 'manual')`, [lobbyId, solve(T, 1)])).rejects.toThrow(
       /closed/,
     );
   });
 
   it("closes automatically at the deadline and enforces paste-only lobbies", async () => {
-    const [l] = await as<{ id: string }>(
-      ANN,
-      `select * from create_lobby($1, 'wordle', '1700', now() + interval '1 day', true, false)`,
-      [crewId],
-    );
-    await expect(as(BOB, `select submit_entry($1, $2, '', 'manual')`, [l.id, solve("1700", 3)])).rejects.toThrow(
+    const crew = await createCrew(ANN, "Paste Only");
+    await as(BOB, "select join_crew($1)", [crew.invite_code]);
+    const [l] = await createLobby(ANN, crew.id, T, ", true, false");
+    await expect(as(BOB, `select submit_entry($1, $2, '', 'manual')`, [l.id, solve(T, 3)])).rejects.toThrow(
       /requires pasting/,
     );
     await db.query("update lobbies set closes_at = now() - interval '1 minute' where id = $1", [l.id]);
-    await expect(as(BOB, `select submit_entry($1, $2, '', 'paste')`, [l.id, solve("1700", 3)])).rejects.toThrow(/closed/);
+    await expect(as(BOB, `select submit_entry($1, $2, '', 'paste')`, [l.id, solve(T, 3)])).rejects.toThrow(/closed/);
   });
 
   it("does not let signed-out visitors call RPCs or read/write tables directly", async () => {
@@ -186,70 +203,76 @@ describe("schema", () => {
 describe("extension", () => {
   let bobToken: string;
   let annToken: string;
+  let eveToken: string;
+  let weekend: { id: string; invite_code: string };
+
   const submit = (token: string, result: string) =>
     as<{ lobby_code: string; crew_name: string; outcome: string }>(
       null,
       `select * from extension_submit($1, 'wordle', $2, 'auto')`,
       [token, result],
     );
+  const outcomes = (rows: { crew_name: string; outcome: string }[]) => rows.map((r) => [r.crew_name, r.outcome]);
+  const mint = async (user: string) =>
+    (await as<{ create_extension_token: string }>(user, "select create_extension_token()"))[0].create_extension_token;
 
   beforeAll(async () => {
-    [{ create_extension_token: bobToken }] = await as<{ create_extension_token: string }>(
-      BOB,
-      "select create_extension_token()",
-    );
-    [{ create_extension_token: annToken }] = await as<{ create_extension_token: string }>(
-      ANN,
-      "select create_extension_token()",
-    );
-    const [work] = await as<{ id: string }>(ANN, "select * from create_crew('Work')");
-    for (const crew of [crewId, work.id]) {
-      await as(ANN, `select create_lobby($1, 'wordle', '1800', now() + interval '1 day')`, [crew]);
-    }
+    bobToken = await mint(BOB);
+    annToken = await mint(ANN);
+    eveToken = await mint(EVE);
+    // Ann already has Breakfast Club and Paste Only, both closed for today.
+    weekend = await createCrew(ANN, "Weekend");
+    await as(BOB, "select join_crew($1)", [weekend.invite_code]);
+    await as(EVE, "select join_crew($1)", [weekend.invite_code]);
+    const work = await createCrew(ANN, "Work");
+    for (const crew of [weekend.id, work.id]) await createLobby(ANN, crew, T);
   });
 
   it("only signed-in users can mint tokens, and tokens are stored hashed", async () => {
     expect(bobToken).toMatch(/^[0-9a-f]{64}$/);
     await expect(as(null, "select create_extension_token()")).rejects.toThrow(/permission denied/);
     await expect(as(BOB, "select * from extension_tokens")).rejects.toThrow(/permission denied/);
-    const [{ n }] = await db.query<{ n: number }>(
+    const { rows } = await db.query<{ n: number }>(
       "select count(*)::int as n from extension_tokens where token_hash = convert_to($1, 'UTF8')",
       [bobToken],
-    ).then((r) => r.rows);
-    expect(n).toBe(0);
+    );
+    expect(rows[0].n).toBe(0);
   });
 
   it("submits to every open lobby for that puzzle in the user's crews", async () => {
-    const result = solve("1800", 2, grid(".y...", "ggggg"));
-    expect((await submit(annToken, result)).map((r) => [r.crew_name, r.outcome])).toEqual([
-      ["Breakfast Club", "submitted"],
+    expect(outcomes(await submit(annToken, solve(T, 2, grid(".y...", "ggggg"))))).toEqual([
+      ["Breakfast Club", "closed"],
+      ["Paste Only", "closed"],
+      ["Weekend", "submitted"],
       ["Work", "submitted"],
     ]);
     // Bob isn't in Work.
-    expect((await submit(bobToken, solve("1800", 4))).map((r) => [r.crew_name, r.outcome])).toEqual([
-      ["Breakfast Club", "submitted"],
+    expect(outcomes(await submit(bobToken, solve(T, 4)))).toEqual([
+      ["Breakfast Club", "closed"],
+      ["Paste Only", "closed"],
+      ["Weekend", "submitted"],
     ]);
-    const board = await as<{ source: string; display_name: string }>(BOB, "select * from get_lobby_board((select id from lobbies where puzzle_id = '1800' and crew_id = $1))", [crewId]);
+    const board = await as<{ source: string }>(
+      BOB,
+      "select * from get_lobby_board((select id from lobbies where crew_id = $1))",
+      [weekend.id],
+    );
     expect(board.map((r) => r.source)).toEqual(["extension", "extension"]);
   });
 
-  it("is idempotent and skips closed lobbies", async () => {
-    expect((await submit(bobToken, solve("1800", 1))).map((r) => r.outcome)).toEqual(["already"]);
-    await as(BOB, "select join_crew((select invite_code from crews where id = $1))", [crewId]);
-    await db.query("update lobbies set closed_at = now() where puzzle_id = '1612'");
-    expect((await submit(bobToken, solve("1612", 3))).map((r) => r.outcome)).toEqual(["closed"]);
-    expect(await submit(bobToken, solve("9999", 3))).toEqual([]);
+  it("is idempotent and ignores puzzles with no lobby", async () => {
+    expect(outcomes(await submit(bobToken, solve(T, 1))).at(-1)).toEqual(["Weekend", "already"]);
+    expect(await submit(bobToken, solve(OLD, 3))).toEqual([]);
   });
 
   it("still validates results", async () => {
-    await as(ANN, `select create_lobby($1, 'wordle', '1801', now() + interval '1 day')`, [crewId]);
-    await expect(submit(bobToken, solve("1801", 2, grid("ggggg", "ggggg")))).rejects.toThrow(/does not match/);
+    await expect(submit(eveToken, solve(T, 2, grid("ggggg", "ggggg")))).rejects.toThrow(/does not match/);
   });
 
   it("rejects unknown and revoked tokens", async () => {
-    await expect(submit("nope", solve("1801", 3))).rejects.toThrow(/not connected/);
+    await expect(submit("nope", solve(T, 3))).rejects.toThrow(/not connected/);
     await as(BOB, "select revoke_extension_tokens()");
-    await expect(submit(bobToken, solve("1801", 3))).rejects.toThrow(/not connected/);
-    expect((await submit(annToken, solve("1801", 3))).map((r) => r.outcome)).toEqual(["submitted"]);
+    await expect(submit(bobToken, solve(T, 3))).rejects.toThrow(/not connected/);
+    expect(outcomes(await submit(annToken, solve(T, 3))).at(-1)).toEqual(["Work", "already"]);
   });
 });

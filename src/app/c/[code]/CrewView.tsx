@@ -84,13 +84,26 @@ function CrewPage() {
 
   return (
     <div className="stack-lg">
-      <section className="stack">
-        <p className="eyebrow">Crew · {members.length} {members.length === 1 ? "member" : "members"}</p>
-        <div className="row between wrap">
-          <h1>{crew.name}</h1>
-          <CopyLink path={`/c/${crew.invite_code}`} label="Invite to crew" />
+      <section className="crew-plate">
+        <p className="crew-plate-bar">
+          <span>Crew</span>
+          <span>
+            {members.length} {members.length === 1 ? "member" : "members"}
+          </span>
+        </p>
+        <div className="crew-plate-body">
+          <div className="row between wrap">
+            <h1>{crew.name}</h1>
+            <CopyLink path={`/c/${crew.invite_code}`} label="Invite to crew" />
+          </div>
+          <ul className="member-chips">
+            {members.map((m) => (
+              <li key={m.user_id} className={m.user_id === user?.id ? "me" : undefined}>
+                {m.profiles.display_name}
+              </li>
+            ))}
+          </ul>
         </div>
-        <p className="muted small">{members.map((m) => m.profiles.display_name).join(" · ")}</p>
       </section>
 
       <section className="stack">
@@ -104,14 +117,15 @@ function CrewPage() {
         {open.length === 0 ? (
           !showForm && <p className="muted">No open lobbies. Start today&apos;s.</p>
         ) : (
-          <ul className="list">
+          <ul className="list list-live">
             {open.map((l) => {
               const game = getGame(l.game);
               const done = l.entries.some((e) => e.user_id === user?.id);
               return (
                 <li key={l.id}>
-                  <Link href={`/l/${l.invite_code}`} className="list-row">
+                  <Link href={`/l/${l.invite_code}`} className={`list-row ${done ? "" : "todo"}`}>
                     <strong>
+                      <span className="live-dot" aria-hidden>●</span>
                       {game.name} {game.puzzleLabel(l.puzzle_id)}
                     </strong>
                     <span className="row">
@@ -142,20 +156,18 @@ function CrewPage() {
         {closed.length === 0 ? (
           <p className="muted">Finished lobbies will show up here.</p>
         ) : (
-          <ul className="list">
+          <ul className="list list-archive">
             {closed.map((l) => {
               const game = getGame(l.game);
               const winners = rankEntries(game, l.entries).filter((e) => e.winner);
               return (
                 <li key={l.id}>
                   <Link href={`/l/${l.invite_code}`} className="list-row">
+                    <span className="archive-date">{formatDay(endedAt(l))}</span>
                     <span>
-                      <strong>
-                        {game.name} {game.puzzleLabel(l.puzzle_id)}
-                      </strong>{" "}
-                      <span className="muted small">· {formatDay(endedAt(l))}</span>
+                      {game.name} {game.puzzleLabel(l.puzzle_id)}
                     </span>
-                    <span className="small">
+                    <span>
                       {winners.length
                         ? `★ ${winners.map((w) => names.get(w.user_id) ?? "?").join(", ")} · ${game.formatScore(winners[0].result)}`
                         : l.entries.length

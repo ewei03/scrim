@@ -11,7 +11,6 @@ export function NewLobbyForm({ crewId }: { crewId: string }) {
   const router = useRouter();
   const games = gameList();
   const [gameId, setGameId] = useState(games[0].id);
-  const [puzzle, setPuzzle] = useState(() => games[0].currentPuzzleId());
   const [deadline, setDeadline] = useState<DeadlinePreset>("midnight");
   const [hide, setHide] = useState(true);
   const [allowManual, setAllowManual] = useState(true);
@@ -26,7 +25,8 @@ export function NewLobbyForm({ crewId }: { crewId: string }) {
       const lobby = await rpc<Lobby>("create_lobby", {
         p_crew: crewId,
         p_game: gameId,
-        p_puzzle: puzzle.trim(),
+        // Only today's puzzle for now (the server enforces this too).
+        p_puzzle: getGame(gameId).currentPuzzleId(),
         p_closes_at: deadlineFrom(deadline).toISOString(),
         p_hide_until_submitted: hide,
         p_allow_manual: allowManual,
@@ -47,10 +47,7 @@ export function NewLobbyForm({ crewId }: { crewId: string }) {
           <select
             className="input"
             value={gameId}
-            onChange={(e) => {
-              setGameId(e.target.value);
-              setPuzzle(getGame(e.target.value).currentPuzzleId());
-            }}
+            onChange={(e) => setGameId(e.target.value)}
           >
             {games.map((g) => (
               <option key={g.id} value={g.id}>
@@ -59,17 +56,12 @@ export function NewLobbyForm({ crewId }: { crewId: string }) {
             ))}
           </select>
         </label>
-        <label className="field">
-          <span>Puzzle #</span>
-          <input
-            className="input"
-            inputMode="numeric"
-            pattern="[0-9]+"
-            value={puzzle}
-            onChange={(e) => setPuzzle(e.target.value)}
-            required
-          />
-        </label>
+        <div className="field">
+          <span>Puzzle</span>
+          <div className="input readonly">
+            {getGame(gameId).puzzleLabel(getGame(gameId).currentPuzzleId())} · today
+          </div>
+        </div>
         <label className="field">
           <span>Closes</span>
           <select className="input" value={deadline} onChange={(e) => setDeadline(e.target.value as DeadlinePreset)}>
