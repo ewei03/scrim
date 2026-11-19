@@ -2,8 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ExtensionPanel } from "@/components/ExtensionPanel";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useAuth } from "@/lib/auth";
+import { askExtension } from "@/lib/extension";
 import { errorMessage, supabase } from "@/lib/supabase";
 
 export function Me() {
@@ -44,6 +46,9 @@ function Profile() {
 
   async function signOut() {
     if (isGuest && !confirm("Guest accounts can't be recovered after signing out. Sign out anyway?")) return;
+    // Stop the extension submitting results to this account from this browser.
+    const status = await askExtension<{ ok: boolean; userId: string | null }>("status");
+    if (status?.userId === user?.id) await askExtension("unpair");
     await supabase().auth.signOut();
     router.push("/");
   }
@@ -71,6 +76,8 @@ function Profile() {
           </div>
         </label>
       </form>
+
+      <ExtensionPanel />
 
       <section className="card stack">
         <h2>Account</h2>

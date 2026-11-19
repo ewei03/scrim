@@ -3,10 +3,55 @@
 import { useState } from "react";
 import { getGame } from "@/games/registry";
 import { ManualEntry, ResultDetail } from "@/games/ui";
+import type { ExtensionState } from "@/lib/extension";
 import { errorMessage, rpc } from "@/lib/supabase";
 import type { Lobby } from "@/lib/types";
+import Link from "next/link";
 
-export function SubmitPanel({ lobby, onSubmitted }: { lobby: Lobby; onSubmitted: () => void }) {
+export function SubmitPanel({
+  lobby,
+  extension,
+  onSubmitted,
+}: {
+  lobby: Lobby;
+  extension: ExtensionState;
+  onSubmitted: () => void;
+}) {
+  const game = getGame(lobby.game);
+  const auto = extension === "connected";
+
+  return (
+    <section className="card stack">
+      <div className="row between">
+        <h2>Your turn</h2>
+        <a className="btn btn-primary" href={game.url} target="_blank" rel="noreferrer">
+          Play {game.name} ↗
+        </a>
+      </div>
+
+      {auto ? (
+        <p>
+          <strong>⚡ Auto-submit is on.</strong> Play {game.name} {game.puzzleLabel(lobby.puzzle_id)} and your result
+          shows up here as soon as you finish.
+        </p>
+      ) : extension === "checking" ? null : (
+        <p className="muted small">
+          {extension === "missing"
+            ? "Get the Scrim extension and your result is submitted automatically when you finish. "
+            : "Connect the Scrim extension to submit automatically. "}
+          <Link href="/me">Set it up on your profile →</Link>
+        </p>
+      )}
+
+      <details className="fallback" open={!auto && extension !== "checking"}>
+        <summary>{auto ? "Extension not working? Enter your result yourself" : "Enter your result yourself"}</summary>
+        <ManualSubmit lobby={lobby} onSubmitted={onSubmitted} />
+      </details>
+    </section>
+  );
+}
+
+function ManualSubmit({ lobby, onSubmitted }: { lobby: Lobby; onSubmitted: () => void }) {
   const game = getGame(lobby.game);
   const [mode, setMode] = useState<"paste" | "manual">("paste");
   const [text, setText] = useState("");
@@ -42,14 +87,7 @@ export function SubmitPanel({ lobby, onSubmitted }: { lobby: Lobby; onSubmitted:
   }
 
   return (
-    <section className="card stack">
-      <div className="row between">
-        <h2>Your turn</h2>
-        <a className="btn btn-primary btn-small" href={game.url} target="_blank" rel="noreferrer">
-          Play {game.name} ↗
-        </a>
-      </div>
-
+    <div className="stack fallback-body">
       {lobby.allow_manual && (
         <div className="tabs" role="tablist">
           <button role="tab" aria-selected={mode === "paste"} onClick={() => setMode("paste")}>
@@ -101,6 +139,6 @@ export function SubmitPanel({ lobby, onSubmitted }: { lobby: Lobby; onSubmitted:
       </button>
       <p className="muted small">You get one submission per lobby.</p>
       {error && <p className="error">{error}</p>}
-    </section>
+    </div>
   );
 }

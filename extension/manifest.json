@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Scrim",
+  "version": "0.1.0",
+  "description": "Finish your daily Wordle and Scrim submits the result to your lobbies automatically.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://*.supabase.co/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://www.nytimes.com/games/wordle/*"],
+      "js": ["wordle-core.js", "nyt-wordle.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://localhost/*", "http://127.0.0.1/*"],
+      "js": ["scrim-bridge.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": { "default_popup": "popup.html", "default_title": "Scrim" }
+}

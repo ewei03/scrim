@@ -182,3 +182,74 @@ describe("schema", () => {
     ).rejects.toThrow(/permission denied/);
   });
 });
+
+describe("extension", () => {
+  let bobToken: string;
+  let annToken: string;
+  const submit = (token: string, result: string) =>
+    as<{ lobby_code: string; crew_name: string; outcome: string }>(
+      null,
+      `select * from extension_submit($1, 'wordle', $2, 'auto')`,
+      [token, result],
+    );
+
+  beforeAll(async () => {
+    [{ create_extension_token: bobToken }] = await as<{ create_extension_token: string }>(
+      BOB,
+      "select create_extension_token()",
+    );
+    [{ create_extension_token: annToken }] = await as<{ create_extension_token: string }>(
+      ANN,
+      "select create_extension_token()",
+    );
+    const [work] = await as<{ id: string }>(ANN, "select * from create_crew('Work')");
+    for (const crew of [crewId, work.id]) {
+      await as(ANN, `select create_lobby($1, 'wordle', '1800', now() + interval '1 day')`, [crew]);
+    }
+  });
+
+  it("only signed-in users can mint tokens, and tokens are stored hashed", async () => {
+    expect(bobToken).toMatch(/^[0-9a-f]{64}$/);
+    await expect(as(null, "select create_extension_token()")).rejects.toThrow(/permission denied/);
+    await expect(as(BOB, "select * from extension_tokens")).rejects.toThrow(/permission denied/);
+    const [{ n }] = await db.query<{ n: number }>(
+      "select count(*)::int as n from extension_tokens where token_hash = convert_to($1, 'UTF8')",
+      [bobToken],
+    ).then((r) => r.rows);
+    expect(n).toBe(0);
+  });
+
+  it("submits to every open lobby for that puzzle in the user's crews", async () => {
+    const result = solve("1800", 2, grid(".y...", "ggggg"));
+    expect((await submit(annToken, result)).map((r) => [r.crew_name, r.outcome])).toEqual([
+      ["Breakfast Club", "submitted"],
+      ["Work", "submitted"],
+    ]);
+    // Bob isn't in Work.
+    expect((await submit(bobToken, solve("1800", 4))).map((r) => [r.crew_name, r.outcome])).toEqual([
+      ["Breakfast Club", "submitted"],
+    ]);
+    const board = await as<{ source: string; display_name: string }>(BOB, "select * from get_lobby_board((select id from lobbies where puzzle_id = '1800' and crew_id = $1))", [crewId]);
+    expect(board.map((r) => r.source)).toEqual(["extension", "extension"]);
+  });
+
+  it("is idempotent and skips closed lobbies", async () => {
+    expect((await submit(bobToken, solve("1800", 1))).map((r) => r.outcome)).toEqual(["already"]);
+    await as(BOB, "select join_crew((select invite_code from crews where id = $1))", [crewId]);
+    await db.query("update lobbies set closed_at = now() where puzzle_id = '1612'");
+    expect((await submit(bobToken, solve("1612", 3))).map((r) => r.outcome)).toEqual(["closed"]);
+    expect(await submit(bobToken, solve("9999", 3))).toEqual([]);
+  });
+
+  it("still validates results", async () => {
+    await as(ANN, `select create_lobby($1, 'wordle', '1801', now() + interval '1 day')`, [crewId]);
+    await expect(submit(bobToken, solve("1801", 2, grid("ggggg", "ggggg")))).rejects.toThrow(/does not match/);
+  });
+
+  it("rejects unknown and revoked tokens", async () => {
+    await expect(submit("nope", solve("1801", 3))).rejects.toThrow(/not connected/);
+    await as(BOB, "select revoke_extension_tokens()");
+    await expect(submit(bobToken, solve("1801", 3))).rejects.toThrow(/not connected/);
+    expect((await submit(annToken, solve("1801", 3))).map((r) => r.outcome)).toEqual(["submitted"]);
+  });
+});

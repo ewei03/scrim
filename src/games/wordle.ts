@@ -91,7 +91,7 @@ export const wordle: GameAdapter<WordleResult> = {
   currentPuzzleId: (now = new Date()) => String(wordleNumberFor(now)),
   puzzleLabel: (id) => `#${Number(id).toLocaleString("en-US")}`,
 
-  shareHint: "Finish today's Wordle, tap Share, then paste it here.",
+  shareHint: "Finish the Wordle, click Share, then paste it here.",
   parseShareText: parseWordle,
 
   compare: (a, b) => points(a) - points(b),

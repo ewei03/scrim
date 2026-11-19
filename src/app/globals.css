@@ -609,3 +609,19 @@ textarea.input {
     font-size: 2.6rem;
   }
 }
+
+/* ---------- fallback entry ---------- */
+
+.fallback summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.fallback summary:hover {
+  color: var(--ink);
+}
+
+.fallback-body {
+  margin-top: 12px;
+}

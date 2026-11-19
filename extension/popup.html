@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        margin: 0;
+        width: 300px;
+        font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace;
+        background: #f3efe6;
+        color: #1c1b19;
+      }
+      header {
+        padding: 10px 14px;
+        border-bottom: 2px solid #1c1b19;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+      }
+      header span {
+        color: #ff5b1f;
+      }
+      main {
+        padding: 12px 14px;
+        display: grid;
+        gap: 10px;
+      }
+      .muted {
+        color: #77736b;
+      }
+      ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        border: 2px solid #1c1b19;
+        background: #fbf9f4;
+      }
+      li {
+        padding: 6px 10px;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      li + li {
+        border-top: 1px dashed #77736b;
+      }
+    </style>
+  </head>
+  <body>
+    <header>SCRIM<span>_</span></header>
+    <main>
+      <div id="status" class="muted">Loading…</div>
+      <ul id="results" hidden></ul>
+      <div class="muted">Finish a Wordle on nytimes.com and it's submitted to your open lobbies automatically.</div>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -10,6 +10,12 @@ export const isConfigured = Boolean(
   url && key && !PLACEHOLDERS.some((p) => url.includes(p) || key === p),
 );
 
+/** Public project details, handed to the Chrome extension when connecting it. */
+export function supabaseConfig() {
+  if (!isConfigured) throw new Error("Supabase is not configured (see README).");
+  return { supabaseUrl: url!, supabaseKey: key! };
+}
+
 let client: SupabaseClient | null = null;
 
 /** Browser Supabase client. Created lazily so builds work without env vars. */

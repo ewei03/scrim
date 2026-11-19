@@ -9,6 +9,7 @@ import { Scoreboard } from "@/components/Scoreboard";
 import { SubmitPanel } from "@/components/SubmitPanel";
 import { getGame } from "@/games/registry";
 import { useAuth } from "@/lib/auth";
+import { askExtension, useExtension } from "@/lib/extension";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
 import { formatDay, timeLeft } from "@/lib/time";
 import { endedAt, isClosed, type BoardRow, type Lobby } from "@/lib/types";
@@ -46,6 +47,7 @@ function LobbyPage() {
   const [board, setBoard] = useState<BoardRow[]>([]);
   const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
+  const extension = useExtension();
 
   const loadBoard = useCallback((lobbyId: string) => {
     fetchBoard(lobbyId).then(setBoard, (e) => setError(errorMessage(e)));
@@ -87,6 +89,16 @@ function LobbyPage() {
   useEffect(() => {
     if (lobbyId && closed) fetchBoard(lobbyId).then(setBoard, (e) => setError(errorMessage(e)));
   }, [lobbyId, closed]);
+
+  // If you played before this lobby existed, the extension still has your
+  // result: ask it to submit now.
+  const autoSubmit = extension.state === "connected";
+  useEffect(() => {
+    if (!lobbyId || closed || !autoSubmit) return;
+    askExtension<{ ok: boolean; submitted?: number }>("sync").then((reply) => {
+      if (reply?.submitted) loadBoard(lobbyId);
+    });
+  }, [lobbyId, closed, autoSubmit, loadBoard]);
 
   async function closeNow() {
     if (!lobby || !confirm("Close this lobby now and declare the winner?")) return;
@@ -142,7 +154,7 @@ function LobbyPage() {
         )}
       </section>
 
-      {!closed && !submitted && <SubmitPanel lobby={lobby} onSubmitted={() => loadBoard(lobby.id)} />}
+      {!closed && !submitted && <SubmitPanel lobby={lobby} extension={extension.state} onSubmitted={() => loadBoard(lobby.id)} />}
 
       <Scoreboard lobby={lobby} rows={board} closed={closed} isHost={isHost} onVoid={voidEntry} />
       {error && <p className="error">{error}</p>}

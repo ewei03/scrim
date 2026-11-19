@@ -5,7 +5,13 @@ puzzle, share the link, everyone plays on their own time, and the lobby crowns
 a winner. Persistent rankings, head-to-head records and an archive live on the
 crew.
 
-**v0.1 games:** Wordle (paste your share text, or enter manually).
+**v0.1 games:** Wordle. Desktop Chrome only.
+
+Results get in automatically through the **Scrim Chrome extension**: play
+Wordle on nytimes.com as usual, and when you finish, the extension reads the
+result from the page and submits it to every open lobby for that puzzle in
+your crews. Pasting the share text, or entering the score by hand, is a
+fallback.
 Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
 
 ## How it fits together
@@ -28,6 +34,24 @@ Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
 - `src/games/` — game adapters (`wordle.ts`), registry, ranking, game-specific UI
 - `src/lib/stats.ts` — rankings, streaks, recent form, head-to-head
 - `src/app/` — `/` home, `/c/[code]` crew, `/l/[code]` lobby, `/me` profile
+- `extension/` — Chrome extension (plain JS, no build step)
+
+### How the extension works
+
+- `nyt-wordle.js` runs on the Wordle page and polls NYT's saved game state
+  (`localStorage["games-state-wordleV2/…"]`). When a game is WIN or FAIL (and
+  not an archive puzzle), it reads the coloured tiles off the board, builds a
+  result and hands it to `background.js`. The puzzle number comes from the
+  state's `printDate` (NYT's own `puzzleId` is an internal number).
+- `background.js` calls the `extension_submit` RPC with the extension's token.
+  The server validates the result and enters it into every open lobby for
+  that puzzle in your crews. Results are also kept locally, so a lobby created
+  *after* you played still gets your score when you open it.
+- `scrim-bridge.js` runs on the Scrim site so the page can talk to the
+  extension (connect, disconnect, status, sync) through `window.postMessage`.
+- Connecting (Profile → Chrome extension) mints a random token (stored hashed;
+  `0003_extension.sql`). The extension never holds your login session.
+  Disconnect revokes it.
 
 ### Adding a game
 
@@ -38,7 +62,8 @@ Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
 ## Setup
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. In the SQL editor, run each file in `supabase/migrations/` in order (`0001_init.sql`, then `0002_table_grants.sql`).
+2. In the SQL editor, run each file in `supabase/migrations/` in order
+   (`0001_init.sql`, `0002_table_grants.sql`, `0003_extension.sql`).
 3. **Authentication → Sign In / Providers:**
    - enable **Allow anonymous sign-ins** (guest play)
    - enable **Allow manual linking** (lets guests attach Google later)
@@ -47,7 +72,13 @@ Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
 4. **Authentication → URL Configuration:** set the Site URL and add
    `http://localhost:3000/**` (and your production URL) to Redirect URLs.
 5. `cp .env.example .env.local` and fill in the project URL and publishable key.
-6. `npm install && npm run dev`
+6. `npm install && npm run dev`, then open http://localhost:3000
+7. Install the extension: `chrome://extensions` → turn on **Developer mode** →
+   **Load unpacked** → pick the `extension/` folder. Then in Scrim go to
+   **Profile → Chrome extension → Connect extension**.
+
+When Scrim gets a real domain, add it to the `scrim-bridge.js` `matches` in
+`extension/manifest.json` (it currently matches `localhost` only).
 
 ## Scripts
 
@@ -59,4 +90,4 @@ Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
 ## Roadmap
 
 - v0.2 Connections adapter
-- v0.3 Krillion adapter + Chrome extension for automatic score capture
+- v0.3 Krillion adapter (extension content script + adapter)
