@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Scrim
 
-## Getting Started
+Daily puzzle showdowns with friends. Create a crew, open a lobby for today's
+puzzle, share the link, everyone plays on their own time, and the lobby crowns
+a winner. Persistent rankings, head-to-head records and an archive live on the
+crew.
 
-First, run the development server:
+**v0.1 games:** Wordle (paste your share text, or enter manually).
+Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## How it fits together
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Concept | Lifetime | Notes |
+|---|---|---|
+| **Crew** | permanent | Friend group. Rankings, h2h, archive. Link: `/c/<code>` |
+| **Lobby** | one game, one puzzle | Closes at its deadline (or when the host closes it). Link: `/l/<code>` |
+| **Entry** | one per player per lobby | Validated server-side; source is `paste`, `manual` or (later) `extension` |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Opening any invite link joins the crew.
+- Ties share the win (two people who both get Wordle in 1 both win). A miss can't win.
+- Spoiler protection: with "hide scores until you submit" on, other players'
+  results stay masked until you lock yours in (enforced by row-level security).
+- The host can void entries and close a lobby early.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Code map
 
-## Learn More
+- `supabase/migrations/0001_init.sql` — tables, RLS, and the RPCs all writes go through
+- `src/games/` — game adapters (`wordle.ts`), registry, ranking, game-specific UI
+- `src/lib/stats.ts` — rankings, streaks, recent form, head-to-head
+- `src/app/` — `/` home, `/c/[code]` crew, `/l/[code]` lobby, `/me` profile
 
-To learn more about Next.js, take a look at the following resources:
+### Adding a game
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Write an adapter in `src/games/<game>.ts` (parse share text, compare, format).
+2. Register it in `src/games/registry.ts` and add its grid/manual UI to `src/games/ui.tsx`.
+3. Add a branch to `normalize_result` and `is_supported_game` in a new migration.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Setup
 
-## Deploy on Vercel
+1. Create a project at [supabase.com](https://supabase.com).
+2. In the SQL editor, run `supabase/migrations/0001_init.sql`.
+3. **Authentication → Sign In / Providers:**
+   - enable **Allow anonymous sign-ins** (guest play)
+   - enable **Allow manual linking** (lets guests attach Google later)
+   - enable **Google** with an OAuth client ID/secret from Google Cloud Console
+     (redirect URI: `https://<project>.supabase.co/auth/v1/callback`)
+4. **Authentication → URL Configuration:** set the Site URL and add
+   `http://localhost:3000/**` (and your production URL) to Redirect URLs.
+5. `cp .env.example .env.local` and fill in the project URL and publishable key.
+6. `npm install && npm run dev`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run dev` — dev server
+- `npm test` — unit tests plus schema tests (runs the real migration in an
+  in-memory Postgres via PGlite, with a stub of Supabase's auth schema)
+- `npm run lint`, `npm run typecheck`, `npm run build`
+
+## Roadmap
+
+- v0.2 Connections adapter
+- v0.3 Krillion adapter + Chrome extension for automatic score capture
