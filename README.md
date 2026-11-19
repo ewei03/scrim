@@ -38,7 +38,7 @@ Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
 ## Setup
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. In the SQL editor, run `supabase/migrations/0001_init.sql`.
+2. In the SQL editor, run each file in `supabase/migrations/` in order (`0001_init.sql`, then `0002_table_grants.sql`).
 3. **Authentication → Sign In / Providers:**
    - enable **Allow anonymous sign-ins** (guest play)
    - enable **Allow manual linking** (lets guests attach Google later)

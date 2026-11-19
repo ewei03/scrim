@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getGame } from "@/games/registry";
-import { Loading } from "@/components/RequireAuth";
+import { AuthError, Loading } from "@/components/RequireAuth";
 import { SetupNotice } from "@/components/SetupNotice";
 import { SignIn } from "@/components/SignIn";
 import { useAuth } from "@/lib/auth";
@@ -15,8 +15,9 @@ import type { Crew, Lobby } from "@/lib/types";
 type OpenLobby = Lobby & { crews: { name: string }; entries: { user_id: string }[] };
 
 export function Home() {
-  const { status } = useAuth();
+  const { status, error } = useAuth();
   if (status === "unconfigured") return <SetupNotice />;
+  if (status === "error") return <AuthError message={error} />;
   if (status === "loading") return <Loading />;
   if (status === "signedOut") return <Landing />;
   return <Dashboard />;

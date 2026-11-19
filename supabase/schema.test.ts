@@ -1,11 +1,15 @@
 // Runs the real migration in an in-memory Postgres (PGlite) with a minimal
 // stand-in for Supabase's auth schema, then exercises the RPCs and RLS rules
 // as different users.
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
 
-const MIGRATION = readFileSync(new URL("./migrations/0001_init.sql", import.meta.url), "utf8");
+const MIGRATIONS_DIR = new URL("./migrations/", import.meta.url);
+const MIGRATIONS = readdirSync(MIGRATIONS_DIR)
+  .filter((f) => f.endsWith(".sql"))
+  .sort()
+  .map((f) => readFileSync(new URL(f, MIGRATIONS_DIR), "utf8"));
 
 const SUPABASE_STUB = `
   create schema auth;
@@ -18,9 +22,8 @@ const SUPABASE_STUB = `
   grant usage on schema public, auth to anon, authenticated;
 `;
 
-const SUPABASE_DEFAULT_GRANTS = `
-  grant select, insert, update, delete on all tables in schema public to anon, authenticated;
-`;
+// Deliberately no default table grants: newer Supabase projects don't add
+// them, so the migrations must grant everything the app needs.
 
 const ANN = "00000000-0000-0000-0000-00000000000a";
 const BOB = "00000000-0000-0000-0000-00000000000b";
@@ -48,8 +51,7 @@ let lobbyCode: string;
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(SUPABASE_STUB);
-  await db.exec(MIGRATION);
-  await db.exec(SUPABASE_DEFAULT_GRANTS);
+  for (const sql of MIGRATIONS) await db.exec(sql);
   await db.query(
     `insert into auth.users (id, raw_user_meta_data) values
      ($1, '{"display_name":"Ann"}'), ($2, '{"full_name":"Bob Google"}'), ($3, '{}')`,
@@ -61,6 +63,16 @@ describe("schema", () => {
   it("creates profiles for new users", async () => {
     const rows = await as(ANN, "select id, display_name from profiles order by id");
     expect(rows.map((r) => r.display_name)).toEqual(["Ann", "Bob Google", "Player"]);
+  });
+
+  it("lets you rename yourself but nobody else", async () => {
+    await as(ANN, "update profiles set display_name = 'Annie' where id = $1", [ANN]);
+    await as(ANN, "update profiles set display_name = 'hacked' where id = $1", [BOB]);
+    const rows = await as<{ display_name: string }>(ANN, "select display_name from profiles order by id");
+    expect(rows.map((r) => r.display_name)).toEqual(["Annie", "Bob Google", "Player"]);
+    await expect(as(ANN, "update profiles set created_at = now() where id = $1", [ANN])).rejects.toThrow(
+      /permission denied/,
+    );
   });
 
   it("creates a crew and a lobby, deduplicating lobbies per puzzle", async () => {
@@ -162,10 +174,11 @@ describe("schema", () => {
     await expect(as(BOB, `select submit_entry($1, $2, '', 'paste')`, [l.id, solve("1700", 3)])).rejects.toThrow(/closed/);
   });
 
-  it("does not let signed-out visitors call RPCs or write tables directly", async () => {
+  it("does not let signed-out visitors call RPCs or read/write tables directly", async () => {
     await expect(as(null, "select create_crew('nope')")).rejects.toThrow(/permission denied/);
+    await expect(as(null, "select * from profiles")).rejects.toThrow(/permission denied/);
     await expect(
       as(ANN, `insert into entries (lobby_id, user_id, result, source) values ($1, $2, '{}', 'manual')`, [lobbyId, ANN]),
-    ).rejects.toThrow(/row-level security/);
+    ).rejects.toThrow(/permission denied/);
   });
 });
