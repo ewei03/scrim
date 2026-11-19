@@ -56,7 +56,7 @@ export function ExtensionPanel() {
       {state === "missing" && (
         <>
           <p>
-            Install the Scrim extension and your Wordle results go straight into your lobbies when you finish. No
+            Install the Scrim extension and your results go straight into your lobbies when you finish a game. No
             pasting.
           </p>
           <ol className="small muted">
@@ -87,8 +87,8 @@ export function ExtensionPanel() {
       {state === "connected" && (
         <>
           <p>
-            <strong>⚡ Auto-submit is on.</strong> Finish a Wordle on nytimes.com and your result goes into every
-            open lobby for that puzzle.
+            <strong>⚡ Auto-submit is on.</strong> Finish a game and your result goes into every open lobby for that
+            puzzle.
           </p>
           <button className="btn" disabled={busy} onClick={disconnect}>
             Disconnect

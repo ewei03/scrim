@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, VT323 } from "next/font/google";
+import { Fira_Code, Share_Tech_Mono } from "next/font/google";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { THEME_INIT_SCRIPT } from "@/components/ThemeToggle";
 import { AuthProvider } from "@/lib/auth";
 import "./globals.css";
 
-const display = VT323({ weight: "400", subsets: ["latin"], variable: "--font-display" });
-const body = IBM_Plex_Mono({ weight: ["400", "600"], subsets: ["latin"], variable: "--font-body" });
+const display = Share_Tech_Mono({ weight: "400", subsets: ["latin"], variable: "--font-display" });
+// Variable font: covers the 400/600/700 weights the CSS uses.
+const body = Fira_Code({ subsets: ["latin"], variable: "--font-body" });
 
 export const metadata: Metadata = {
   title: "Scrim — daily puzzle showdowns",

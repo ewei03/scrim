@@ -276,3 +276,41 @@ describe("extension", () => {
     expect(outcomes(await submit(annToken, solve(T, 3))).at(-1)).toEqual(["Work", "already"]);
   });
 });
+
+describe("crew owner controls", () => {
+  let crew: { id: string; invite_code: string };
+  let open: { id: string; invite_code: string };
+
+  beforeAll(async () => {
+    crew = await createCrew(ANN, "Owner Tests");
+    await as(BOB, "select join_crew($1)", [crew.invite_code]);
+    await as(EVE, "select join_crew($1)", [crew.invite_code]);
+    [open] = await createLobby(ANN, crew.id, T);
+    await as(EVE, `select submit_entry($1, $2, '', 'manual')`, [open.id, solve(T, 3)]);
+  });
+
+  it("only the owner can remove members, and not themselves", async () => {
+    await expect(as(BOB, "select remove_crew_member($1, $2)", [crew.id, EVE])).rejects.toThrow(/Only the crew owner/);
+    await expect(as(ANN, "select remove_crew_member($1, $2)", [crew.id, ANN])).rejects.toThrow(/themselves/);
+  });
+
+  it("removes the member and their open entries, and keeps them out", async () => {
+    await as(ANN, "select remove_crew_member($1, $2)", [crew.id, EVE]);
+    const members = await as<{ user_id: string }>(ANN, "select user_id from crew_members where crew_id = $1", [crew.id]);
+    expect(members.map((m) => m.user_id).sort()).toEqual([ANN, BOB]);
+    expect(await as(ANN, "select * from get_lobby_board($1)", [open.id])).toHaveLength(0);
+    expect(await as(EVE, "select * from crews where id = $1", [crew.id])).toHaveLength(0);
+    await expect(as(EVE, "select join_crew($1)", [crew.invite_code])).rejects.toThrow(/removed/);
+    await expect(as(EVE, "select join_lobby($1)", [open.invite_code])).rejects.toThrow(/removed/);
+    await expect(as(ANN, "select remove_crew_member($1, $2)", [crew.id, EVE])).rejects.toThrow(/Not a member/);
+  });
+
+  it("only the owner can delete the crew, which removes everything in it", async () => {
+    await expect(as(BOB, "select delete_crew($1)", [crew.id])).rejects.toThrow(/Only the crew owner/);
+    await as(ANN, "select delete_crew($1)", [crew.id]);
+    expect(await as(ANN, "select * from crews where id = $1", [crew.id])).toHaveLength(0);
+    expect(await as(ANN, "select * from lobbies where crew_id = $1", [crew.id])).toHaveLength(0);
+    const { rows } = await db.query<{ n: number }>("select count(*)::int as n from crew_bans where crew_id = $1", [crew.id]);
+    expect(rows[0].n).toBe(0);
+  });
+});

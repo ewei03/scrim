@@ -64,14 +64,14 @@ export function HelpButton() {
               <Link href="/me" onClick={close}>
                 profile
               </Link>
-              . Finish the Wordle on nytimes.com and your result goes into every open lobby for that puzzle. It shows
+              . Finish a game and your result goes into every open lobby for that puzzle. It shows
               up with a ⚡.
             </li>
             <li>
-              <strong>Paste:</strong> click Share in Wordle and paste the text into the lobby (⎘).
+              <strong>Paste:</strong> click Share in the game and paste the text into the lobby (⎘).
             </li>
             <li>
-              <strong>Manual:</strong> pick your number of guesses, if the host allows it (✎).
+              <strong>Manual:</strong> enter your score yourself, if the host allows it (✎).
             </li>
           </ul>
           <p className="muted small">You get one submission per lobby. The host can void an entry if something went wrong.</p>

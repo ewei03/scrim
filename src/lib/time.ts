@@ -1,14 +1,5 @@
-export type DeadlinePreset = "midnight" | "24h" | "48h";
-
-export const DEADLINE_PRESETS: { id: DeadlinePreset; label: string }[] = [
-  { id: "midnight", label: "Tonight at midnight" },
-  { id: "24h", label: "In 24 hours" },
-  { id: "48h", label: "In 48 hours" },
-];
-
-export function deadlineFrom(preset: DeadlinePreset, now = new Date()): Date {
-  if (preset === "24h") return new Date(now.getTime() + 24 * 3_600_000);
-  if (preset === "48h") return new Date(now.getTime() + 48 * 3_600_000);
+/** The next local midnight, when daily puzzles like Wordle roll over. */
+export function nextMidnight(now = new Date()): Date {
   const midnight = new Date(now);
   midnight.setHours(24, 0, 0, 0);
   return midnight;

@@ -6,8 +6,10 @@
   --ink: #1c1b19;
   --muted: #77736b;
   --line: #1c1b19;
-  --accent: #ff5b1f;
+  --accent: #5ee0ad;
   --accent-ink: #1c1b19;
+  /* Mint is too light for text on paper, so text and outlines use a deeper shade. */
+  --accent-text: #148a5f;
   --good: #2f8f4e;
   --bad: #c2362b;
   --tile-g: #6aaa64;
@@ -15,8 +17,10 @@
   --tile-x: #b9b4aa;
   --shadow: 3px 3px 0 var(--line);
   --radius: 2px;
-  --font-display: "VT323", monospace;
-  --font-body: "IBM Plex Mono", ui-monospace, monospace;
+  --font-display: "Share Tech Mono", monospace;
+  --font-body: "Fira Code", ui-monospace, monospace;
+  /* Display fonts differ a lot in size; this keeps headings in proportion. */
+  --display-scale: 0.7;
 }
 
 /* Dark theme: chosen explicitly via the header toggle (data-theme="dark"),
@@ -28,6 +32,7 @@
   --muted: #8f8a80;
   --line: #ece7dc;
   --tile-x: #45423c;
+  --accent-text: var(--accent);
   color-scheme: dark;
 }
 
@@ -39,6 +44,7 @@
     --muted: #8f8a80;
     --line: #ece7dc;
     --tile-x: #45423c;
+    --accent-text: var(--accent);
     color-scheme: dark;
   }
 }
@@ -89,13 +95,13 @@ h3,
 }
 
 h1 {
-  font-size: 3rem;
+  font-size: calc(3rem * var(--display-scale));
 }
 h2 {
-  font-size: 2rem;
+  font-size: calc(2rem * var(--display-scale));
 }
 h3 {
-  font-size: 1.5rem;
+  font-size: calc(1.5rem * var(--display-scale));
 }
 
 p {
@@ -137,7 +143,7 @@ main.container {
 }
 
 .logo {
-  font-size: 2.4rem;
+  font-size: calc(2.4rem * var(--display-scale));
   text-decoration: none;
 }
 
@@ -250,7 +256,7 @@ main.container {
 }
 
 .title {
-  font-size: 3.4rem;
+  font-size: calc(3.4rem * var(--display-scale));
 }
 
 .divider {
@@ -282,7 +288,7 @@ main.container {
   background: var(--accent);
   color: var(--accent-ink);
   box-shadow: var(--shadow);
-  font-size: 2.2rem;
+  font-size: calc(2.2rem * var(--display-scale));
   text-align: center;
   padding: 10px;
 }
@@ -360,7 +366,7 @@ main.container {
   height: 44px;
   padding: 0;
   font-family: var(--font-display);
-  font-size: 1.6rem;
+  font-size: calc(1.6rem * var(--display-scale));
 }
 
 .link-btn {
@@ -387,7 +393,7 @@ main.container {
 
 .input:focus,
 .btn:focus-visible {
-  outline: 2px dashed var(--accent);
+  outline: 2px dashed var(--accent-text);
   outline-offset: 2px;
 }
 
@@ -479,7 +485,7 @@ textarea.input {
 }
 
 .hero h1 {
-  font-size: clamp(3.5rem, 12vw, 6rem);
+  font-size: calc(clamp(3.5rem, 12vw, 6rem) * var(--display-scale));
 }
 
 .hero p {
@@ -506,8 +512,8 @@ textarea.input {
 .steps li::before {
   content: counter(step, decimal-leading-zero);
   font-family: var(--font-display);
-  font-size: 1.5rem;
-  color: var(--accent);
+  font-size: calc(1.5rem * var(--display-scale));
+  color: var(--accent-text);
 }
 
 /* ---------- scoreboard ---------- */
@@ -549,12 +555,12 @@ textarea.input {
 }
 
 .board .place {
-  font-size: 1.6rem;
+  font-size: calc(1.6rem * var(--display-scale));
   width: 3.5rem;
 }
 
 .board .score {
-  font-size: 1.8rem;
+  font-size: calc(1.8rem * var(--display-scale));
 }
 
 .board .name {
@@ -566,7 +572,7 @@ textarea.input {
 }
 
 .board tr.winner .place {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .hidden-row td {
@@ -604,7 +610,7 @@ textarea.input {
 }
 
 .preview .score {
-  font-size: 2.4rem;
+  font-size: calc(2.4rem * var(--display-scale));
 }
 
 /* ---------- wordle grid ---------- */
@@ -644,7 +650,7 @@ textarea.input {
   }
   h1,
   .title {
-    font-size: 2.6rem;
+    font-size: calc(2.6rem * var(--display-scale));
   }
 }
 
@@ -662,11 +668,6 @@ textarea.input {
 
 .fallback-body {
   margin-top: 12px;
-}
-
-.input.readonly {
-  background: transparent;
-  border-style: dashed;
 }
 
 /* ---------- footer ---------- */
@@ -718,7 +719,7 @@ textarea.input {
 }
 
 .dialog-body h3 {
-  color: var(--accent);
+  color: var(--accent-text);
   margin-top: 6px;
 }
 
@@ -779,7 +780,7 @@ textarea.input {
 
 .crew-name {
   font-family: var(--font-display);
-  font-size: 1.9rem;
+  font-size: calc(1.9rem * var(--display-scale));
   line-height: 1;
   overflow-wrap: anywhere;
 }
@@ -907,4 +908,46 @@ textarea.input {
 .member-chips li.me {
   background: var(--ink);
   color: var(--paper);
+}
+
+/* ---------- settings modals ---------- */
+
+.dialog-sm {
+  width: min(440px, calc(100vw - 32px));
+}
+
+/* ---------- crew page: owner controls ---------- */
+
+.manage-members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.manage-members li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.manage-members li + li {
+  border-top: 1px dashed color-mix(in srgb, var(--muted) 50%, transparent);
+}
+
+.danger-zone {
+  padding-top: 10px;
+  border-top: 1px dashed var(--muted);
+}
+
+.btn-danger {
+  color: var(--bad);
+  border-color: var(--bad);
+  box-shadow: 3px 3px 0 var(--bad);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--bad);
+  color: var(--card);
+  box-shadow: 4px 4px 0 var(--bad);
 }

@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { CopyLink } from "@/components/CopyLink";
 import { NewLobbyForm } from "@/components/NewLobbyForm";
 import { HeadToHeadGrid, Rankings } from "@/components/Rankings";
+import { Modal } from "@/components/Modal";
 import { Loading, RequireAuth } from "@/components/RequireAuth";
 import { rankEntries } from "@/games/ranking";
 import { GAMES, getGame } from "@/games/registry";
@@ -16,7 +17,9 @@ import { formatDay, timeLeft } from "@/lib/time";
 import { endedAt, isClosed, type Crew, type Lobby } from "@/lib/types";
 
 type Member = { user_id: string; profiles: { display_name: string } };
-type LobbyWithEntries = Lobby & { entries: { user_id: string; result: unknown }[] };
+type LobbyWithEntries = Lobby & {
+  entries: { user_id: string; result: unknown; profiles: { display_name: string } | null }[];
+};
 
 export function CrewView() {
   return (
@@ -32,7 +35,7 @@ async function fetchCrew(code: string) {
   const sb = supabase();
   const [m, l] = await Promise.all([
     sb.from("crew_members").select("user_id, profiles(display_name)").eq("crew_id", crew.id).order("joined_at"),
-    sb.from("lobbies").select("*, entries(user_id, result)").eq("crew_id", crew.id).order("created_at", { ascending: false }),
+    sb.from("lobbies").select("*, entries(user_id, result, profiles(display_name))").eq("crew_id", crew.id).order("created_at", { ascending: false }),
   ]);
   if (m.error || l.error) throw m.error ?? l.error;
   return { crew, members: m.data as unknown as Member[], lobbies: l.data as LobbyWithEntries[] };
@@ -45,6 +48,7 @@ function CrewPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [lobbies, setLobbies] = useState<LobbyWithEntries[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [showManage, setShowManage] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,7 +67,13 @@ function CrewPage() {
     };
   }, [code]);
 
-  const names = useMemo(() => new Map(members.map((m) => [m.user_id, m.profiles.display_name])), [members]);
+  // Members first, then anyone who has left but still appears in the archive.
+  const names = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const l of lobbies) for (const e of l.entries) if (e.profiles) map.set(e.user_id, e.profiles.display_name);
+    for (const m of members) map.set(m.user_id, m.profiles.display_name);
+    return map;
+  }, [lobbies, members]);
   const open = lobbies.filter((l) => !isClosed(l));
   const closed = lobbies.filter((l) => isClosed(l));
 
@@ -82,6 +92,16 @@ function CrewPage() {
   if (error) return <p className="error">{error}</p>;
   if (!crew) return <Loading />;
 
+  const isOwner = crew.created_by === user?.id;
+
+  function memberRemoved(userId: string) {
+    setMembers((ms) => ms.filter((m) => m.user_id !== userId));
+    // The server also drops their entries in open lobbies.
+    setLobbies((ls) =>
+      ls.map((l) => (isClosed(l) ? l : { ...l, entries: l.entries.filter((e) => e.user_id !== userId) })),
+    );
+  }
+
   return (
     <div className="stack-lg">
       <section className="crew-plate">
@@ -94,7 +114,20 @@ function CrewPage() {
         <div className="crew-plate-body">
           <div className="row between wrap">
             <h1>{crew.name}</h1>
-            <CopyLink path={`/c/${crew.invite_code}`} label="Invite to crew" />
+            <div className="row">
+              <CopyLink path={`/c/${crew.invite_code}`} label="Invite to crew" />
+              {isOwner && (
+                <button
+                  className="icon-btn"
+                  aria-label="Manage crew"
+                  aria-haspopup="dialog"
+                  title="Manage crew"
+                  onClick={() => setShowManage(true)}
+                >
+                  ⚙
+                </button>
+              )}
+            </div>
           </div>
           <ul className="member-chips">
             {members.map((m) => (
@@ -104,6 +137,11 @@ function CrewPage() {
             ))}
           </ul>
         </div>
+        {isOwner && (
+          <Modal open={showManage} onClose={() => setShowManage(false)} title="Manage crew">
+            <ManageCrew crew={crew} members={members} onRemoved={memberRemoved} />
+          </Modal>
+        )}
       </section>
 
       <section className="stack">
@@ -182,5 +220,75 @@ function CrewPage() {
         )}
       </section>
     </div>
+  );
+}
+
+function ManageCrew({
+  crew,
+  members,
+  onRemoved,
+}: {
+  crew: Crew;
+  members: Member[];
+  onRemoved: (userId: string) => void;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const others = members.filter((m) => m.user_id !== crew.created_by);
+
+  async function remove(m: Member) {
+    const name = m.profiles.display_name;
+    if (!confirm(`Remove ${name} from ${crew.name}? Their entries in open lobbies are deleted, and they can't rejoin with the invite link.`)) return;
+    setBusy(m.user_id);
+    setError(null);
+    try {
+      await rpc("remove_crew_member", { p_crew: crew.id, p_user: m.user_id });
+      onRemoved(m.user_id);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function deleteCrew() {
+    if (!confirm(`Delete ${crew.name} for everyone? All its lobbies, results and rankings are deleted. This can't be undone.`)) return;
+    setBusy("crew");
+    setError(null);
+    try {
+      await rpc("delete_crew", { p_crew: crew.id });
+      router.push("/");
+    } catch (e) {
+      setError(errorMessage(e));
+      setBusy(null);
+    }
+  }
+
+  return (
+    <>
+      <h3>Members</h3>
+      {others.length === 0 ? (
+        <p className="muted small">No other members yet.</p>
+      ) : (
+        <ul className="manage-members">
+          {others.map((m) => (
+            <li key={m.user_id}>
+              <span>{m.profiles.display_name}</span>
+              <button className="link-btn danger" disabled={busy !== null} onClick={() => remove(m)}>
+                {busy === m.user_id ? "Removing…" : "Remove"}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="row between wrap danger-zone">
+        <span className="muted small">Deletes all lobbies, results and rankings for everyone.</span>
+        <button className="btn btn-small btn-danger" disabled={busy !== null} onClick={deleteCrew}>
+          {busy === "crew" ? "Deleting…" : "Delete crew"}
+        </button>
+      </div>
+      {error && <p className="error small">{error}</p>}
+    </>
   );
 }
