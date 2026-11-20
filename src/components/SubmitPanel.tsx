@@ -1,41 +1,43 @@
 "use client";
 
 import { useState } from "react";
-import { getGame } from "@/games/registry";
-import { ManualEntry, ResultDetail } from "@/games/ui";
+import type { GameAdapter } from "@/games/types";
+import { ResultDetail } from "@/games/ui";
 import type { ExtensionState } from "@/lib/extension";
 import { errorMessage, rpc } from "@/lib/supabase";
-import type { Lobby } from "@/lib/types";
+import type { Crew } from "@/lib/types";
 import Link from "next/link";
 
+type Target = { crew: Crew; game: GameAdapter<unknown>; puzzleId: string };
+
 export function SubmitPanel({
-  lobby,
+  crew,
+  game,
+  puzzleId,
   extension,
   onSubmitted,
-}: {
-  lobby: Lobby;
+}: Target & {
   extension: ExtensionState;
   onSubmitted: () => void;
 }) {
-  const game = getGame(lobby.game);
   // Only some games can be captured by the extension.
   const ext = game.autoSubmit ? extension : null;
   const auto = ext === "connected";
-  // Paste/manual entry starts hidden; the toggle reveals it.
+  // The paste box starts hidden; the toggle reveals it.
   const [showEntry, setShowEntry] = useState(false);
 
   return (
     <section className="card stack">
-      <div className="row between">
-        <h2>Your turn</h2>
-        <a className="btn btn-primary" href={game.url} target="_blank" rel="noreferrer">
+      <div className="row between wrap">
+        <strong>Your turn</strong>
+        <a className="btn btn-primary btn-small" href={game.url} target="_blank" rel="noreferrer">
           Play {game.name} ↗
         </a>
       </div>
 
       {auto ? (
         <p>
-          <strong>⚡ Auto-submit is on.</strong> Play {game.name} {game.puzzleLabel(lobby.puzzle_id)} and your result
+          <strong>⚡ Auto-submit is on.</strong> Play {game.name} {game.puzzleLabel(puzzleId)} and your result
           shows up here as soon as you finish.
         </p>
       ) : ext === null || ext === "checking" ? null : (
@@ -52,15 +54,14 @@ export function SubmitPanel({
           type="button"
           className="fallback-toggle"
           aria-expanded={showEntry}
-          aria-controls="result-entry"
           onClick={() => setShowEntry((s) => !s)}
         >
           {showEntry ? "▾" : "▸"}{" "}
-          {auto ? "Extension not working? Enter your result manually" : "Or, enter your result manually"}
+          {auto ? "Extension not working? Paste your result instead" : "Or, paste your result"}
         </button>
         {showEntry && (
-          <div id="result-entry">
-            <ManualSubmit lobby={lobby} onSubmitted={onSubmitted} />
+          <div>
+            <PasteSubmit crew={crew} game={game} puzzleId={puzzleId} onSubmitted={onSubmitted} />
           </div>
         )}
       </div>
@@ -68,21 +69,19 @@ export function SubmitPanel({
   );
 }
 
-function ManualSubmit({ lobby, onSubmitted }: { lobby: Lobby; onSubmitted: () => void }) {
-  const game = getGame(lobby.game);
-  const [mode, setMode] = useState<"paste" | "manual">("paste");
+/** Fallback when the extension can't capture a result: paste the game's share text. */
+function PasteSubmit({ crew, game, puzzleId, onSubmitted }: Target & { onSubmitted: () => void }) {
   const [text, setText] = useState("");
-  const [manual, setManual] = useState<unknown | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const parsed = text.trim() ? game.parseShareText(text) : null;
   const wrongPuzzle =
-    parsed?.ok && (parsed.result as { puzzle: string }).puzzle !== lobby.puzzle_id
+    parsed?.ok && (parsed.result as { puzzle: string }).puzzle !== puzzleId
       ? (parsed.result as { puzzle: string }).puzzle
       : null;
 
-  const result = mode === "paste" ? (parsed?.ok && !wrongPuzzle ? parsed.result : null) : manual;
+  const result = parsed?.ok && !wrongPuzzle ? parsed.result : null;
 
   async function submit() {
     if (!result) return;
@@ -90,10 +89,11 @@ function ManualSubmit({ lobby, onSubmitted }: { lobby: Lobby; onSubmitted: () =>
     setError(null);
     try {
       await rpc("submit_entry", {
-        p_lobby: lobby.id,
+        p_crew: crew.id,
+        p_game: game.id,
         p_result: result,
-        p_raw: mode === "paste" ? text : null,
-        p_source: mode,
+        p_raw: text,
+        p_source: "paste",
       });
       onSubmitted();
     } catch (e) {
@@ -105,56 +105,32 @@ function ManualSubmit({ lobby, onSubmitted }: { lobby: Lobby; onSubmitted: () =>
 
   return (
     <div className="stack fallback-body">
-      {lobby.allow_manual && (
-        <div className="tabs" role="tablist">
-          <button role="tab" aria-selected={mode === "paste"} onClick={() => setMode("paste")}>
-            Paste result
-          </button>
-          <button role="tab" aria-selected={mode === "manual"} onClick={() => {
-              setManual(null);
-              setMode("manual");
-            }}
-          >
-            Enter manually
-          </button>
-        </div>
+      <p className="muted small">{game.shareHint}</p>
+      <textarea
+        className="input mono"
+        rows={7}
+        placeholder={game.sharePlaceholder}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      {parsed && !parsed.ok && <p className="error">{parsed.error}</p>}
+      {wrongPuzzle && (
+        <p className="error">
+          That&apos;s {game.name} {game.puzzleLabel(wrongPuzzle)}, but today&apos;s is{" "}
+          {game.puzzleLabel(puzzleId)}.
+        </p>
       )}
-
-      {mode === "paste" ? (
-        <>
-          <p className="muted small">{game.shareHint}</p>
-          <textarea
-            className="input mono"
-            rows={7}
-            placeholder={game.sharePlaceholder}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-          {parsed && !parsed.ok && <p className="error">{parsed.error}</p>}
-          {wrongPuzzle && (
-            <p className="error">
-              That&apos;s {game.name} {game.puzzleLabel(wrongPuzzle)}, but this lobby is for{" "}
-              {game.puzzleLabel(lobby.puzzle_id)}.
-            </p>
-          )}
-          {parsed?.ok && !wrongPuzzle && (
-            <div className="row preview">
-              <span className="score">{game.formatScore(parsed.result)}</span>
-              <ResultDetail gameId={game.id} result={parsed.result} />
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          <p className="muted small">Manual entries are marked ✎ on the scoreboard.</p>
-          <ManualEntry gameId={game.id} puzzleId={lobby.puzzle_id} onChange={setManual} />
-        </>
+      {parsed?.ok && !wrongPuzzle && (
+        <div className="row preview">
+          <span className="score">{game.formatScore(parsed.result)}</span>
+          <ResultDetail gameId={game.id} result={parsed.result} />
+        </div>
       )}
 
       <button className="btn btn-primary" disabled={!result || busy} onClick={submit}>
         {busy ? "Submitting…" : "Lock it in"}
       </button>
-      <p className="muted small">You get one submission per lobby.</p>
+      <p className="muted small">You get one submission per puzzle.</p>
       {error && <p className="error">{error}</p>}
     </div>
   );

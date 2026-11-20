@@ -6,23 +6,26 @@ export type Crew = {
   invite_code: string;
   created_by: string;
   created_at: string;
+  /**
+   * The crew's day ends at midnight here (except games with their own zone).
+   * Null for crews from before time zones existed, until the owner opens the
+   * crew page and it's set to theirs.
+   */
+  timezone: string | null;
+  hide_until_submitted: boolean;
 };
 
-export type Lobby = {
+/** One crew's scoreboard for one daily puzzle. Started by the first result. */
+export type Round = {
   id: string;
   crew_id: string;
   game: string;
   puzzle_id: string;
-  invite_code: string;
-  created_by: string;
-  created_at: string;
   closes_at: string;
-  closed_at: string | null;
-  hide_until_submitted: boolean;
-  allow_manual: boolean;
+  created_at: string;
 };
 
-export type EntrySource = "paste" | "manual" | "extension";
+export type EntrySource = "paste" | "extension";
 
 export type BoardRow = {
   entry_id: string;
@@ -35,10 +38,6 @@ export type BoardRow = {
   hidden: boolean;
 };
 
-export function isClosed(lobby: Lobby, now = Date.now()): boolean {
-  return lobby.closed_at !== null || new Date(lobby.closes_at).getTime() <= now;
-}
-
-export function endedAt(lobby: Lobby): string {
-  return lobby.closed_at ?? lobby.closes_at;
+export function isClosed(round: Pick<Round, "closes_at">, now = Date.now()): boolean {
+  return new Date(round.closes_at).getTime() <= now;
 }

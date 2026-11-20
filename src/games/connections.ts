@@ -1,4 +1,3 @@
-import { nextMidnight } from "@/lib/time";
 import type { GameAdapter, ParseResult } from "./types";
 
 export type ConnectionsResult = {
@@ -81,11 +80,11 @@ export const connections: GameAdapter<ConnectionsResult> = {
   name: "Connections",
   url: "https://www.nytimes.com/games/connections",
   source: "The New York Times",
+  color: "#b18ad8",
   free: true,
 
-  currentPuzzleId: (now = new Date()) => String(connectionsNumberFor(now)),
+  puzzleForDate: ([y, m, d]) => String(Math.round((Date.UTC(y, m - 1, d) - EPOCH_UTC) / DAY_MS)),
   puzzleLabel: (id) => `#${Number(id).toLocaleString("en-US")}`,
-  nextReset: nextMidnight,
   autoSubmit: true,
 
   shareHint: "Finish the puzzle, click Share Your Results, then paste it here.",

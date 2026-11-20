@@ -2,22 +2,11 @@ import { rankEntries } from "@/games/ranking";
 import type { GameAdapter } from "@/games/types";
 
 export type StatEntry<R> = { user_id: string; result: R };
-export type StatLobby<R> = {
+export type StatRound<R> = {
   id: string;
-  invite_code: string;
-  puzzle_id: string;
-  /** When the lobby finished: closed_at if closed early, otherwise closes_at. */
-  ended_at: string;
+  /** When the round closed. */
+  closes_at: string;
   entries: StatEntry<R>[];
-};
-
-export type Performance = {
-  lobbyId: string;
-  inviteCode: string;
-  puzzleId: string;
-  place: number;
-  winner: boolean;
-  score: string;
 };
 
 export type PlayerStats = {
@@ -26,47 +15,37 @@ export type PlayerStats = {
   wins: number;
   winRate: number;
   average: string | null;
-  /** Consecutive wins, counting back from the most recent lobby they played. */
+  /** Consecutive wins, counting back from the most recent round they played. */
   streak: number;
-  /** Most recent first. */
-  recent: Performance[];
 };
 
-/** Only pass closed lobbies of a single game. */
-export function crewStats<R>(game: GameAdapter<R>, lobbies: StatLobby<R>[], memberIds: string[]) {
-  const byRecent = [...lobbies].sort((a, b) => b.ended_at.localeCompare(a.ended_at));
-  const perf = new Map<string, Performance[]>(memberIds.map((id) => [id, []]));
+/** Only pass closed rounds of a single game. */
+export function crewStats<R>(game: GameAdapter<R>, rounds: StatRound<R>[], memberIds: string[]) {
+  const byRecent = [...rounds].sort((a, b) => b.closes_at.localeCompare(a.closes_at));
+  // Newest first: whether they won each round they played.
+  const wonRounds = new Map<string, boolean[]>(memberIds.map((id) => [id, []]));
   const results = new Map<string, R[]>(memberIds.map((id) => [id, []]));
 
-  for (const lobby of byRecent) {
-    const ranked = rankEntries(game, lobby.entries);
-    for (const e of ranked) {
-      if (!perf.has(e.user_id)) continue; // left the crew
-      perf.get(e.user_id)!.push({
-        lobbyId: lobby.id,
-        inviteCode: lobby.invite_code,
-        puzzleId: lobby.puzzle_id,
-        place: e.place,
-        winner: e.winner,
-        score: game.formatScore(e.result),
-      });
+  for (const round of byRecent) {
+    for (const e of rankEntries(game, round.entries)) {
+      if (!wonRounds.has(e.user_id)) continue; // left the crew
+      wonRounds.get(e.user_id)!.push(e.winner);
       results.get(e.user_id)!.push(e.result);
     }
   }
 
   const players: PlayerStats[] = memberIds.map((userId) => {
-    const recent = perf.get(userId)!;
-    const wins = recent.filter((p) => p.winner).length;
+    const won = wonRounds.get(userId)!;
+    const wins = won.filter(Boolean).length;
     let streak = 0;
-    while (streak < recent.length && recent[streak].winner) streak++;
+    while (streak < won.length && won[streak]) streak++;
     return {
       userId,
-      played: recent.length,
+      played: won.length,
       wins,
-      winRate: recent.length ? wins / recent.length : 0,
+      winRate: won.length ? wins / won.length : 0,
       average: game.average(results.get(userId)!),
       streak,
-      recent: recent.slice(0, 5),
     };
   });
 

@@ -39,21 +39,21 @@ export function HelpButton() {
           <h3>The basics</h3>
           <ol>
             <li>
-              <strong>Make a crew.</strong> A crew is your friend group. It keeps rankings and
-              an archive of past lobbies.
+              <strong>Make a crew</strong> and pick the games it plays. A crew is your friend group. It keeps
+              rankings and every past day&apos;s results.
             </li>
             <li>
-              <strong>Start a lobby</strong> for today&apos;s puzzle. Choose whether scores stay hidden until you
-              submit. It closes when the next puzzle comes out.
+              <strong>Share the invite link.</strong> Opening it joins the crew.
             </li>
             <li>
-              <strong>Share the invite link.</strong> Opening a crew or lobby link joins that crew.
+              <strong>Play</strong> each day&apos;s puzzle on the game&apos;s own site, whenever suits you.
             </li>
             <li>
-              <strong>Play</strong> on the game&apos;s own site, whenever suits you before the lobby closes.
+              <strong>Your score lands in the crew.</strong> At midnight in the crew&apos;s time zone, Scrim
+              declares the day&apos;s winner.
             </li>
             <li>
-              <strong>Your score lands in the lobby.</strong> When the lobby closes, Scrim declares the winner.
+              <strong>Done with a crew?</strong> Leave it from the crew page.
             </li>
           </ol>
 
@@ -64,34 +64,25 @@ export function HelpButton() {
               <Link href="/me" onClick={close}>
                 profile
               </Link>
-              . Finish a game and your result goes into every open lobby for that puzzle. It shows
+              . Finish a game and your result goes into every crew that plays that game. It shows
               up with a ⚡. For NYT games, play while signed in to your NYT account: games played signed out
               don&apos;t count.
             </li>
             <li>
-              <strong>Paste:</strong> click Share in the game and paste the text into the lobby (⎘).
-            </li>
-            <li>
-              <strong>Manual:</strong> enter your score yourself, if the host allows it (✎).
+              <strong>Paste:</strong> click Share in the game and paste the text into the crew page.
             </li>
           </ul>
-          <p className="muted small">You get one submission per lobby. The host can void an entry if something went wrong.</p>
+          <p className="muted small">You get one submission per puzzle. The crew owner can void an entry if something went wrong.</p>
 
           <h3>Winning</h3>
           <ul>
             <li>
-              <strong>Wordle:</strong> fewest guesses wins. A miss (X/6) can&apos;t win.
+              The highest scoring player of the day earns a win on their Scrim ranking. Accumulate your wins and earn bragging rights!
             </li>
+            <li>If a tie occurs, all players involved in the tie get a win.</li>
             <li>
-              <strong>Connections:</strong> fewest mistakes wins. Running out of mistakes can&apos;t win.
-            </li>
-            <li>
-              <strong>Krillion:</strong> deepest dive wins.
-            </li>
-            <li>Ties share the win: if two people get it in one, both get a win.</li>
-            <li>
-              A lobby closes when the next puzzle comes out (midnight, or midnight New York time for Krillion), or
-              earlier if the host closes it.
+              The day ends at midnight in the crew&apos;s time zone. Results
+              after that don&apos;t count.
             </li>
           </ul>
 
@@ -115,8 +106,7 @@ export function HelpButton() {
 
           <h3>Which puzzles?</h3>
           <p>
-            Wordle, Connections and Krillion, today&apos;s puzzle only. Scrim only supports games anyone can play
-            for free. Want another one? Use <strong>Suggest a game</strong> at the bottom of any page.
+            As of now, Scrim&apos;s games are integrated manually. Want another one? Use <strong>Suggest a game</strong> at the bottom of any page.
           </p>
         </div>
       </dialog>

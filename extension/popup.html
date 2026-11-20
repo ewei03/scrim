@@ -43,14 +43,121 @@
       li + li {
         border-top: 1px dashed #77736b;
       }
+      main > section,
+      #rankings {
+        display: grid;
+        gap: 10px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      .tabs {
+        display: flex;
+        border: 2px solid #1c1b19;
+      }
+      .tabs button {
+        flex: 1;
+        font: inherit;
+        padding: 4px 0;
+        border: 0;
+        background: #fbf9f4;
+        color: #1c1b19;
+        cursor: pointer;
+      }
+      .tabs button + button {
+        border-left: 2px solid #1c1b19;
+      }
+      .tabs button[aria-selected="true"] {
+        background: #1c1b19;
+        color: #f3efe6;
+      }
+      .tabs button:focus-visible,
+      select:focus-visible,
+      a:focus-visible {
+        outline: 2px dashed #ff5b1f;
+        outline-offset: 2px;
+      }
+      .pickers {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      select {
+        font: inherit;
+        min-width: 0;
+        padding: 3px 4px;
+        border: 2px solid #1c1b19;
+        background: #fbf9f4;
+        color: #1c1b19;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 2px solid #1c1b19;
+        background: #fbf9f4;
+      }
+      th {
+        font-weight: 400;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #77736b;
+        text-align: right;
+        padding: 4px 6px;
+        border-bottom: 2px solid #1c1b19;
+      }
+      td {
+        padding: 4px 6px;
+        text-align: right;
+        border-top: 1px dashed #77736b;
+      }
+      th:nth-child(-n + 2),
+      td:nth-child(-n + 2) {
+        text-align: left;
+      }
+      td.name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 110px;
+      }
+      tr.me td {
+        background: #1c1b19;
+        color: #f3efe6;
+      }
+      a {
+        color: inherit;
+      }
     </style>
   </head>
   <body>
     <header>SCRIM<span>_</span></header>
     <main>
       <div id="status" class="muted">Loading…</div>
-      <ul id="results" hidden></ul>
-      <div class="muted">Your Scrim lobby will update your results automatically.</div>
+      <div class="tabs" role="tablist" id="tabs" hidden>
+        <button role="tab" id="tab-results" aria-selected="true" aria-controls="panel-results">Results</button>
+        <button role="tab" id="tab-rankings" aria-selected="false" aria-controls="panel-rankings">Rankings</button>
+      </div>
+      <section id="panel-results" role="tabpanel" aria-labelledby="tab-results">
+        <ul id="results" hidden></ul>
+        <div class="muted">Finished games go into every Scrim crew that plays them.</div>
+      </section>
+      <section id="panel-rankings" role="tabpanel" aria-labelledby="tab-rankings" hidden>
+        <div id="rankings-status" class="muted">Loading…</div>
+        <div id="rankings" hidden>
+          <div class="pickers">
+            <select id="pick-crew" aria-label="Crew"></select>
+            <select id="pick-game" aria-label="Game"></select>
+          </div>
+          <table>
+            <thead>
+              <tr><th>#</th><th>Name</th><th>Wins</th><th>Played</th><th>Streak</th></tr>
+            </thead>
+            <tbody id="rankings-body"></tbody>
+          </table>
+          <a id="open-crew" class="muted" target="_blank" rel="noreferrer">Open crew in Scrim ↗</a>
+        </div>
+      </section>
     </main>
     <script src="popup.js"></script>
   </body>

@@ -1,4 +1,3 @@
-import { nextMidnight } from "@/lib/time";
 import type { GameAdapter, ParseResult } from "./types";
 
 export type WordleResult = {
@@ -87,11 +86,11 @@ export const wordle: GameAdapter<WordleResult> = {
   name: "Wordle",
   url: "https://www.nytimes.com/games/wordle/index.html",
   source: "The New York Times",
+  color: "#6aaa64",
   free: true,
 
-  currentPuzzleId: (now = new Date()) => String(wordleNumberFor(now)),
+  puzzleForDate: ([y, m, d]) => String(Math.round((Date.UTC(y, m - 1, d) - EPOCH_UTC) / DAY_MS)),
   puzzleLabel: (id) => `#${Number(id).toLocaleString("en-US")}`,
-  nextReset: nextMidnight,
   autoSubmit: true,
 
   shareHint: "Finish the Wordle, click Share, then paste it here.",

@@ -11,6 +11,11 @@ export interface GameAdapter<R = unknown> {
   id: string;
   name: string;
   url: string;
+  /**
+   * Tells games apart on crew pages (card bands and name tags). Text on it is
+   * always dark, in both themes, so keep it mid-light; avoid the orange accent.
+   */
+  color: string;
   /** Who makes the game, credited where Scrim links to it. */
   source: string;
   /**
@@ -19,11 +24,14 @@ export interface GameAdapter<R = unknown> {
    */
   free: true;
 
-  /** The puzzle that is live for the player right now (in their timezone). */
-  currentPuzzleId(now?: Date): string;
   puzzleLabel(puzzleId: string): string;
-  /** When the next puzzle comes out; lobbies close then. */
-  nextReset(now?: Date): Date;
+  /** The puzzle for a calendar date [year, month (1-12), day]. */
+  puzzleForDate(date: [number, number, number]): string;
+  /**
+   * Set for games with one worldwide puzzle that resets in a fixed time zone.
+   * Other games follow each crew's time zone.
+   */
+  zone?: string;
 
   /** Whether the Scrim extension can capture results for this game. */
   autoSubmit: boolean;

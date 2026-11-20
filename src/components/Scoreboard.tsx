@@ -1,31 +1,30 @@
 "use client";
 
 import { rankEntries } from "@/games/ranking";
-import { getGame } from "@/games/registry";
 import { ResultDetail } from "@/games/ui";
 import { ordinal } from "@/lib/time";
-import type { BoardRow, Lobby } from "@/lib/types";
+import type { GameAdapter } from "@/games/types";
+import type { BoardRow } from "@/lib/types";
 
 const SOURCE_ICON: Record<BoardRow["source"], { icon: string; title: string }> = {
   paste: { icon: "⎘", title: "Pasted share text" },
   extension: { icon: "⚡", title: "Captured automatically" },
-  manual: { icon: "✎", title: "Entered manually" },
 };
 
 export function Scoreboard({
-  lobby,
+  game,
   rows,
   closed,
-  isHost,
+  canVoid,
   onVoid,
 }: {
-  lobby: Lobby;
+  game: GameAdapter<unknown>;
   rows: BoardRow[];
   closed: boolean;
-  isHost: boolean;
+  /** The crew owner can void entries. */
+  canVoid: boolean;
   onVoid: (row: BoardRow) => void;
 }) {
-  const game = getGame(lobby.game);
   const ranked = rankEntries(
     game,
     rows.filter((r) => !r.hidden).map((r) => ({ ...r, result: r.result })),
@@ -68,7 +67,7 @@ export function Scoreboard({
                 <span className="muted" title={SOURCE_ICON[r.source].title}>
                   {SOURCE_ICON[r.source].icon}
                 </span>
-                {isHost && <VoidButton onClick={() => onVoid(r)} />}
+                {canVoid && <VoidButton onClick={() => onVoid(r)} />}
               </td>
             </tr>
           ))}
@@ -80,7 +79,7 @@ export function Scoreboard({
                 ▒▒▒
               </td>
               <td className="hide-sm muted small">locked in</td>
-              <td className="right">{isHost && <VoidButton onClick={() => onVoid(r)} />}</td>
+              <td className="right">{canVoid && <VoidButton onClick={() => onVoid(r)} />}</td>
             </tr>
           ))}
           {rows.length === 0 && (

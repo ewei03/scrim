@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Scrim",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "A daily puzzle showdown between you and your friends.",
   "permissions": [
     "storage",

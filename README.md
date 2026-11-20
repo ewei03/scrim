@@ -1,16 +1,15 @@
 # Scrim
 
-Daily puzzle showdowns with friends. Create a crew, open a lobby for today's
-puzzle, share the link, everyone plays on their own time, and the lobby crowns
-a winner. Persistent rankings and an archive live on the
-crew.
+Daily puzzle showdowns with friends. Create a crew, pick the games it plays,
+share the link, and everyone plays each day's puzzle on their own time. Each
+day crowns a winner; rankings and every past day live on the crew.
 
 **Games:** Wordle, NYT Connections and Krillion, today's puzzle only. Desktop Chrome only.
 
 Results get in automatically through the **Scrim Chrome extension**: play
 Wordle or Connections on nytimes.com, or Krillion on krillion.io, as usual, and when you finish, the extension reads the
-result from the page and submits it to every open lobby for that puzzle in
-your crews. Pasting the share text, or entering the score by hand, is a
+result from the page and submits it to every crew you're in that plays that
+game. Pasting the share text is the
 fallback.
 Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
 
@@ -18,22 +17,23 @@ Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
 
 | Concept | Lifetime | Notes |
 |---|---|---|
-| **Crew** | permanent | Friend group. Rankings, archive. Link: `/c/<code>` |
-| **Lobby** | one game, one puzzle | Closes at its deadline (or when the host closes it). Link: `/l/<code>` |
-| **Entry** | one per player per lobby | Validated server-side; source is `paste`, `manual` or (later) `extension` |
+| **Crew** | permanent | Friend group. Picks its games, time zone and rules. Rankings, past days. Link: `/c/<code>` |
+| **Round** | one game, one puzzle, one crew | Started by the first result. Closes at midnight in the crew's time zone (New York for Krillion) |
+| **Entry** | one per player per round | Validated server-side; source is `extension`, or `paste` as the fallback |
 
-- Opening any invite link joins the crew.
+- Opening the invite link joins the crew. Members can leave; the owner can remove (and ban) them.
 - Ties share the win (two people who both get Wordle in 1 both win). A miss can't win.
 - Spoiler protection: with "hide scores until you submit" on, other players'
   results stay masked until you lock yours in (enforced by row-level security).
-- The host can void entries and close a lobby early.
+- The crew owner can void entries.
 
 ### Code map
 
-- `supabase/migrations/0001_init.sql` — tables, RLS, and the RPCs all writes go through
+- `supabase/migrations/` — tables, RLS, and the RPCs all writes go through (`0009_daily_rounds.sql` has the current crew/round model)
 - `src/games/` — game adapters (`wordle.ts`), registry, ranking, game-specific UI
-- `src/lib/stats.ts` — rankings, streaks, recent form
-- `src/app/` — `/` home, `/c/[code]` crew, `/l/[code]` lobby, `/me` profile
+- `src/lib/stats.ts` — rankings and streaks
+- `src/lib/rounds.ts` — which puzzle is a crew's "today", and when its day ends
+- `src/app/` — `/` home, `/c/[code]` crew, `/me` profile
 - `extension/` — Chrome extension (plain JS, no build step)
 
 ### How the extension works
@@ -61,9 +61,14 @@ Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
   the game's open tab or opens the page in a background tab for up to 20 s,
   then closes it.
 - `background.js` calls the `extension_submit` RPC with the extension's token.
-  The server validates the result and enters it into every open lobby for
-  that puzzle in your crews. Results are also kept locally, so a lobby created
-  *after* you played still gets your score when you open it.
+  The server validates the result and enters it into every crew you're in
+  that plays the game, starting the day's round if you're first. Results are
+  also kept locally, so joining a crew (or a crew adding the game) *after* you
+  played still gets your score in when you open the crew page.
+- The popup has a **Rankings** tab: `extension_rankings` (in `0009_daily_rounds.sql`)
+  returns each crew's rankings for the token's user. It ranks in SQL, so its
+  `result_points` / `result_can_win` must match each game's `compare` /
+  `canWin` (a schema test checks this).
 - `scrim-bridge.js` runs on the Scrim site so the page can talk to the
   extension (connect, disconnect, status, sync) through `window.postMessage`.
 - Connecting (Profile → Chrome extension) mints a random token (stored hashed;
@@ -73,14 +78,14 @@ Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
 ### Adding a game
 
 1. Write an adapter in `src/games/<game>.ts` (parse share text, compare, format).
-2. Register it in `src/games/registry.ts` and add its grid/manual UI to `src/games/ui.tsx`.
+2. Register it in `src/games/registry.ts` and add its grid UI to `src/games/ui.tsx`.
 3. Add a branch to `normalize_result`, `is_supported_game` and `is_todays_puzzle` in a new migration.
 
 ## Setup
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run each file in `supabase/migrations/` in order
-   (`0001_init.sql` through `0008_game_suggestions.sql`).
+   (`0001_init.sql` through `0009_daily_rounds.sql`).
 3. **Authentication → Sign In / Providers:**
    - enable **Allow anonymous sign-ins** (guest play)
    - enable **Allow manual linking** (lets guests attach Google later)
@@ -110,6 +115,6 @@ When Scrim gets a real domain, add it to the `scrim-bridge.js` `matches` in
 
 ## Roadmap
 
-- Archive puzzles (lobbies for past days); today only for now
+- Archive puzzles (past days); today only for now
 - v0.2 Connections adapter
 - v0.3 Krillion adapter (extension content script + adapter)

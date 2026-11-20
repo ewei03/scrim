@@ -86,17 +86,20 @@
       title = "Couldn’t submit";
       body = reply.error;
     } else {
-      const submitted = reply.lobbies.filter((l) => l.outcome === "submitted");
+      const submitted = reply.crews.filter((c) => c.outcome === "submitted");
       if (!reply.isNew && submitted.length === 0) return; // already reported on an earlier visit
       if (submitted.length) {
         title = `${score} locked in ⚡`;
-        body = `${label} → ${submitted.map((l) => l.crew_name).join(", ")}`;
-      } else if (reply.lobbies.some((l) => l.outcome === "already")) {
+        body = `${label} → ${submitted.map((c) => c.crew_name).join(", ")}`;
+      } else if (reply.crews.some((c) => c.outcome === "already")) {
         title = "Already submitted";
-        body = `${label} is already in your lobbies.`;
+        body = `${label} is already in your crews.`;
+      } else if (reply.crews.length) {
+        title = "Not counted";
+        body = `${label}'s day is over in your crews.`;
       } else {
         title = `${score} saved`;
-        body = `No open lobby for ${label} yet. Scrim will submit it when you open one.`;
+        body = `None of your crews play this yet. Scrim will submit it if one starts today.`;
       }
     }
 

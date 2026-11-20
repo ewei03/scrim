@@ -42,6 +42,10 @@ async function handle(msg) {
       return submitResult(msg.game, msg.result, msg.raw);
     case "sync":
       return { ok: true, ...(await syncAll()) };
+    case "rankings": {
+      const reply = await callRpc("extension_rankings", {});
+      return reply.ok ? { ok: true, rows: reply.body ?? [] } : reply;
+    }
     default:
       return { ok: false, error: `Unknown message: ${msg.type}` };
   }
@@ -56,40 +60,46 @@ async function submitResult(game, result, raw) {
   const key = `${game}:${result.puzzle}`;
   const previous = results[key];
   const isNew = !previous;
-  results[key] = { game, result, raw, seenAt: previous?.seenAt ?? Date.now(), lobbies: previous?.lobbies ?? [] };
+  results[key] = { game, result, raw, seenAt: previous?.seenAt ?? Date.now(), crews: previous?.crews ?? [] };
   const reply = await callSubmit(game, result, raw);
-  if (reply.ok) results[key].lobbies = mergeLobbies(results[key].lobbies, reply.lobbies);
+  if (reply.ok) results[key].crews = mergeCrews(results[key].crews, reply.crews);
   await chrome.storage.local.set({ results: prune(results) });
   return { ...reply, isNew };
 }
 
-/** Re-submit recent results, e.g. when a lobby was created after you played. The server is idempotent. */
+/** Re-submit recent results, e.g. after joining a crew or a crew picking a game. The server is idempotent. */
 async function syncAll() {
   const results = await getResults();
   let submitted = 0;
   for (const entry of Object.values(results)) {
     const reply = await callSubmit(entry.game, entry.result, entry.raw);
     if (!reply.ok) return { submitted, error: reply.error };
-    entry.lobbies = mergeLobbies(entry.lobbies, reply.lobbies);
-    submitted += reply.lobbies.filter((l) => l.outcome === "submitted").length;
+    entry.crews = mergeCrews(entry.crews ?? [], reply.crews);
+    submitted += reply.crews.filter((c) => c.outcome === "submitted").length;
   }
   await chrome.storage.local.set({ results });
   return { submitted };
 }
 
 async function callSubmit(game, result, raw) {
+  const reply = await callRpc("extension_submit", { p_game: game, p_result: result, p_raw: raw ?? null });
+  return reply.ok ? { ok: true, crews: reply.body ?? [] } : reply;
+}
+
+/** Calls a token-authorised RPC. Signs the extension out if the token was revoked. */
+async function callRpc(fn, args) {
   const c = await chrome.storage.local.get(["token", "supabaseUrl", "supabaseKey"]);
   if (!c.token) return { ok: false, error: "not-connected" };
   let res;
   try {
-    res = await fetch(`${c.supabaseUrl}/rest/v1/rpc/extension_submit`, {
+    res = await fetch(`${c.supabaseUrl}/rest/v1/rpc/${fn}`, {
       method: "POST",
       headers: {
         apikey: c.supabaseKey,
         Authorization: `Bearer ${c.supabaseKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ p_token: c.token, p_game: game, p_result: result, p_raw: raw ?? null }),
+      body: JSON.stringify({ p_token: c.token, ...args }),
     });
   } catch {
     return { ok: false, error: "Couldn't reach Scrim. Check your connection." };
@@ -103,17 +113,17 @@ async function callSubmit(game, result, raw) {
     }
     return { ok: false, error };
   }
-  return { ok: true, lobbies: body ?? [] };
+  return { ok: true, body };
 }
 
 /**
- * The server's reply lists every lobby you're currently in for that puzzle, so
- * it replaces the stored list: lobbies from deleted or left crews drop out.
+ * The server's reply lists every crew you're in that plays this game, so it
+ * replaces the stored list: deleted or left crews drop out.
  */
-function mergeLobbies(previous, next) {
-  const before = new Map(previous.map((l) => [l.lobby_code, l]));
+function mergeCrews(previous, next) {
+  const before = new Map(previous.map((c) => [c.crew_code, c]));
   // Keep "submitted" once it happened, even if later calls report "already".
-  return next.map((l) => (before.get(l.lobby_code)?.outcome === "submitted" ? before.get(l.lobby_code) : l));
+  return next.map((c) => (before.get(c.crew_code)?.outcome === "submitted" ? before.get(c.crew_code) : c));
 }
 
 function prune(results) {

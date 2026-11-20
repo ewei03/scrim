@@ -1,4 +1,4 @@
-import { dateIn, nextMidnightIn } from "@/lib/time";
+import { dateIn } from "@/lib/time";
 import type { GameAdapter, ParseResult } from "./types";
 
 export type KrillionResult = {
@@ -75,11 +75,12 @@ export const krillion: GameAdapter<KrillionResult> = {
   name: "Krillion",
   url: "https://krillion.io/",
   source: "krillion.io",
+  color: "#4ea8cc",
   free: true,
 
-  currentPuzzleId: (now = new Date()) => String(krillionNumberFor(now)),
+  puzzleForDate: ([y, m, d]) => String(Math.round((Date.UTC(y, m - 1, d) - EPOCH_UTC) / DAY_MS)),
+  zone: ZONE,
   puzzleLabel: (id) => `#${Number(id).toLocaleString("en-US")}`,
-  nextReset: (now) => nextMidnightIn(ZONE, now),
   autoSubmit: true,
 
   shareHint: "Finish the Daily Dive, copy your result, then paste it here.",

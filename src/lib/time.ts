@@ -1,10 +1,3 @@
-/** The next local midnight, when daily puzzles like Wordle roll over. */
-export function nextMidnight(now = new Date()): Date {
-  const midnight = new Date(now);
-  midnight.setHours(24, 0, 0, 0);
-  return midnight;
-}
-
 /** Calendar date [year, month (1-12), day] in a time zone. */
 export function dateIn(timeZone: string, now = new Date()): [number, number, number] {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "numeric", day: "numeric" })
@@ -31,7 +24,7 @@ function offsetIn(timeZone: string, t: number): number {
   return asUtc - Math.floor(t / 1000) * 1000;
 }
 
-/** The next midnight in `timeZone`, for games that reset at one moment worldwide. */
+/** The next midnight in `timeZone`. */
 export function nextMidnightIn(timeZone: string, now = new Date()): Date {
   const [y, m, d] = dateIn(timeZone, now);
   const wall = Date.UTC(y, m - 1, d + 1);

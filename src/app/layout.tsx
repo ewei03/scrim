@@ -13,7 +13,7 @@ const body = Fira_Code({ subsets: ["latin"], variable: "--font-body" });
 
 export const metadata: Metadata = {
   title: "Scrim — daily puzzle showdowns",
-  description: "Compete with friends on daily browser games. Create a lobby, share the link, play, compare.",
+  description: "Compete with friends on daily browser games. Start a crew, share the link, play, compare.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -35,7 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <a href="https://github.com/ewei03/scrim" target="_blank" rel="noreferrer">
                 GitHub
               </a>
-              <Link href="/privacy">Privacy</Link>
+              <Link href="/privacy">Privacy &amp; Terms</Link>
             </nav>
           </footer>
         </AuthProvider>

@@ -7,10 +7,14 @@ import { Modal } from "./Modal";
 
 /** Form for suggesting a new game. Suggestions are private to the site owner. */
 export function SuggestGame() {
-  const { status } = useAuth();
+  const { status, user, isGuest } = useAuth();
+  // Google accounts come with an address Google has verified; guests don't.
+  const accountEmail = !isGuest && user?.email ? user.email : "";
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [notes, setNotes] = useState("");
+  const [email, setEmail] = useState<string | null>(null);
+  const emailValue = email ?? accountEmail;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -35,7 +39,12 @@ export function SuggestGame() {
     setBusy(true);
     setError(null);
     try {
-      await rpc("suggest_game", { p_name: name, p_url: url || null, p_notes: notes || null });
+      await rpc("suggest_game", {
+        p_name: name,
+        p_url: url || null,
+        p_notes: notes || null,
+        p_email: emailValue.trim() || null,
+      });
       setName("");
       setUrl("");
       setNotes("");
@@ -81,7 +90,21 @@ export function SuggestGame() {
           rows={3}
         />
       </label>
-      <p className="muted small">Only the Scrim owner sees suggestions.</p>
+      <label className="field">
+        <span>Email (optional)</span>
+        <input
+          className="input"
+          type="email"
+          value={emailValue}
+          onChange={(e) => setEmail(e.target.value)}
+          maxLength={254}
+          autoComplete="email"
+          placeholder="you@example.com"
+        />
+      </label>
+      <p className="muted small">
+        Only the Scrim owner sees suggestions. Leave an email if you&apos;re happy to be contacted about yours.
+      </p>
       <button className="btn btn-primary" disabled={busy || !name.trim()}>
         {busy ? "Sending…" : "Send suggestion"}
       </button>

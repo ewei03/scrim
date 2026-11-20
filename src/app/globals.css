@@ -12,6 +12,8 @@
   --accent-text: var(--accent);
   --good: #2f8f4e;
   --bad: #c2362b;
+  /* Time running out: red that stays readable on cards in both themes. */
+  --urgent: #c2362b;
   --tile-g: #6aaa64;
   --tile-y: #c9b458;
   --tile-x: #b9b4aa;
@@ -32,6 +34,7 @@
   --muted: #8f8a80;
   --line: #ece7dc;
   --tile-x: #45423c;
+  --urgent: #ff6b5e;
   --accent-text: var(--accent);
   color-scheme: dark;
 }
@@ -44,6 +47,7 @@
     --muted: #8f8a80;
     --line: #ece7dc;
     --tile-x: #45423c;
+  --urgent: #ff6b5e;
     --accent-text: var(--accent);
     color-scheme: dark;
   }
@@ -401,6 +405,53 @@ textarea.input {
   resize: vertical;
 }
 
+/* Marching ants: small dashes that run anticlockwise around a 2px border.
+   Drawn as background stripes in the border area, since an outline's dashes
+   can't be animated. Set --ants (dash colour) and --ants-fill (inside).
+   Used for focused text boxes (dropdowns keep the plain outline, as their
+   arrow is a background) and the crew page's game buttons. */
+input.input:focus,
+textarea.input:focus {
+  --ants: var(--accent-text);
+  --ants-fill: var(--paper);
+}
+
+input.input:focus,
+textarea.input:focus,
+.game-toggle:hover:not(:disabled),
+.game-toggle:focus-visible:not(:disabled) {
+  outline: none;
+  border-color: transparent;
+  background:
+    linear-gradient(var(--ants-fill), var(--ants-fill)) padding-box,
+    linear-gradient(90deg, var(--ants) 50%, transparent 0) 0 0 / 6px 2px repeat-x border-box,
+    linear-gradient(90deg, var(--ants) 50%, transparent 0) 0 100% / 6px 2px repeat-x border-box,
+    linear-gradient(0deg, var(--ants) 50%, transparent 0) 0 0 / 2px 6px repeat-y border-box,
+    linear-gradient(0deg, var(--ants) 50%, transparent 0) 100% 0 / 2px 6px repeat-y border-box;
+  animation: marching-ants 0.5s linear infinite;
+}
+
+/* Top runs left, left runs down, bottom runs right, right runs up. */
+@keyframes marching-ants {
+  to {
+    background-position:
+      0 0,
+      -6px 0,
+      6px 100%,
+      0 6px,
+      100% -6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  input.input:focus,
+  textarea.input:focus,
+  .game-toggle:hover:not(:disabled),
+  .game-toggle:focus-visible:not(:disabled) {
+    animation: none;
+  }
+}
+
 /* Custom arrow so it sits inset from the edge rather than flush against it. */
 select.input {
   appearance: none;
@@ -440,30 +491,6 @@ select.input {
   accent-color: var(--accent);
   width: 16px;
   height: 16px;
-}
-
-.tabs {
-  display: flex;
-  border: 2px solid var(--line);
-  width: fit-content;
-}
-
-.tabs button {
-  font: inherit;
-  background: none;
-  color: var(--ink);
-  border: none;
-  padding: 4px 14px;
-  cursor: pointer;
-}
-
-.tabs button + button {
-  border-left: 2px solid var(--line);
-}
-
-.tabs button[aria-selected="true"] {
-  background: var(--ink);
-  color: var(--paper);
 }
 
 /* ---------- lists ---------- */
@@ -529,6 +556,57 @@ select.input {
   font-family: var(--font-display);
   font-size: calc(1.5rem * var(--display-scale));
   color: var(--accent-text);
+}
+
+/* ---------- welcome guide ---------- */
+
+.welcome-steps {
+  counter-reset: step;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.welcome-steps li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  column-gap: 10px;
+}
+
+.welcome-steps li::before {
+  content: counter(step, decimal-leading-zero);
+  grid-row: span 2;
+  font-family: var(--font-display);
+  font-size: calc(1.6rem * var(--display-scale));
+  color: var(--accent-text);
+}
+
+.welcome-steps li.done::before {
+  content: "✓";
+  color: var(--good);
+}
+
+.welcome-steps li.done strong {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.welcome-link {
+  padding: 0;
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 /* ---------- scoreboard ---------- */
@@ -770,6 +848,18 @@ select.input {
   margin-top: 12px;
 }
 
+/* Sections are jump targets; keep them clear of the top edge. */
+.prose h2[id] {
+  scroll-margin-top: 16px;
+  padding-top: 10px;
+  border-top: 2px solid var(--line);
+}
+
+.prose h3 {
+  margin-top: 6px;
+  color: var(--accent-text);
+}
+
 .prose ul {
   margin: 0;
   padding-left: 1.3em;
@@ -824,7 +914,7 @@ select.input {
   font-size: 0.85rem;
 }
 
-/* ---------- open lobbies: live ---------- */
+/* ---------- today: live ---------- */
 
 .list-live {
   border-color: var(--accent);
@@ -839,8 +929,9 @@ select.input {
   border-left: 6px solid transparent;
 }
 
+/* Unplayed rows get a stripe in the game's colour. */
 .list-live .list-row.todo {
-  border-left-color: var(--accent);
+  border-left-color: var(--game, var(--accent));
 }
 
 .live-dot {
@@ -885,6 +976,137 @@ select.input {
 }
 
 .archive-date {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Past days open in place to show the full scoreboard. */
+.past-round summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.past-round summary::-webkit-details-marker {
+  display: none;
+}
+
+.past-round summary:focus-visible {
+  outline: 2px dashed var(--accent-text);
+  outline-offset: -2px;
+}
+
+.past-round[open] summary {
+  color: var(--ink);
+  background: var(--card);
+}
+
+.past-round-board {
+  padding: 10px 12px 14px;
+}
+
+/* ---------- games: colour-coded ---------- */
+
+/* --game is set per game (GameTag.tsx). Text on it is always dark. */
+.game-tag {
+  display: inline-block;
+  padding: 0 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  background: var(--game);
+  color: #1c1b19;
+  border: 1.5px solid var(--line);
+}
+
+/* Today's round for one game: a card with a band in the game's colour. */
+.game-card {
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 4px 4px 0 var(--game);
+}
+
+.game-card-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 6px 16px;
+  background: var(--game);
+  color: #1c1b19;
+  border-bottom: 2px solid var(--line);
+}
+
+/* Time left: bold red on a light badge, so it reads on any game colour. */
+.time-left {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--urgent);
+  background: var(--card);
+  border: 1.5px solid var(--line);
+}
+
+.time-left .live-dot {
+  color: inherit;
+}
+
+.today-title {
+  font-size: calc(1.8rem * var(--display-scale));
+  text-transform: uppercase;
+}
+
+.game-card-puzzle {
+  font-size: 0.8em;
+}
+
+.game-card-body {
+  padding: 16px;
+}
+
+.game-card-body[hidden] {
+  display: none;
+}
+
+.game-card.collapsed .game-card-bar {
+  border-bottom: 0;
+}
+
+/* The game's name is the expand/collapse button. */
+.game-card-toggle {
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  text-align: left;
+}
+
+.game-card-toggle:focus-visible {
+  outline: 2px dashed #1c1b19;
+  outline-offset: 3px;
+}
+
+.game-card-chevron {
+  display: inline-block;
+  width: 1ch;
+}
+
+.game-card-summary {
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -939,6 +1161,85 @@ select.input {
 .member-chips li.me {
   background: var(--ink);
   color: var(--paper);
+}
+
+/* ---------- crew page: games in the plate ---------- */
+
+.crew-games {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--muted);
+}
+
+.crew-games-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink);
+}
+
+.game-toggles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.crew-games .error {
+  flex-basis: 100%;
+}
+
+/* Off: dashed outline, tinted with the game's colour. On: filled with it.
+   Hover or keyboard focus: the border turns into marching ants. */
+.game-toggle {
+  --ants: var(--line);
+  --ants-fill: color-mix(in srgb, var(--game) 18%, var(--card));
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 5px 12px;
+  cursor: pointer;
+  color: var(--ink);
+  background: var(--card);
+  border: 2px dashed color-mix(in srgb, var(--game) 70%, var(--muted));
+  border-radius: var(--radius);
+  transition: transform 60ms, box-shadow 60ms;
+}
+
+.game-toggle[aria-pressed="true"] {
+  --ants-fill: var(--game);
+  color: #1c1b19;
+  background: var(--game);
+  border: 2px solid var(--line);
+  box-shadow: 3px 3px 0 var(--line);
+}
+
+.game-toggle:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--game);
+}
+
+.game-toggle[aria-pressed="true"]:hover:not(:disabled) {
+  box-shadow: 4px 4px 0 var(--line);
+}
+
+.game-toggle:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-toggle {
+    transition: none;
+  }
 }
 
 /* ---------- settings modals ---------- */

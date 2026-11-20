@@ -1,24 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { manualWordle, wordle, type WordleResult } from "@/games/wordle";
-import { crewStats, type StatLobby } from "./stats";
+import { crewStats, type StatRound } from "./stats";
 
-function lobby(day: number, scores: Record<string, number | null>): StatLobby<WordleResult> {
+function round(day: number, scores: Record<string, number | null>): StatRound<WordleResult> {
   return {
-    id: `l${day}`,
-    invite_code: `code${day}`,
-    puzzle_id: String(day),
-    ended_at: new Date(Date.UTC(2026, 10, day)).toISOString(),
+    id: `r${day}`,
+    closes_at: new Date(Date.UTC(2026, 10, day)).toISOString(),
     entries: Object.entries(scores).map(([user_id, g]) => ({ user_id, result: manualWordle(String(day), g, false) })),
   };
 }
 
 describe("crewStats", () => {
-  const lobbies = [
-    lobby(1, { ann: 3, bob: 4 }),
-    lobby(2, { ann: 2, bob: 2, cat: 5 }), // ann + bob co-win
-    lobby(3, { bob: 3, cat: null }),
+  const rounds = [
+    round(3, { bob: 3, cat: null }),
+    round(1, { ann: 3, bob: 4 }),
+    round(2, { ann: 2, bob: 2, cat: 5 }), // ann + bob co-win
   ];
-  const { players } = crewStats(wordle, lobbies, ["ann", "bob", "cat", "dan"]);
+  const { players } = crewStats(wordle, rounds, ["ann", "bob", "cat", "dan"]);
   const get = (id: string) => players.find((p) => p.userId === id)!;
 
   it("counts wins, games and streaks", () => {
@@ -30,13 +28,5 @@ describe("crewStats", () => {
 
   it("orders by wins, then win rate", () => {
     expect(players.map((p) => p.userId)).toEqual(["ann", "bob", "cat", "dan"]);
-  });
-
-  it("lists recent performances newest first", () => {
-    expect(get("bob").recent.map((r) => [r.puzzleId, r.place, r.score])).toEqual([
-      ["3", 1, "3/6"],
-      ["2", 1, "2/6"],
-      ["1", 2, "4/6"],
-    ]);
   });
 });
