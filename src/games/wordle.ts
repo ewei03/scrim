@@ -101,7 +101,7 @@ export const wordle: GameAdapter<WordleResult> = {
   compare: (a, b) => points(a) - points(b),
   canWin: (r) => r.solved,
   formatScore: (r) => `${r.solved ? r.guesses : "X"}/6${r.hard ? "*" : ""}`,
-  averageLabel: "Avg",
+  averageLabel: "Avg guesses",
   average(results) {
     const solved = results.filter((r) => r.solved && r.guesses);
     if (solved.length === 0) return null;

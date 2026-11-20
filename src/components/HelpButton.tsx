@@ -103,8 +103,8 @@ export function HelpButton() {
 
           <h3>Rankings</h3>
           <p>
-            Each crew tracks wins (W), games played (GP), win rate, an average for the game (guesses, mistakes or depth), current
-            win streak and your last five results.
+            Each crew tracks wins, games played, win rate, an average for the game (guesses, mistakes or depth) and
+            current win streak.
           </p>
 
           <h3>Accounts</h3>

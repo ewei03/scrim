@@ -594,28 +594,6 @@ select.input {
   color: var(--muted);
 }
 
-.form {
-  display: inline-flex;
-  gap: 3px;
-}
-
-.form-chip {
-  display: inline-grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  font-size: 0.7rem;
-  border: 1.5px solid var(--muted);
-  text-decoration: none;
-  color: var(--muted);
-}
-
-.form-chip.win {
-  background: var(--accent);
-  border-color: var(--line);
-  color: var(--accent-ink);
-}
-
 .preview .score {
   font-size: calc(2.4rem * var(--display-scale));
 }

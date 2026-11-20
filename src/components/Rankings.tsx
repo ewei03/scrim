@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { GameAdapter } from "@/games/types";
 import type { PlayerStats } from "@/lib/stats";
 
@@ -18,12 +17,11 @@ export function Rankings({
           <tr>
             <th>#</th>
             <th>Name</th>
-            <th className="right" title="Wins">W</th>
-            <th className="right" title="Games played">GP</th>
-            <th className="right">Win%</th>
+            <th className="right">Wins</th>
+            <th className="right" title="Games played">Played</th>
+            <th className="right">Win rate</th>
             <th className="right">{game.averageLabel}</th>
-            <th className="right hide-sm" title="Current win streak">Strk</th>
-            <th className="hide-sm">Form</th>
+            <th className="right hide-sm" title="Current win streak">Streak</th>
           </tr>
         </thead>
         <tbody>
@@ -36,20 +34,6 @@ export function Rankings({
               <td className="right">{p.played ? `${Math.round(p.winRate * 100)}%` : "–"}</td>
               <td className="right">{p.average ?? "–"}</td>
               <td className="right hide-sm">{p.streak ? `${p.streak}W` : "–"}</td>
-              <td className="hide-sm">
-                <span className="form">
-                  {p.recent.map((r) => (
-                    <Link
-                      key={r.lobbyId}
-                      href={`/l/${r.inviteCode}`}
-                      className={`form-chip ${r.winner ? "win" : ""}`}
-                      title={`${game.name} ${game.puzzleLabel(r.puzzleId)}: ${r.score}`}
-                    >
-                      {r.winner ? "W" : r.place}
-                    </Link>
-                  ))}
-                </span>
-              </td>
             </tr>
           ))}
         </tbody>
