@@ -719,7 +719,24 @@ select.input {
 
 .footer nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
+}
+
+/* A button that reads like the footer's links. */
+.footer-link {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.footer-link:focus-visible {
+  outline: 2px dashed var(--accent-text);
+  outline-offset: 2px;
 }
 
 /* ---------- help dialog ---------- */

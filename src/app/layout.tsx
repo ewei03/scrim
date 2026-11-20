@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fira_Code, Share_Tech_Mono } from "next/font/google";
 import Link from "next/link";
 import { Header } from "@/components/Header";
+import { SuggestGameLink } from "@/components/SuggestGame";
 import { THEME_INIT_SCRIPT } from "@/components/ThemeToggle";
 import { AuthProvider } from "@/lib/auth";
 import "./globals.css";
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <footer className="container footer muted small">
             <span>Scrim is an independent fan project, not affiliated with any game it supports.</span>
             <nav>
+              <SuggestGameLink />
               <a href="https://github.com/ewei03/scrim" target="_blank" rel="noreferrer">
                 GitHub
               </a>

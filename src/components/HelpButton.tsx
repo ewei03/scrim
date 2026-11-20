@@ -116,7 +116,7 @@ export function HelpButton() {
           <h3>Which puzzles?</h3>
           <p>
             Wordle, Connections and Krillion, today&apos;s puzzle only. Scrim only supports games anyone can play
-            for free.
+            for free. Want another one? Use <strong>Suggest a game</strong> at the bottom of any page.
           </p>
         </div>
       </dialog>

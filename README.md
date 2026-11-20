@@ -80,7 +80,7 @@ Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run each file in `supabase/migrations/` in order
-   (`0001_init.sql` through `0007_reopen_empty_lobbies.sql`).
+   (`0001_init.sql` through `0008_game_suggestions.sql`).
 3. **Authentication → Sign In / Providers:**
    - enable **Allow anonymous sign-ins** (guest play)
    - enable **Allow manual linking** (lets guests attach Google later)
@@ -93,6 +93,10 @@ Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
 7. Install the extension: `chrome://extensions` → turn on **Developer mode** →
    **Load unpacked** → pick the `extension/` folder. Then in Scrim go to
    **Profile → Chrome extension → Connect extension**.
+
+Game suggestions (footer → Suggest a game) land in the `game_suggestions` table.
+Only you can read them: open **Table Editor → game_suggestions** in the Supabase
+dashboard. The app can write suggestions but can't read them back.
 
 When Scrim gets a real domain, add it to the `scrim-bridge.js` `matches` in
 `extension/manifest.json` (it currently matches `localhost` only).

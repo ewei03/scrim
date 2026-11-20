@@ -402,3 +402,41 @@ describe("recreating a closed lobby", () => {
     expect((finished as { closed_at?: string | null }).closed_at).not.toBeNull();
   });
 });
+
+describe("game suggestions", () => {
+  it("accepts suggestions from signed-in users and keeps them private", async () => {
+    await as(BOB, "select suggest_game($1, $2, $3)", ["  Strands ", "https://nytimes.com/games/strands", "pls"]);
+    await expect(as(null, "select suggest_game('Nope')")).rejects.toThrow(/permission denied/);
+    await expect(as(BOB, "select suggest_game('  ')")).rejects.toThrow(/name/);
+    await expect(as(BOB, "select suggest_game('X', 'javascript:alert(1)')")).rejects.toThrow(/web address/);
+
+    // Nobody can read them through the API, not even the author.
+    await expect(as(BOB, "select * from game_suggestions")).rejects.toThrow(/permission denied/);
+    await expect(as(ANN, "select * from game_suggestions")).rejects.toThrow(/permission denied/);
+
+    const { rows } = await db.query<{ name: string; user_id: string; notes: string }>(
+      "select name, user_id, notes from game_suggestions",
+    );
+    expect(rows).toEqual([{ name: "Strands", user_id: BOB, notes: "pls" }]);
+  });
+
+  it("makes each user wait an hour between suggestions", async () => {
+    await as(ANN, "select suggest_game('First')");
+    await expect(as(ANN, "select suggest_game('Second')")).rejects.toThrow(/an hour/);
+
+    await db.query("update game_suggestions set created_at = now() - interval '61 minutes' where user_id = $1", [ANN]);
+    await as(ANN, "select suggest_game('Second')");
+  });
+
+  it("limits each user to five a day", async () => {
+    for (let i = 0; i < 5; i++) {
+      await as(EVE, "select suggest_game($1)", [`Game ${i}`]);
+      // Step past the hourly cooldown, keeping every row inside the last day.
+      await db.query(
+        "update game_suggestions set created_at = created_at - interval '61 minutes' where user_id = $1",
+        [EVE],
+      );
+    }
+    await expect(as(EVE, "select suggest_game('One more')")).rejects.toThrow(/tomorrow/);
+  });
+});
