@@ -1,3 +1,4 @@
+import { gridRows, normalizeShareText } from "./share";
 import type { GameAdapter, ParseResult } from "./types";
 
 export type WordleResult = {
@@ -32,11 +33,13 @@ const TILES: Record<string, string> = {
 
 const HEADER = /Wordle\s+(\d[\d,.\s  ]*?)\s+([1-6Xx])\/6(\*)?/u;
 
+const TILE_SET: ReadonlySet<string> = new Set(Object.keys(TILES));
+
 export function parseWordle(text: string): ParseResult<WordleResult> {
-  const clean = text.replace(/️/g, "");
+  const clean = normalizeShareText(text);
   const header = clean.match(HEADER);
   if (!header) {
-    return { ok: false, error: "Couldn't find a Wordle score. It should start like “Wordle 1,612 4/6”." };
+    return { ok: false, error: "Invalid format for Wordle score." };
   }
 
   const puzzle = String(Number(header[1].replace(/\D/g, "")));
@@ -44,32 +47,37 @@ export function parseWordle(text: string): ParseResult<WordleResult> {
   const guesses = solved ? Number(header[2]) : null;
   const hard = header[3] === "*";
 
-  const grid: string[] = [];
-  for (const line of clean.slice((header.index ?? 0) + header[0].length).split(/\r?\n/)) {
-    const chars = Array.from(line.trim());
-    if (chars.length === 5 && chars.every((c) => c in TILES)) {
-      grid.push(chars.map((c) => TILES[c]).join(""));
-    }
+  const found = gridRows(clean.slice((header.index ?? 0) + header[0].length), TILE_SET);
+  if (!found.ok) return found;
+  if (found.rows.length === 0) {
+    return { ok: false, error: "Couldn't find the coloured grid. Paste the whole share text." };
   }
+  const bad = found.rows.findIndex((r) => r.length !== 5);
+  if (bad !== -1) return { ok: false, error: `Row ${bad + 1} of the grid should have 5 squares.` };
+  const grid = found.rows.map((r) => r.map((c) => TILES[c]).join(""));
 
-  const result: WordleResult = { puzzle, solved, guesses, hard };
+  const problem = checkWordleGrid(grid, solved, guesses, hard);
+  if (problem) return { ok: false, error: problem };
+  return { ok: true, result: { puzzle, solved, guesses, hard, grid } };
+}
 
-  if (grid.length > 0) {
-    const expected = guesses ?? 6;
-    if (grid.length !== expected) {
-      return { ok: false, error: `The grid has ${grid.length} rows but the score says ${expected}.` };
-    }
-    for (let i = 0; i < grid.length; i++) {
-      const allGreen = grid[i] === "ggggg";
-      const isLastSolved = solved && i === grid.length - 1;
-      if (allGreen !== isLastSolved) {
-        return { ok: false, error: "The grid doesn't match the score." };
+/** What's wrong with a grid for this score, or null if it's a possible game. */
+export function checkWordleGrid(grid: string[], solved: boolean, guesses: number | null, hard: boolean): string | null {
+  const expected = guesses ?? 6;
+  if (grid.length !== expected) return `The grid has ${grid.length} rows but the score says ${expected}.`;
+  for (let i = 0; i < grid.length; i++) {
+    const allGreen = grid[i] === "ggggg";
+    if (allGreen !== (solved && i === grid.length - 1)) return "The grid doesn't match the score.";
+  }
+  // Hard mode: a letter found in the right spot has to stay there.
+  if (hard) {
+    for (let i = 1; i < grid.length; i++) {
+      for (let p = 0; p < 5; p++) {
+        if (grid[i - 1][p] === "g" && grid[i][p] !== "g") return "That grid breaks hard mode: a green square went away.";
       }
     }
-    result.grid = grid;
   }
-
-  return { ok: true, result };
+  return null;
 }
 
 export function manualWordle(puzzle: string, guesses: number | null, hard: boolean): WordleResult {

@@ -1,3 +1,4 @@
+import { gridRows, normalizeShareText } from "./share";
 import type { GameAdapter, ParseResult } from "./types";
 
 export type ConnectionsResult = {
@@ -23,6 +24,7 @@ export function connectionsNumberFor(date: Date): number {
 }
 
 const SQUARES: Record<string, string> = { "🟨": "y", "🟩": "g", "🟦": "b", "🟪": "p" };
+const SQUARE_SET: ReadonlySet<string> = new Set(Object.keys(SQUARES));
 
 const HEADER = /Connections\s*(?:\r?\n|\s)*Puzzle\s*#\s*(\d[\d,.\s]*\d|\d)/iu;
 
@@ -36,6 +38,12 @@ export function scoreConnectionsGrid(grid: string[]): ParseResult<Omit<Connectio
   const groups = found.length;
   const mistakes = grid.length - groups;
   if (new Set(found).size !== groups) return { ok: false, error: "The grid has the same group twice." };
+  // Once a group is found its cards leave the board, so its colour can't come up again.
+  for (let i = 0; i < grid.length; i++) {
+    if (isGroup(grid[i]) && grid.slice(i + 1).some((r) => r.includes(grid[i][0]))) {
+      return { ok: false, error: "That grid isn't possible: a found group's colour shows up again." };
+    }
+  }
   const solved = groups === 4;
   const last = grid[grid.length - 1];
   if (solved ? mistakes > 3 || !isGroup(last) : mistakes !== 4 || isGroup(last)) {
@@ -45,19 +53,21 @@ export function scoreConnectionsGrid(grid: string[]): ParseResult<Omit<Connectio
 }
 
 export function parseConnections(text: string): ParseResult<ConnectionsResult> {
-  const clean = text.replace(/️/g, "");
+  const clean = normalizeShareText(text);
   const header = clean.match(HEADER);
   if (!header) {
-    return { ok: false, error: "Couldn't find a Connections result. It should start like “Connections Puzzle #500”." };
+    return { ok: false, error: "Invalid format for Connections score." };
   }
   const puzzle = String(Number(header[1].replace(/\D/g, "")));
 
-  const grid: string[] = [];
-  for (const line of clean.slice((header.index ?? 0) + header[0].length).split(/\r?\n/)) {
-    const chars = Array.from(line.replace(/\s/g, ""));
-    if (chars.length === 4 && chars.every((c) => c in SQUARES)) grid.push(chars.map((c) => SQUARES[c]).join(""));
+  const found = gridRows(clean.slice((header.index ?? 0) + header[0].length), SQUARE_SET);
+  if (!found.ok) return found;
+  if (found.rows.length === 0) {
+    return { ok: false, error: "Couldn't find the coloured grid. Paste the whole share text." };
   }
-  if (grid.length === 0) return { ok: false, error: "Couldn't find the coloured grid. Paste the whole share text." };
+  const bad = found.rows.findIndex((r) => r.length !== 4);
+  if (bad !== -1) return { ok: false, error: `Row ${bad + 1} of the grid should have 4 squares.` };
+  const grid = found.rows.map((r) => r.map((c) => SQUARES[c]).join(""));
 
   const scored = scoreConnectionsGrid(grid);
   return scored.ok ? { ok: true, result: { puzzle, ...scored.result } } : scored;

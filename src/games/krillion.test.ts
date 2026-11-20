@@ -38,6 +38,9 @@ describe("parseKrillion", () => {
     expect(parseKrillion("Krillion #5 🦐\n🌟🌟🌟").ok).toBe(false);
     expect(parseKrillion("Krillion ∞ 🦐\n🌟🌟🌟🌟🌟🌟🌟")).toMatchObject({ ok: false, error: /Unlimited/ });
     expect(parseKrillion("Connections\nPuzzle #1").ok).toBe(false);
+    // Answers split over two lines, or with extra text on the line.
+    expect(parseKrillion("Krillion #5 🦐\n🌟🌟🌟\n🌟🌟🌟🌟")).toMatchObject({ ok: false, error: /one line/ });
+    expect(parseKrillion("Krillion #5 🦐\n🌟🌟🌟🌟🌟🌟🌟 lol")).toMatchObject({ ok: false, error: /something other/ });
   });
 });
 

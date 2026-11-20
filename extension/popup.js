@@ -8,8 +8,24 @@
     status.textContent = "Not connected. Open Scrim, go to Profile, and click Connect extension.";
   }
 
-  const results = Object.values(c.results ?? {}).sort((a, b) => b.seenAt - a.seenAt);
+  renderResults(c.results);
+  if (c.token) {
+    setUpTabs(c.popupView ?? {}, c.scrimOrigin);
+    // Re-send saved results: the server's reply lists only crews you're still
+    // in, so crews you've left or that were deleted drop off each result.
+    chrome.runtime
+      .sendMessage({ type: "sync" })
+      .then(async (reply) => {
+        if (reply?.ok) renderResults((await chrome.storage.local.get("results")).results);
+      })
+      .catch(() => {});
+  }
+})();
+
+function renderResults(stored) {
+  const results = Object.values(stored ?? {}).sort((a, b) => b.seenAt - a.seenAt);
   const list = document.getElementById("results");
+  list.replaceChildren();
   for (const r of results.slice(0, 7)) {
     const { name, score } = describe(r.game, r.result);
     const sent = (r.crews ?? []).filter((c) => c.outcome === "submitted" || c.outcome === "already").length;
@@ -23,9 +39,7 @@
     list.append(li);
   }
   list.hidden = results.length === 0;
-
-  if (c.token) setUpTabs(c.popupView ?? {}, c.scrimOrigin);
-})();
+}
 
 const GAME_NAMES = { wordle: "Wordle", connections: "Connections", krillion: "Krillion" };
 

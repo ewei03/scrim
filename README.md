@@ -21,7 +21,9 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 | **Round** | one crew, one game, one puzzle | Nobody creates it: the first result for that puzzle starts it. Closes at midnight in the crew's time zone (New York time for Krillion) |
 | **Entry** | one per player per round | Validated server-side. Source is `extension`, or `paste` as the fallback |
 
-- **Joining:** opening a crew's invite link joins it. Members can leave; the
+- **Joining:** opening a crew's invite link joins it, unless someone in the
+  crew already has your display name (ignoring case); renaming yourself to a
+  name taken in one of your crews is refused too. Members can leave; the
   owner can remove members, which also bans them from rejoining.
 - **Games:** the owner turns games on and off right in the crew box on the
   crew page. Turning one off keeps its past days and rankings.
@@ -125,7 +127,7 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run each file in `supabase/migrations/` in order
-   (`0001_init.sql` through `0009_daily_rounds.sql`). `0009` replaces the old
+   (`0001_init.sql` through `0010_unique_names_in_crew.sql`). `0009` replaces the old
    lobbies and **erases any lobby results**; afterwards each crew owner picks
    their crew's games on the crew page.
 3. **Authentication → Sign In / Providers:**

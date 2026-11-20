@@ -36,9 +36,33 @@ describe("parseWordle", () => {
     expect(r.ok && r.result).toMatchObject({ solved: false, guesses: null });
   });
 
-  it("accepts a header without a grid", () => {
-    const r = parseWordle("Wordle 1,612 3/6");
-    expect(r).toEqual({ ok: true, result: { puzzle: "1612", solved: true, guesses: 3, hard: false } });
+  it("needs the grid", () => {
+    expect(parseWordle("Wordle 1,612 3/6")).toMatchObject({ ok: false, error: /grid/ });
+  });
+
+  it("rejects grids that aren't real rows", () => {
+    const tenGreen = "🟩".repeat(10);
+    // A score with a padded row of greens, typed or pasted as chat shortcodes.
+    expect(parseWordle(`Wordle 1,980 4/6 ${tenGreen}`)).toMatchObject({ ok: false, error: /5 squares/ });
+    expect(parseWordle(`Wordle 1,980 4/6 ${":green_square:".repeat(10)}`)).toMatchObject({ ok: false, error: /5 squares/ });
+    expect(parseWordle("Wordle 1,612 1/6\n🟩🟩🟩🟩🟩 yay")).toMatchObject({ ok: false, error: /something other/ });
+    expect(parseWordle("Wordle 1,612 1/6\n🟩🟩🟩🟩🟩\n\n🟩🟩🟩🟩🟩")).toMatchObject({ ok: false, error: /one block/ });
+  });
+
+  it("reads chat shortcodes as squares", () => {
+    const r = parseWordle(
+      "Wordle 1,612 2/6\n:black_large_square::yellow_square::black_large_square::black_large_square::black_large_square:\n" +
+        ":large_green_square:".repeat(5),
+    );
+    expect(r.ok && r.result.grid).toEqual([".y...", "ggggg"]);
+  });
+
+  it("checks hard mode keeps greens in place", () => {
+    expect(parseWordle("Wordle 1,612 3/6*\n🟩⬛⬛⬛⬛\n⬛🟩⬛⬛⬛\n🟩🟩🟩🟩🟩")).toMatchObject({
+      ok: false,
+      error: /hard mode/,
+    });
+    expect(parseWordle("Wordle 1,612 3/6\n🟩⬛⬛⬛⬛\n⬛🟩⬛⬛⬛\n🟩🟩🟩🟩🟩").ok).toBe(true);
   });
 
   it("rejects mismatched grids and junk", () => {

@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal } from "@/components/Modal";
 import type { ExtensionState } from "@/lib/extension";
 
@@ -19,37 +18,47 @@ function markSeen(userId: string) {
   try {
     localStorage.setItem(seenKey(userId), "1");
   } catch {
-    // Storage blocked: it shows again next visit, which is fine.
+    // Storage blocked: it could show once more within the first few minutes.
   }
 }
 
+/** How long after an account is created it still counts as "just signed up". */
+const NEW_ACCOUNT_MS = 10 * 60_000;
+
 /**
- * Getting-started guide, shown on the home page until it's dismissed, unless
- * the player is already set up. Each step ticks off as it's done.
+ * Getting-started guide, shown once: the first time a brand-new account reaches
+ * the home page, right after signing up. It's marked as seen the moment it
+ * opens, so it never comes back, whether it's closed, the player navigates
+ * away, or they return to the home page later. Older accounts never see it,
+ * even on a new browser. Each step ticks off as it's done.
  */
 export function Welcome({
   userId,
+  accountCreatedAt,
   extension,
   hasCrew,
   hasGames,
-  onCreateCrew,
 }: {
   userId: string;
+  /** The auth account's creation time (ISO). */
+  accountCreatedAt: string;
   extension: ExtensionState;
   hasCrew: boolean;
   hasGames: boolean;
-  onCreateCrew: () => void;
 }) {
   const connected = extension === "connected";
-  const setUp = hasCrew && hasGames && connected;
-  // Decided once, when the extension check is done, so set-up players never
-  // see it and finishing a step doesn't close it under you.
-  const [show, setShow] = useState<boolean | null>(null);
-  if (show === null && extension !== "checking") setShow(!setUp && !seen(userId));
-  const open = show === true;
+  // Decided once, on first render.
+  const [show, setShow] = useState(
+    () => Date.now() - Date.parse(accountCreatedAt) < NEW_ACCOUNT_MS && !seen(userId),
+  );
+
+  useEffect(() => {
+    if (show) markSeen(userId);
+  }, [show, userId]);
+
+  const open = show;
 
   function close() {
-    markSeen(userId);
     setShow(false);
   }
 

@@ -76,8 +76,7 @@ function Profile() {
         {isGuest ? (
           <>
             <p>
-              You&apos;re playing as a <strong>guest</strong>. Your account lives in this browser only — clearing
-              site data or switching devices loses it.
+              You&apos;re playing as a <strong>guest</strong>. Clearing site data or switching devices loses your data.
             </p>
             <GoogleButton mode="link" onError={setError} />
             <p className="muted small">Linking keeps your crews and stats and lets you sign in anywhere.</p>

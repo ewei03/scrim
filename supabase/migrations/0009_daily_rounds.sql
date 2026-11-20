@@ -247,6 +247,13 @@ begin
   if not is_crew_member(p_crew) then raise exception 'Crew not found'; end if;
   if p_source is distinct from 'paste' then raise exception 'Invalid source'; end if;
   if nullif(trim(p_raw), '') is null then raise exception 'Paste the game''s share text'; end if;
+  -- A paste always has its grid (or Krillion's answers), so a score can't be
+  -- claimed without one. The site's parser checks the grid in detail;
+  -- normalize_result checks it matches the score.
+  if (p_game in ('wordle', 'connections') and jsonb_typeof(p_result -> 'grid') is distinct from 'array')
+     or (p_game = 'krillion' and nullif(p_result ->> 'tiers', '') is null) then
+    raise exception 'Paste the whole share text, including the coloured grid';
+  end if;
   v_outcome := record_entry(auth.uid(), p_crew, p_game, p_result, p_raw, p_source);
   case v_outcome
     when 'not-tracked' then raise exception 'This crew doesn''t play %', p_game;

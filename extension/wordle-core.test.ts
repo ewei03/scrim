@@ -12,7 +12,7 @@ const state = (status: string, extra: Record<string, unknown> = {}) =>
       {
         puzzleId: "1555",
         printDate: "2026-11-19",
-        data: { boardState: ["crane", "sloth", "clout", "", "", ""], status, hardMode: true, isPlayingArchive: false, ...extra },
+        data: { boardState: ["crane", "cloth", "clout", "", "", ""], status, hardMode: true, isPlayingArchive: false, ...extra },
       },
     ],
   });
@@ -84,7 +84,7 @@ describe("toResult", () => {
   });
 
   it("computes the grid for a win when the page grid isn't readable", () => {
-    expect(core.toResult(game, []).grid).toEqual(["g....", ".ggy.", "ggggg"]);
+    expect(core.toResult(game, []).grid).toEqual(["g....", "gggy.", "ggggg"]);
   });
 
   it("omits the grid for a loss it can't read", () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { CopyLink } from "@/components/CopyLink";
@@ -42,10 +43,27 @@ export function CrewView() {
   );
 }
 
-/** Opening a crew link joins the crew, so this doubles as the invite handler. */
-async function fetchCrew(code: string) {
-  const crew = await rpc<Crew>("join_crew", { p_code: code });
+const REFRESH_MS = 20_000;
+
+/** The crew was deleted, or you're not in it any more (left elsewhere, or removed). */
+class CrewGoneError extends Error {}
+
+/**
+ * Opening a crew link joins the crew, so the first load (join) doubles as the
+ * invite handler. Refreshes only read: re-joining would quietly put back
+ * someone who left the crew in another tab or on another device.
+ */
+async function fetchCrew(code: string, join: boolean) {
   const sb = supabase();
+  let crew: Crew;
+  if (join) {
+    crew = await rpc<Crew>("join_crew", { p_code: code });
+  } else {
+    const { data, error } = await sb.from("crews").select("*").eq("invite_code", code.toLowerCase()).maybeSingle();
+    if (error) throw error;
+    if (!data) throw new CrewGoneError();
+    crew = data as Crew;
+  }
   const [m, g, r] = await Promise.all([
     sb.from("crew_members").select("user_id, profiles(display_name)").eq("crew_id", crew.id).order("joined_at"),
     sb.from("crew_games").select("game").eq("crew_id", crew.id),
@@ -79,24 +97,51 @@ function CrewPage() {
   const [boardsKey, setBoardsKey] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
+  const [gone, setGone] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(
-    () =>
-      fetchCrew(code).then(
+    (join = false) =>
+      fetchCrew(code, join).then(
         (d) => {
           setCrew(d.crew);
           setMembers(d.members);
           setGames(d.games);
           setRounds(d.rounds);
+          setError(null);
         },
-        (e) => setError(errorMessage(e)),
+        (e) => (e instanceof CrewGoneError ? setGone(true) : setError(errorMessage(e))),
       ),
     [code],
   );
 
   useEffect(() => {
-    load();
+    load(true);
   }, [load]);
+
+  // Keep members, games, rankings and past days current: every so often while
+  // the page is visible, and when you come back to it. (Today's scoreboards
+  // poll on their own, more often.)
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    const timer = setInterval(refresh, REFRESH_MS);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [load]);
+
+  async function refreshNow() {
+    setRefreshing(true);
+    // Saved results from the extension too, in case one hasn't come through.
+    const synced = extension.state === "connected" ? askExtension("sync") : Promise.resolve(null);
+    await Promise.all([load(), synced]);
+    setBoardsKey((k) => k + 1);
+    setRefreshing(false);
+  }
 
   // Tick for countdowns. When the crew's day rolls over, the old rounds move
   // into the history.
@@ -151,6 +196,17 @@ function CrewPage() {
       .filter((s) => s.count > 0);
   }, [finished, members]);
 
+  if (gone) {
+    return (
+      <div className="card stack">
+        <h1>Crew not available</h1>
+        <p>This crew was deleted, or you&apos;re no longer a member.</p>
+        <Link href="/" className="btn btn-primary back-home-btn">
+          ← Back to Scrim
+        </Link>
+      </div>
+    );
+  }
   if (error && !crew) return <p className="error">{error}</p>;
   if (!crew) return <Loading />;
 
@@ -175,6 +231,8 @@ function CrewPage() {
       return;
     try {
       await rpc("leave_crew", { p_crew: crew.id });
+      // Have the extension drop this crew from its saved results.
+      askExtension("sync");
       router.push("/");
     } catch (e) {
       setError(errorMessage(e));
@@ -182,7 +240,7 @@ function CrewPage() {
   }
 
   return (
-    <div className="stack-lg">
+    <div className="stack-lg page-enter">
       <section className="crew-plate">
         <p className="crew-plate-bar">
           <span>Crew</span>
@@ -237,7 +295,12 @@ function CrewPage() {
       </section>
 
       <section className="stack">
-        <h2>Today</h2>
+        <div className="row between">
+          <h2>Today</h2>
+          <button className="btn btn-small" disabled={refreshing} onClick={refreshNow}>
+            {refreshing ? "Refreshing…" : "↻ Refresh"}
+          </button>
+        </div>
         {tracked.length === 0 ? (
           isOwner ? (
             <p className="card">
@@ -600,6 +663,8 @@ function ManageCrew({
     if (!confirm(`Delete ${crew.name} for everyone? All its results and rankings are deleted. This can't be undone.`)) return;
     await run("crew", async () => {
       await rpc("delete_crew", { p_crew: crew.id });
+      // Have the extension drop this crew from its saved results.
+      askExtension("sync");
       router.push("/");
     });
   }

@@ -31,6 +31,13 @@ describe("parseConnections", () => {
     expect(parseConnections("Connections\nPuzzle #1").ok).toBe(false);
     // Stopped before finishing.
     expect(parseConnections("Connections\nPuzzle #1\n🟨🟨🟨🟨\n🟩🟦🟩🟩").ok).toBe(false);
+    // A row of five, a stray row after the grid, and a found colour coming back.
+    expect(parseConnections("Connections\nPuzzle #1\n🟨🟨🟨🟨🟨\n🟩🟩🟩🟩\n🟦🟦🟦🟦\n🟪🟪🟪🟪").ok).toBe(false);
+    expect(parseConnections("Connections\nPuzzle #1\n🟨🟨🟨🟨\n🟩🟩🟩🟩\n🟦🟦🟦🟦\n🟪🟪🟪🟪\n\n🟪🟪🟪🟪").ok).toBe(false);
+    expect(parseConnections("Connections\nPuzzle #1\n🟨🟨🟨🟨\n🟨🟩🟩🟩\n🟩🟩🟩🟩\n🟦🟦🟦🟦\n🟪🟪🟪🟪")).toMatchObject({
+      ok: false,
+      error: /shows up again/,
+    });
     // Same group twice.
     expect(parseConnections("Connections\nPuzzle #1\n🟨🟨🟨🟨\n🟨🟨🟨🟨\n🟦🟦🟦🟦\n🟪🟪🟪🟪").ok).toBe(false);
   });

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { gameList } from "@/games/registry";
 import { AuthError, Loading } from "@/components/RequireAuth";
 import { GameTag, gameStyle } from "@/components/GameTag";
@@ -30,14 +30,14 @@ export function Home() {
 
 function Landing() {
   return (
-    <div className="stack-lg">
+    <div className="stack-lg page-enter">
       <section className="hero">
         <h1>
           DAILY PUZZLE
           <br />
           SHOWDOWNS.
         </h1>
-        <p>Compete in daily puzzles with your friends!</p>
+        <p>Turn your daily puzzles into a competition!</p>
       </section>
       <ol className="steps">
         <li>Start a crew with your friends</li>
@@ -52,7 +52,6 @@ function Landing() {
 function Dashboard() {
   const { user } = useAuth();
   const extension = useExtension();
-  const crewName = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const [crews, setCrews] = useState<CrewWithCount[] | null>(null);
   const [open, setOpen] = useState<OpenRound[]>([]);
@@ -116,14 +115,14 @@ function Dashboard() {
     .sort((a, b) => Number(a.rows.every((r) => r.done)) - Number(b.rows.every((r) => r.done)));
 
   return (
-    <div className="stack-lg">
+    <div className="stack-lg page-enter">
       {user && (
         <Welcome
           userId={user.id}
+          accountCreatedAt={user.created_at}
           extension={extension.state}
           hasCrew={crews.length > 0}
           hasGames={crews.some((c) => c.crew_games.length > 0)}
-          onCreateCrew={() => crewName.current?.focus()}
         />
       )}
       {today.length > 0 && (
@@ -189,7 +188,6 @@ function Dashboard() {
         )}
         <form className="row" onSubmit={createCrew}>
           <input
-            ref={crewName}
             className="input grow"
             placeholder="New crew name"
             maxLength={40}

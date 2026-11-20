@@ -46,8 +46,12 @@ async function as<T = Record<string, unknown>>(user: string | null, sql: string,
 }
 
 const grid = (...rows: string[]) => JSON.stringify(rows);
+/** A solved Wordle result. Pasted results need a grid, so it gets a plain one by default. */
 const solve = (puzzle: string, guesses: number, rows?: string) =>
-  `{"puzzle":"${puzzle}","solved":true,"guesses":${guesses},"hard":false${rows ? `,"grid":${rows}` : ""}}`;
+  `{"puzzle":"${puzzle}","solved":true,"guesses":${guesses},"hard":false,"grid":${
+    rows ?? grid(...Array(Math.max(guesses - 1, 0)).fill(".y..."), "ggggg")
+  }}`;
+const MISS_GRID = grid(...Array(6).fill(".y..."));
 
 /** Today's Wordle number by UTC date, which is always "today" somewhere. */
 let T: string;
@@ -169,7 +173,7 @@ describe("schema", () => {
     const submit = (result: string) => submitEntry(EVE, crew.id, result);
     await expect(submit(solve(OLD, 3))).rejects.toThrow(/day is over/);
     await expect(submit(solve(String(Number(T) + 5), 3))).rejects.toThrow(/day is over/);
-    await expect(submit(`{"puzzle":"x1","solved":true,"guesses":3}`)).rejects.toThrow(/Invalid puzzle/);
+    await expect(submit(`{"puzzle":"x1","solved":true,"guesses":1,"grid":["ggggg"]}`)).rejects.toThrow(/Invalid puzzle/);
     await expect(submit(solve(T, 9))).rejects.toThrow(/between 1 and 6/);
     await expect(submit(solve(T, 2, grid("ggggg", "ggggg")))).rejects.toThrow(/does not match/);
     await expect(submit(solve(T, 1, grid("hello")))).rejects.toThrow(/Invalid grid row/);
@@ -177,10 +181,13 @@ describe("schema", () => {
       as(EVE, "select submit_entry($1, 'wordle', $2, '', 'extension')", [crew.id, solve(T, 1)]),
     ).rejects.toThrow(/Invalid source/);
 
+    // Pasted results need their grid.
+    await expect(submit(`{"puzzle":"${T}","solved":true,"guesses":2,"hard":false}`)).rejects.toThrow(/coloured grid/);
+
     // Junk fields are dropped; misses are stored without guesses.
-    await submit(`{"puzzle":"${T}","solved":false,"guesses":4,"hard":true,"evil":1}`);
+    await submit(`{"puzzle":"${T}","solved":false,"guesses":4,"hard":true,"evil":1,"grid":${MISS_GRID}}`);
     const [row] = await as<{ result: object }>(EVE, "select result from entries where user_id = $1", [EVE]);
-    expect(row.result).toEqual({ puzzle: T, solved: false, hard: true });
+    expect(row.result).toEqual({ puzzle: T, solved: false, hard: true, grid: JSON.parse(MISS_GRID) });
     await expect(submit(solve(T, 3))).rejects.toThrow(/already submitted/);
     // Rejected puzzles never start a round.
     expect(await as(EVE, "select puzzle_id from rounds")).toEqual([{ puzzle_id: T }]);
@@ -419,7 +426,7 @@ describe("connections and krillion", () => {
 
   it("only allows today's puzzle", async () => {
     await expect(
-      submit(EVE, "connections", { puzzle: String(Number(C) - 5), solved: true, mistakes: 0 }),
+      submit(EVE, "connections", { puzzle: String(Number(C) - 5), grid: ["yyyy", "gggg", "bbbb", "pppp"] }),
     ).rejects.toThrow(/day is over/);
   });
 
@@ -436,19 +443,28 @@ describe("connections and krillion", () => {
       grid: ["yyyy", "gbgg", "gggg", "bbbb", "pppp"],
     });
     expect(await stored(BOB, "connections")).toMatchObject({ solved: true, mistakes: 1, groups: 4 });
-    await submit(EVE, "connections", { puzzle: C, solved: false, groups: 2, mistakes: 0 });
-    expect(await stored(EVE, "connections")).toEqual({ puzzle: C, solved: false, mistakes: 4, groups: 2 });
+    await expect(submit(EVE, "connections", { puzzle: C, solved: false, groups: 2, mistakes: 0 })).rejects.toThrow(
+      /coloured grid/,
+    );
+    const loss = ["yyyy", "gggg", "bbpp", "pbpb", "bppb", "pbbp"];
+    await submit(EVE, "connections", { puzzle: C, solved: true, mistakes: 0, grid: loss });
+    expect(await stored(EVE, "connections")).toEqual({ puzzle: C, solved: false, mistakes: 4, groups: 2, grid: loss });
   });
 
   it("scores Krillion from the tiers, bounds depth, and closes at New York midnight", async () => {
-    await expect(submit(ANN, "krillion", { puzzle: K, points: 100 })).rejects.toThrow(/doesn't play krillion/);
+    await expect(submit(ANN, "krillion", { puzzle: K, tiers: "sssssss" })).rejects.toThrow(/doesn't play krillion/);
     await as(ANN, "select set_crew_game($1, 'krillion', true)", [crew]);
-    await expect(submit(EVE, "krillion", { puzzle: String(Number(K) - 1), points: 100 })).rejects.toThrow(
+    await expect(submit(EVE, "krillion", { puzzle: String(Number(K) - 1), tiers: "sssssss" })).rejects.toThrow(
       /day is over/,
     );
     await submit(ANN, "krillion", { puzzle: K, points: 700, tiers: "sprxksd" });
     expect(await stored(ANN, "krillion")).toEqual({ puzzle: K, points: 315, tiers: "sprxksd" });
-    await expect(submit(EVE, "krillion", { puzzle: K, points: 701 })).rejects.toThrow(/between/);
+    // A score with no answers isn't a paste.
+    await expect(submit(EVE, "krillion", { puzzle: K, points: 700 })).rejects.toThrow(/coloured grid/);
+    // The score bound still holds for results without answers (none arrive that way now).
+    await expect(db.query("select normalize_result('krillion', $1, $2)", [K, JSON.stringify({ puzzle: K, points: 701 })])).rejects.toThrow(
+      /between/,
+    );
     await expect(submit(EVE, "krillion", { puzzle: K, tiers: "kkkkkkkk" })).rejects.toThrow(/Invalid answers/);
 
     const { rows } = await db.query<{ ok: boolean }>(
@@ -544,6 +560,43 @@ describe("extension rankings", () => {
     await as(EVE, "select leave_crew($1)", [crew.id]);
     const after = await as<{ crew_name: string; user_id: string }>(null, "select * from extension_rankings($1)", [token]);
     expect(after.filter((r) => r.crew_name === "Ranked").map((r) => r.user_id)).toEqual([ANN, BOB]);
+  });
+});
+
+describe("display names within a crew", () => {
+  const ZED = "00000000-0000-0000-0000-0000000000f1";
+  const ZED2 = "00000000-0000-0000-0000-0000000000f2";
+  let crew: CrewRow;
+
+  beforeAll(async () => {
+    await db.query(
+      `insert into auth.users (id, raw_user_meta_data) values ($1, '{"display_name":"Zed"}'), ($2, '{"display_name":"  zED "}')`,
+      [ZED, ZED2],
+    );
+    crew = await createCrew(ZED, "Zed's Crew");
+  });
+
+  it("won't let you join a crew where someone already has your name", async () => {
+    await expect(as(ZED2, "select join_crew($1)", [crew.invite_code])).rejects.toThrow(/already called/);
+    const members = await as<{ user_id: string }>(ZED, "select user_id from crew_members where crew_id = $1", [crew.id]);
+    expect(members.map((m) => m.user_id)).toEqual([ZED]);
+  });
+
+  it("lets you in once your name is different, and opening the link again is fine", async () => {
+    await as(ZED2, "update profiles set display_name = 'Zed Two' where id = $1", [ZED2]);
+    await as(ZED2, "select join_crew($1)", [crew.invite_code]);
+    await as(ZED2, "select join_crew($1)", [crew.invite_code]);
+    expect(await as(ZED2, "select * from crews where id = $1", [crew.id])).toHaveLength(1);
+  });
+
+  it("won't let you rename yourself to a name taken in one of your crews", async () => {
+    await expect(as(ZED2, "update profiles set display_name = 'ZED' where id = $1", [ZED2])).rejects.toThrow(
+      /already called/,
+    );
+    // Changing only your own name's capitals is fine.
+    await as(ZED2, "update profiles set display_name = 'zed two' where id = $1", [ZED2]);
+    // A name nobody in your crews has is fine too.
+    await as(ZED2, "update profiles set display_name = 'Annie' where id = $1", [ZED2]);
   });
 });
 

@@ -1,4 +1,5 @@
 import { dateIn } from "@/lib/time";
+import { gridRows, normalizeShareText } from "./share";
 import type { GameAdapter, ParseResult } from "./types";
 
 export type KrillionResult = {
@@ -34,6 +35,7 @@ export const TIERS: Record<string, { emoji: string; name: string; points: number
 
 const BY_EMOJI = new Map(Object.entries(TIERS).map(([code, t]) => [t.emoji, code]));
 BY_EMOJI.set("⬜", "x");
+const TIER_SET: ReadonlySet<string> = new Set(BY_EMOJI.keys());
 
 const HEADER = /Krillion\s*#\s*(\d[\d,]*)/iu;
 
@@ -42,27 +44,25 @@ export function tierPoints(tiers: string): number {
 }
 
 export function parseKrillion(text: string): ParseResult<KrillionResult> {
-  const clean = text.replace(/️/g, "");
+  const clean = normalizeShareText(text);
   const header = clean.match(HEADER);
   if (!header) {
     if (/Krillion\s*∞/u.test(clean)) return { ok: false, error: "That's an Unlimited dive. Paste today's Daily Dive." };
-    return { ok: false, error: "Couldn't find a Krillion result. It should start like “Krillion #127 🦐”." };
+    return { ok: false, error: "Invalid format for Krillion.io score." };
   }
   const puzzle = String(Number(header[1].replace(/\D/g, "")));
 
-  // The score line's wording may vary, so the score is worked out from the tiers.
-  const tiers = Array.from(clean.slice((header.index ?? 0) + header[0].length))
-    .map((c) => BY_EMOJI.get(c))
-    .filter(Boolean)
-    .join("");
-  if (tiers.length !== PROMPTS) {
-    return {
-      ok: false,
-      error: tiers.length
-        ? `Found ${tiers.length} answers but a dive has ${PROMPTS}. Paste the whole share text.`
-        : "Couldn't find your answers. Paste the whole share text.",
-    };
+  // The score line's wording may vary, so the score is worked out from the
+  // answers: one line of exactly seven, with nothing else on it.
+  const found = gridRows(clean.slice((header.index ?? 0) + header[0].length), TIER_SET);
+  if (!found.ok) return found;
+  if (found.rows.length === 0) return { ok: false, error: "Couldn't find your answers. Paste the whole share text." };
+  if (found.rows.length > 1) return { ok: false, error: "Your answers should all be on one line." };
+  const row = found.rows[0];
+  if (row.length !== PROMPTS) {
+    return { ok: false, error: `Found ${row.length} answers but a dive has ${PROMPTS}. Paste the whole share text.` };
   }
+  const tiers = row.map((c) => BY_EMOJI.get(c)).join("");
   return { ok: true, result: { puzzle, points: tierPoints(tiers), tiers } };
 }
 

@@ -116,7 +116,7 @@ export default function PrivacyPage() {
       </p>
 
       <h3>Play fair!</h3>
-      <p>We don't enforce these rules, but an honest system keeps things fair and fun.</p>
+      <p>We don&apos;t enforce these rules, but an honest system keeps things fair and fun.</p>
       <ul>
         <li>Only submit results from puzzles you played yourself, on your own account.</li>
         <li>
