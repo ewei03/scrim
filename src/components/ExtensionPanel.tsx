@@ -56,8 +56,7 @@ export function ExtensionPanel() {
       {state === "missing" && (
         <>
           <p>
-            Install the Scrim extension and your results go straight into your crews when you finish a game. No
-            pasting.
+            Install the Scrim extension and your results go straight into your crews when you finish a game.
           </p>
           <ol className="small muted">
             <li>

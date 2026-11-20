@@ -37,15 +37,15 @@ export function SubmitPanel({
 
       {auto ? (
         <p>
-          <strong>⚡ Auto-submit is on.</strong> Play {game.name} {game.puzzleLabel(puzzleId)} and your result
-          shows up here as soon as you finish.
+          Start playing! Your results will automatically show up here.
         </p>
       ) : ext === null || ext === "checking" ? null : (
         <p className="muted small">
           {ext === "missing"
-            ? "Get the Scrim extension and your result is submitted automatically when you finish. "
-            : "Connect the Scrim extension to submit automatically. "}
-          <Link href="/me">Set it up on your profile →</Link>
+            ? "Enable the Scrim extension to ensure your score is submitted automatically."
+            : "Connect the Scrim extension to submit automatically."}
+          <br />
+          <Link href="/profile">Set it up on your profile →</Link>
         </p>
       )}
 
@@ -57,7 +57,7 @@ export function SubmitPanel({
           onClick={() => setShowEntry((s) => !s)}
         >
           {showEntry ? "▾" : "▸"}{" "}
-          {auto ? "Extension not working? Paste your result instead" : "Or, paste your result"}
+          {auto ? "Not working? Paste your result instead" : "Or, paste your result"}
         </button>
         {showEntry && (
           <div>

@@ -32,47 +32,45 @@ export function HelpButton() {
         </div>
         <div className="dialog-body stack">
           <p>
-            Scrim turns daily puzzles into a friendly competition. Everyone plays the same puzzle on their own time,
-            and Scrim keeps score.
+            Turn daily puzzles into a friendly competition! Everyone plays the same puzzle on their own time,
+            and Scrim keeps score for you.
           </p>
 
           <h3>The basics</h3>
           <ol>
             <li>
-              <strong>Make a crew</strong> and pick the games it plays. A crew is your friend group. It keeps
-              rankings and every past day&apos;s results.
+              <strong>Make a crew</strong> and pick the games it plays. Your crew is your friend group, or anyone you want to invite!
             </li>
             <li>
               <strong>Share the invite link.</strong> Opening it joins the crew.
             </li>
             <li>
-              <strong>Play</strong> each day&apos;s puzzle on the game&apos;s own site, whenever suits you.
+              <strong>Play</strong> each day&apos;s puzzle on the game&apos;s own site. Good luck!
             </li>
             <li>
               <strong>Your score lands in the crew.</strong> At midnight in the crew&apos;s time zone, Scrim
               declares the day&apos;s winner.
             </li>
             <li>
-              <strong>Done with a crew?</strong> Leave it from the crew page.
+              <strong>Don't wanna stay?</strong> Leave the crew from the crew page.
             </li>
           </ol>
 
           <h3>Getting your score in</h3>
           <ul>
             <li>
-              <strong>Automatic (recommended):</strong> install the Scrim Chrome extension and connect it on your{" "}
-              <Link href="/me" onClick={close}>
+              Install the <strong>Scrim Chrome extension</strong> and connect it on your{" "}
+              <Link href="/profile" onClick={close}>
                 profile
               </Link>
-              . Finish a game and your result goes into every crew that plays that game. It shows
-              up with a ⚡. For NYT games, play while signed in to your NYT account: games played signed out
+              . Finish a game and your result goes into every crew that plays that game. *For NYT games, play while signed in to your NYT account: games played signed out
               don&apos;t count.
             </li>
             <li>
-              <strong>Paste:</strong> click Share in the game and paste the text into the crew page.
+              Alternatively, you can manually enter your score by clicking Share in the game and paste the text into the crew page.
             </li>
           </ul>
-          <p className="muted small">You get one submission per puzzle. The crew owner can void an entry if something went wrong.</p>
+          <p className="muted small">One submission per puzzle. The crew owner can void an entry if something went wrong.</p>
 
           <h3>Winning</h3>
           <ul>
@@ -88,7 +86,7 @@ export function HelpButton() {
 
           <h3>No spoilers</h3>
           <p>
-            With &quot;hide scores until you submit&quot; on, you see who has played but not how they did until
+            Enable &quot;hide scores until you submit&quot; to see who has played, but not how they did, until
             you&apos;ve locked in your own result.
           </p>
 
@@ -100,8 +98,7 @@ export function HelpButton() {
 
           <h3>Accounts</h3>
           <p>
-            Play as a guest with just a name, or sign in with Google. Guest accounts live in one browser. Link Google
-            from your profile to keep your stats if you switch computers.
+            Play as a guest or sign in with Google. It's recommended to sign in with Google to keep your stats.
           </p>
 
           <h3>Which puzzles?</h3>

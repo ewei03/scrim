@@ -16,7 +16,7 @@ export function Header() {
         <HelpButton />
         <ThemeToggle />
         {profile && (
-          <Link href="/me" className="whoami">
+          <Link href="/profile" className="whoami">
             {profile.display_name}
             {isGuest && <span className="tag">guest</span>}
           </Link>

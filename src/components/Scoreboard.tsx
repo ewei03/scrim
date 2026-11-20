@@ -85,7 +85,7 @@ export function Scoreboard({
           {rows.length === 0 && (
             <tr>
               <td colSpan={5} className="muted center">
-                Nobody has submitted yet{closed ? "" : " — be first"}.
+                Nobody has submitted yet{closed ? "" : " — be the first"}!
               </td>
             </tr>
           )}

@@ -110,7 +110,7 @@ async function loadRankings(view, scrimOrigin) {
     );
     const link = document.getElementById("open-crew");
     link.hidden = !scrimOrigin;
-    if (scrimOrigin) link.href = `${scrimOrigin}/c/${view.crew}`;
+    if (scrimOrigin) link.href = `${scrimOrigin}/crew/${view.crew}`;
   }
 
   pickCrew.addEventListener("change", () => {

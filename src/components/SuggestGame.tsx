@@ -103,7 +103,7 @@ export function SuggestGame() {
         />
       </label>
       <p className="muted small">
-        Only the Scrim owner sees suggestions. Leave an email if you&apos;re happy to be contacted about yours.
+        We'll contact you by email regarding any updates to your suggestion!
       </p>
       <button className="btn btn-primary" disabled={busy || !name.trim()}>
         {busy ? "Sending…" : "Send suggestion"}
@@ -122,7 +122,7 @@ export function SuggestGameLink() {
         Suggest a game
       </button>
       <Modal open={open} onClose={() => setOpen(false)} title="Suggest a game">
-        <p>Want another daily puzzle on Scrim? Tell us which one.</p>
+        <p>Want another daily puzzle on Scrim? Tell us which one!</p>
         <SuggestGame />
       </Modal>
     </>

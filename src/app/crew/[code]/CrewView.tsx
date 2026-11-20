@@ -192,7 +192,7 @@ function CrewPage() {
           <div className="row between wrap">
             <h1>{crew.name}</h1>
             <div className="row">
-              <CopyLink path={`/c/${crew.invite_code}`} label="Invite to crew" />
+              <CopyLink path={`/crew/${crew.invite_code}`} label="Invite to crew" />
               {isOwner ? (
                 <button
                   className="icon-btn"
@@ -239,8 +239,7 @@ function CrewPage() {
         {tracked.length === 0 ? (
           isOwner ? (
             <p className="card">
-              Pick the games {crew.name} plays with the game buttons above. Every day, everyone&apos;s result for
-              each one lands here.
+              Click on a game in the Crew tab to get started.
             </p>
           ) : (
             <p className="muted">The crew owner hasn&apos;t picked any games yet.</p>
@@ -285,9 +284,9 @@ function CrewPage() {
       )}
 
       <section className="stack">
-        <h2>Past days</h2>
+        <h2>Archive</h2>
         {finished.length === 0 ? (
-          <p className="muted">Finished days show up here.</p>
+          <p className="muted">Results from previous days will show up here.</p>
         ) : (
           <ul className="list list-archive">
             {finished.map((r) => (
@@ -497,6 +496,8 @@ function CrewGames({
     setError(null);
     try {
       await rpc("set_crew_game", { p_crew: crew.id, p_game: game.id, p_tracked: on });
+      // A game you just added opens expanded, even if you'd collapsed it before.
+      if (on) rememberCollapsed(crew.id, game.id, false);
       onGames(on ? [...games, game.id] : games.filter((g) => g !== game.id));
     } catch (e) {
       setError(errorMessage(e));
@@ -612,7 +613,7 @@ function ManageCrew({
         Hide scores until you submit (no spoilers)
       </label>
       <label className="field">
-        <span>The day ends at midnight in</span>
+        <span>Time Zone</span>
         <select
           className="input"
           value={timezone}
@@ -626,7 +627,7 @@ function ManageCrew({
           ))}
         </select>
       </label>
-      <p className="muted small">Krillion always ends at midnight New York time. Changes apply from the next day.</p>
+      <p className="muted small">The day ends at midnight in the selected time zone.</p>
 
       <h3>Members</h3>
       {others.length === 0 ? (
@@ -644,7 +645,6 @@ function ManageCrew({
         </ul>
       )}
       <div className="row between wrap danger-zone">
-        <span className="muted small">Deletes all results and rankings for everyone.</span>
         <button className="btn btn-small btn-danger" disabled={busy !== null} onClick={deleteCrew}>
           {busy === "crew" ? "Deleting…" : "Delete crew"}
         </button>

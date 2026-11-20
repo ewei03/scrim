@@ -17,7 +17,7 @@ Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
 
 | Concept | Lifetime | Notes |
 |---|---|---|
-| **Crew** | permanent | Friend group. Picks its games, time zone and rules. Rankings, past days. Link: `/c/<code>` |
+| **Crew** | permanent | Friend group. Picks its games, time zone and rules. Rankings, past days. Link: `/crew/<code>` |
 | **Round** | one game, one puzzle, one crew | Started by the first result. Closes at midnight in the crew's time zone (New York for Krillion) |
 | **Entry** | one per player per round | Validated server-side; source is `extension`, or `paste` as the fallback |
 
@@ -33,7 +33,7 @@ Only free-to-play games are supported — `GameAdapter.free` is typed `true`.
 - `src/games/` — game adapters (`wordle.ts`), registry, ranking, game-specific UI
 - `src/lib/stats.ts` — rankings and streaks
 - `src/lib/rounds.ts` — which puzzle is a crew's "today", and when its day ends
-- `src/app/` — `/` home, `/c/[code]` crew, `/me` profile
+- `src/app/` — `/` home, `/crew/[code]` crew (old `/c/…` links redirect), `/profile` (was `/me`), `/privacy`
 - `extension/` — Chrome extension (plain JS, no build step)
 
 ### How the extension works

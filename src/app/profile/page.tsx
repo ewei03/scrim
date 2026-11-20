@@ -1,5 +1,5 @@
-import { Me } from "./Me";
+import { ProfileView } from "./ProfileView";
 
 export default function Page() {
-  return <Me />;
+  return <ProfileView />;
 }

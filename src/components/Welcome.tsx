@@ -60,7 +60,7 @@ export function Welcome({
       body: (
         <>
           It submits your score the moment you finish a game, so there&apos;s nothing to paste.{" "}
-          <Link href="/me" onClick={close}>
+          <Link href="/profile" onClick={close}>
             {extension === "missing" ? "Install and connect it on your profile →" : "Connect it on your profile →"}
           </Link>
         </>

@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { askExtension } from "@/lib/extension";
 import { errorMessage, supabase } from "@/lib/supabase";
 
-export function Me() {
+export function ProfileView() {
   return (
     <RequireAuth>
       <Profile />
@@ -39,7 +39,7 @@ function Profile() {
     setError(null);
     const { error } = await supabase().auth.linkIdentity({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/me` },
+      options: { redirectTo: `${window.location.origin}/profile` },
     });
     if (error) setError(errorMessage(error));
   }

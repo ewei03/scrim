@@ -81,7 +81,7 @@ function Dashboard() {
     e.preventDefault();
     try {
       const crew = await rpc<Crew>("create_crew", { p_name: name, p_timezone: localTimeZone() });
-      router.push(`/c/${crew.invite_code}`);
+      router.push(`/crew/${crew.invite_code}`);
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -128,7 +128,7 @@ function Dashboard() {
             {today.map(({ crew, game, puzzleId, deadline, done }) => (
               <li key={`${crew.id}:${game.id}`}>
                 <Link
-                  href={`/c/${crew.invite_code}`}
+                  href={`/crew/${crew.invite_code}`}
                   className={`list-row ${done ? "" : "todo"}`}
                   style={gameStyle(game)}
                 >
@@ -158,7 +158,7 @@ function Dashboard() {
               const members = c.crew_members[0]?.count ?? 0;
               return (
                 <li key={c.id}>
-                  <Link href={`/c/${c.invite_code}`} className="crew-card">
+                  <Link href={`/crew/${c.invite_code}`} className="crew-card">
                     <span className="crew-name">{c.name}</span>
                     <span className="crew-meta">
                       <span>
