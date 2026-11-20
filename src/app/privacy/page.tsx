@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = { title: "Privacy & Terms — Scrim" };
 
@@ -59,12 +60,11 @@ export default function PrivacyPage() {
       <h3>The Chrome extension</h3>
       <ul>
         <li>
-          It only runs on the Wordle and Connections pages on nytimes.com, on krillion.io, and on the Scrim website.
+          It only runs on the Scrim website and the affiliated games for collecting score data.
           It doesn&apos;t read any other site or your browsing history.
         </li>
         <li>
-          On each game&apos;s page it reads the progress the game saves in your browser (and, for Wordle, the coloured
-          tiles on the board) once a game is finished. From that it sends Scrim your score, the colour grid or answer
+          On each game&apos;s page it reads the progress the game saves in your browser once a game is finished. From that it sends Scrim your score, the colour grid or answer
           rarity, and the puzzle number. It never sends your guesses or answers themselves.
         </li>
         <li>
@@ -72,7 +72,7 @@ export default function PrivacyPage() {
           isn&apos;t open, it opens that page in a background tab for a few seconds to read the result, then closes it.
         </li>
         <li>
-          Its Rankings tab loads your crews&apos; rankings from Scrim using its access key. They&apos;re shown in the
+          The Rankings tab loads your crews&apos; rankings from Scrim using its access key. They&apos;re shown in the
           popup, not stored.
         </li>
         <li>
@@ -83,14 +83,17 @@ export default function PrivacyPage() {
 
       <h3>Where it&apos;s stored</h3>
       <p>
-        Scrim&apos;s data is stored with Supabase, which also handles sign-in. Your browser keeps your login session,
+        Scrim&apos;s data is stored with Supabase. Your browser keeps your login session,
         your light/dark mode preference and whether you&apos;ve seen the welcome guide in local storage. Guest
         accounts exist only in that browser.
       </p>
 
       <h3>What Scrim doesn&apos;t do</h3>
       <ul>
-        <li>No ads, no analytics or tracking scripts.</li>
+        <li>
+          No ads, no analytics or tracking scripts. The only outside script is Google&apos;s sign-in button, on the
+          pages where you sign in or link a Google account.
+        </li>
         <li>Your data is never sold or shared with anyone outside your crews.</li>
       </ul>
 
@@ -108,37 +111,37 @@ export default function PrivacyPage() {
 
       <h3>Using Scrim</h3>
       <p>
-        Scrim is free and run as a hobby. You can use it as a guest or with a Google account. You&apos;re responsible
+        Scrim is completely free. You can use it as a guest or with a Google account. You&apos;re responsible
         for what happens on your account, and for keeping your Google account secure.
       </p>
 
-      <h3>Play fair</h3>
+      <h3>Play fair!</h3>
+      <p>We don't enforce these rules, but an honest system keeps things fair and fun.</p>
       <ul>
         <li>Only submit results from puzzles you played yourself, on your own account.</li>
         <li>
           Don&apos;t fake or edit results, tamper with the extension or Scrim&apos;s servers, or try to see scores
           that are hidden from you.
         </li>
-        <li>Crew owners can void entries and remove members, and removed members can&apos;t rejoin.</li>
+        <li>Crew owners can void entries and remove members, and removed members cannot rejoin.</li>
       </ul>
 
       <h3>Names and other things you write</h3>
       <p>
         Display names, crew names and game suggestions must not be abusive, hateful, sexually explicit or illegal,
-        and must not impersonate someone else. You keep ownership of what you write, and let Scrim store and show it
-        to run the service.
+        and must not impersonate someone else. You own what you write.
       </p>
 
       <h3>The games</h3>
       <p>
-        Scrim is an independent fan project, not affiliated with or endorsed by any of the games it supports. Game names belong to their owners. You play each game on its own site, under that
+        Scrim is an independent fan project. It is not affiliated with or endorsed by any of the games it supports. Game names belong to their owners. You play each game on its own site, under that
         site&apos;s terms. If a game changes, automatic capture may stop working until Scrim catches up.
       </p>
 
       <h3>No guarantees</h3>
       <p>
         Scrim is provided as it is, without warranties of any kind. It may change, go offline, lose data, or shut
-        down at any time. To the extent the law allows, Scrim&apos;s maintainers aren&apos;t liable for any loss or
+        down at any time. To the extent allowable by law, Scrim&apos;s maintainers are not liable for any loss or
         damage from using it, or from not being able to.
       </p>
 
@@ -150,13 +153,19 @@ export default function PrivacyPage() {
 
       <h3>Changes and contact</h3>
       <p>
-        These terms may be updated; the date at the top shows when. Continuing to use Scrim after a change means you
+        These terms may be updated. Continuing to use Scrim after a change means you
         accept it. Questions? Open an issue on{" "}
         <a href={ISSUES} target="_blank" rel="noreferrer">
           GitHub
         </a>
         .
       </p>
+
+      <div className="back-home">
+        <Link href="/" className="btn btn-primary">
+          ← Back to Scrim
+        </Link>
+      </div>
     </article>
   );
 }

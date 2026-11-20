@@ -575,6 +575,13 @@ select.input {
   color: var(--accent-text);
 }
 
+/* Google's sign-in button renders into this (an iframe sized by Google). */
+.google-button {
+  min-height: 44px;
+  width: 100%;
+  max-width: 400px;
+}
+
 /* ---------- welcome guide ---------- */
 
 .welcome-steps {
@@ -908,6 +915,17 @@ select.input {
   scroll-margin-top: 16px;
   padding-top: 10px;
   border-top: 2px solid var(--line);
+}
+
+.back-home {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 2px solid var(--line);
+}
+
+.back-home .btn {
+  display: inline-block;
+  text-decoration: none;
 }
 
 .prose h3 {

@@ -132,11 +132,20 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
    - enable **Allow anonymous sign-ins** (guest play)
    - enable **Allow manual linking** (lets guests attach Google later)
    - enable **Google** with an OAuth client ID/secret from Google Cloud Console
-     (redirect URI: `https://<project>.supabase.co/auth/v1/callback`)
+     (redirect URI: `https://<project>.supabase.co/auth/v1/callback`). Also
+     paste the same client ID into the provider's **Client IDs** field, so
+     Supabase accepts tokens from Google's sign-in button.
+   - In Google Cloud → that OAuth client → **Authorized JavaScript origins**,
+     add `http://localhost:3000` and your production URL. Google's button only
+     works on those origins, and its prompt names that address instead of the
+     Supabase project.
 4. **Authentication → URL Configuration:** set the Site URL and add
    `http://localhost:3000/**` (and your production URL) to Redirect URLs.
    Linking Google returns to `/profile`, so a wildcard is simplest.
-5. `cp .env.example .env.local` and fill in the project URL and publishable key.
+5. `cp .env.example .env.local` and fill in the project URL, publishable key
+   and Google client ID (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`). Without the client
+   ID, Google sign-in falls back to Supabase's redirect flow, which shows the
+   Supabase address.
 6. `npm install && npm run dev`, then open http://localhost:3000
 7. Install the extension: `chrome://extensions` → turn on **Developer mode** →
    **Load unpacked** → pick the `extension/` folder. Then in Scrim go to

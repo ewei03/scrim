@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { GoogleButton } from "@/components/GoogleButton";
 import { errorMessage, supabase } from "@/lib/supabase";
 
 export function SignIn({ title = "Pick a name to play" }: { title?: string }) {
@@ -24,19 +25,6 @@ export function SignIn({ title = "Pick a name to play" }: { title?: string }) {
     }
   }
 
-  async function google() {
-    setError(null);
-    try {
-      const { error } = await supabase().auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: window.location.href },
-      });
-      if (error) setError(errorMessage(error));
-    } catch (err) {
-      setError(errorMessage(err));
-    }
-  }
-
   return (
     <div className="card stack">
       <h2>{title}</h2>
@@ -55,11 +43,9 @@ export function SignIn({ title = "Pick a name to play" }: { title?: string }) {
         </button>
       </form>
       <div className="divider">or</div>
-      <button className="btn" onClick={google}>
-        Continue with Google
-      </button>
+      <GoogleButton mode="signin" onError={setError} />
       <p className="muted small">
-        Guests can link a Google account later to keep their stats across devices.
+        Signing in with Google is recommended to keep stats across devices.
       </p>
       {error && <p className="error">{error}</p>}
     </div>

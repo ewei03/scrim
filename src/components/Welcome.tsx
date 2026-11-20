@@ -93,7 +93,7 @@ export function Welcome({
   ];
 
   return (
-    <Modal open={open} onClose={close} title="Welcome to Scrim">
+    <Modal open={open} onClose={close} title="Welcome to Scrim!">
       <p>Follow the steps below to get started:</p>
       <ol className="welcome-steps">
         {steps.map((s) => (

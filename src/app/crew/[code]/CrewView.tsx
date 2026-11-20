@@ -118,15 +118,17 @@ function CrewPage() {
     rpc<Crew>("update_crew_settings", { p_crew: crew.id, p_timezone: localTimeZone() }).then(setCrew, () => {});
   }, [needsZone, crew]);
 
-  // If you played before joining (or before the crew picked the game), the
-  // extension still has your result: ask it to submit now.
+  // If you played before joining, or before the crew picked the game, the
+  // extension still has your result: ask it to submit now, and again whenever
+  // the crew's games change, so a game you just added shows your score.
   const autoSubmit = extension.state === "connected";
+  const gamesKey = games.join();
   useEffect(() => {
-    if (!autoSubmit || !crew?.id) return;
+    if (!autoSubmit || !crew?.id || !gamesKey) return;
     askExtension<{ ok: boolean; submitted?: number }>("sync").then((reply) => {
       if (reply?.submitted) setBoardsKey((k) => k + 1);
     });
-  }, [autoSubmit, crew?.id]);
+  }, [autoSubmit, crew?.id, gamesKey]);
 
   // Members first, then anyone who has left but still appears in the history.
   const names = useMemo(() => {

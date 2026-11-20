@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ExtensionPanel } from "@/components/ExtensionPanel";
+import { GoogleButton } from "@/components/GoogleButton";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useAuth } from "@/lib/auth";
 import { askExtension } from "@/lib/extension";
@@ -33,15 +34,6 @@ function Profile() {
     if (error) return setError(errorMessage(error));
     await refreshProfile();
     setSaved(true);
-  }
-
-  async function linkGoogle() {
-    setError(null);
-    const { error } = await supabase().auth.linkIdentity({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/profile` },
-    });
-    if (error) setError(errorMessage(error));
   }
 
   async function signOut() {
@@ -87,9 +79,7 @@ function Profile() {
               You&apos;re playing as a <strong>guest</strong>. Your account lives in this browser only — clearing
               site data or switching devices loses it.
             </p>
-            <button className="btn btn-primary" onClick={linkGoogle}>
-              Link Google account
-            </button>
+            <GoogleButton mode="link" onError={setError} />
             <p className="muted small">Linking keeps your crews and stats and lets you sign in anywhere.</p>
           </>
         ) : (
