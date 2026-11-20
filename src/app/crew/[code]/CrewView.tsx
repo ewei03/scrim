@@ -565,6 +565,8 @@ function ManageCrew({
   const others = members.filter((m) => m.user_id !== crew.created_by);
   const timezone = crew.timezone ?? "UTC";
   const zones = useMemo(() => timeZones(timezone), [timezone]);
+  const [name, setName] = useState(crew.name);
+  const nameChanged = name.trim() !== "" && name.trim() !== crew.name;
 
   async function run(key: string, action: () => Promise<void>) {
     setBusy(key);
@@ -602,6 +604,27 @@ function ManageCrew({
 
   return (
     <>
+      <h3>Name</h3>
+      <form
+        className="row input-row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (nameChanged) updateSettings({ p_name: name.trim() });
+        }}
+      >
+        <input
+          className="input grow"
+          aria-label="Crew name"
+          maxLength={40}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
+        <button className="btn" disabled={busy !== null || !nameChanged}>
+          {busy === "settings" && nameChanged ? "Saving…" : "Rename"}
+        </button>
+      </form>
+
       <h3>Rules</h3>
       <label className="check">
         <input

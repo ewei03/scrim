@@ -131,8 +131,7 @@ export default function PrivacyPage() {
 
       <h3>The games</h3>
       <p>
-        Scrim is an independent fan project, not affiliated with or endorsed by The New York Times, Krillion or any
-        other game it supports. Game names belong to their owners. You play each game on its own site, under that
+        Scrim is an independent fan project, not affiliated with or endorsed by any of the games it supports. Game names belong to their owners. You play each game on its own site, under that
         site&apos;s terms. If a game changes, automatic capture may stop working until Scrim catches up.
       </p>
 

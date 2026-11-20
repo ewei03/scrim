@@ -30,7 +30,7 @@ describe("parseKrillion", () => {
   it("scores from the tiers, whatever the score line says", () => {
     const r = parseKrillion("Krillion #127 🦐\n3,600m · whatever\n🐟🫧🦑⬛🌟🐟🏮\nkrillion.io");
     expect(r).toEqual({ ok: true, result: { puzzle: "127", points: 315, tiers: "spr" + "xksd" } });
-    expect(krillion.formatScore(r.ok ? r.result : ({} as never))).toBe("3,150 m");
+    expect(krillion.formatScore(r.ok ? r.result : ({} as never))).toBe("315");
   });
 
   it("handles variation selectors and rejects incomplete or Unlimited results", () => {

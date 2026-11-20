@@ -6,11 +6,6 @@ import { ordinal } from "@/lib/time";
 import type { GameAdapter } from "@/games/types";
 import type { BoardRow } from "@/lib/types";
 
-const SOURCE_ICON: Record<BoardRow["source"], { icon: string; title: string }> = {
-  paste: { icon: "⎘", title: "Pasted share text" },
-  extension: { icon: "⚡", title: "Captured automatically" },
-};
-
 export function Scoreboard({
   game,
   rows,
@@ -44,14 +39,16 @@ export function Scoreboard({
         </div>
       )}
 
-      <table className="board">
+      <table className="board scoreboard">
         <thead>
           <tr>
             <th>Rank</th>
             <th>Name</th>
-            <th className="right">Score</th>
-            <th className="hide-sm" />
-            <th />
+            <th>Score</th>
+            <th className="hide-sm">Result</th>
+            <th>
+              <span className="sr-only">Actions</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -59,26 +56,21 @@ export function Scoreboard({
             <tr key={r.entry_id} className={r.winner ? "winner" : ""}>
               <td className="place">{r.winner ? "★" : ordinal(r.place)}</td>
               <td className="name">{r.display_name}</td>
-              <td className="right score">{game.formatScore(r.result)}</td>
-              <td className="hide-sm">
+              <td className="score">{game.formatScore(r.result)}</td>
+              <td className="hide-sm result">
                 <ResultDetail gameId={game.id} result={r.result} />
               </td>
-              <td className="right nowrap">
-                <span className="muted" title={SOURCE_ICON[r.source].title}>
-                  {SOURCE_ICON[r.source].icon}
-                </span>
-                {canVoid && <VoidButton onClick={() => onVoid(r)} />}
-              </td>
+              <td className="right nowrap">{canVoid && <VoidButton onClick={() => onVoid(r)} />}</td>
             </tr>
           ))}
           {hidden.map((r) => (
             <tr key={r.entry_id} className="hidden-row">
               <td className="place">?</td>
               <td className="name">{r.display_name}</td>
-              <td className="right score" title="Submit your own result to see this">
+              <td className="score" title="Submit your own result to see this">
                 ▒▒▒
               </td>
-              <td className="hide-sm muted small">locked in</td>
+              <td className="hide-sm result muted small">locked in</td>
               <td className="right">{canVoid && <VoidButton onClick={() => onVoid(r)} />}</td>
             </tr>
           ))}

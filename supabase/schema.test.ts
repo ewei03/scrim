@@ -214,6 +214,21 @@ describe("schema", () => {
     );
     expect(c).toMatchObject({ timezone: "Asia/Tokyo", hide_until_submitted: true });
     expect(c).not.toHaveProperty("allow_manual");
+
+    await expect(as(BOB, "select update_crew_settings($1, p_name => 'Mine now')", [crew.id])).rejects.toThrow(
+      /Only the crew owner/,
+    );
+    await expect(as(ANN, "select update_crew_settings($1, p_name => '   ')", [crew.id])).rejects.toThrow(/1 to 40/);
+    await expect(as(ANN, "select update_crew_settings($1, p_name => $2)", [crew.id, "x".repeat(41)])).rejects.toThrow(
+      /1 to 40/,
+    );
+    const [renamed] = await as<{ name: string; timezone: string }>(
+      ANN,
+      "select * from update_crew_settings($1, p_name => '  Brunch Club ')",
+      [crew.id],
+    );
+    expect(renamed).toMatchObject({ name: "Brunch Club", timezone: "Asia/Tokyo" });
+    await as(ANN, "select update_crew_settings($1, p_name => 'Breakfast Club')", [crew.id]);
   });
 
   it("only takes pasted results from the site, and shows scores right away when the crew allows it", async () => {

@@ -55,36 +55,11 @@ export function Welcome({
 
   const steps = [
     {
-      done: connected,
-      title: "Get the Chrome extension",
-      body: (
-        <>
-          It submits your score the moment you finish a game, so there&apos;s nothing to paste.{" "}
-          <Link href="/profile" onClick={close}>
-            {extension === "missing" ? "Install and connect it on your profile →" : "Connect it on your profile →"}
-          </Link>
-        </>
-      ),
-    },
-    {
       done: hasCrew,
       title: "Create a crew",
       body: (
         <>
-          A crew is your friend group. Start one, then share its invite link. Got a link from a friend? Just open
-          it.{" "}
-          {!hasCrew && (
-            <button
-              type="button"
-              className="link-btn welcome-link"
-              onClick={() => {
-                close();
-                onCreateCrew();
-              }}
-            >
-              Create a crew →
-            </button>
-          )}
+          Invite your friends to your crew!
         </>
       ),
     },
@@ -93,17 +68,25 @@ export function Welcome({
       title: "Pick your games",
       body: (
         <>
-          On the crew page, the owner taps Wordle, Connections or Krillion right under the crew&apos;s name.
+          Choose your favourite games to play. You can edit the list at any time.
+        </>
+      ),
+    },
+    {
+      done: connected,
+      title: "Get the Scrim extension",
+      body: (
+        <>
+          The extension tracks your scores so you don&apos;t have to submit anything manually. <strong>HIGHLY RECOMMENDED!</strong>
         </>
       ),
     },
     {
       done: false,
-      title: "Play",
+      title: "Play!",
       body: (
         <>
-          Play each day&apos;s puzzle on the game&apos;s own site. Your score lands in every crew that plays it,
-          and each day at midnight crowns a winner.
+          At midnight, the winner is crowned. Good luck!
         </>
       ),
     },
@@ -111,7 +94,7 @@ export function Welcome({
 
   return (
     <Modal open={open} onClose={close} title="Welcome to Scrim">
-      <p>Four steps and you&apos;re competing:</p>
+      <p>Follow the steps below to get started:</p>
       <ol className="welcome-steps">
         {steps.map((s) => (
           <li key={s.title} className={s.done ? "done" : undefined}>

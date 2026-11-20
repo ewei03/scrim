@@ -193,22 +193,30 @@ begin
   return c;
 end $$;
 
--- Owner only. Settings left null stay as they are. Changing the time zone
+-- Owner only: rename, time zone, spoilers. Settings left null stay as they
+-- are. Changing the time zone
 -- only affects rounds that haven't started yet.
 create function public.update_crew_settings(
   p_crew uuid,
   p_timezone text default null,
-  p_hide_until_submitted boolean default null
+  p_hide_until_submitted boolean default null,
+  p_name text default null
 ) returns public.crews
 language plpgsql security definer set search_path = public as $$
-declare c crews;
+declare
+  c      crews;
+  v_name text := trim(p_name);
 begin
   if p_timezone is not null and not is_valid_timezone(p_timezone) then
     raise exception 'Unknown time zone: %', p_timezone;
   end if;
+  if p_name is not null and (v_name = '' or char_length(v_name) > 40) then
+    raise exception 'Crew names are 1 to 40 characters';
+  end if;
   update crews
   set timezone             = coalesce(p_timezone, timezone),
-      hide_until_submitted = coalesce(p_hide_until_submitted, hide_until_submitted)
+      hide_until_submitted = coalesce(p_hide_until_submitted, hide_until_submitted),
+      name                 = coalesce(v_name, name)
   where id = p_crew and created_by = auth.uid()
   returning * into c;
   if not found then raise exception 'Only the crew owner can change crew settings'; end if;
@@ -353,7 +361,7 @@ revoke execute on function
   public.can_see_entry(uuid, uuid),
   public.record_entry(uuid, uuid, text, jsonb, text, text),
   public.create_crew(text, text),
-  public.update_crew_settings(uuid, text, boolean),
+  public.update_crew_settings(uuid, text, boolean, text),
   public.set_crew_game(uuid, text, boolean),
   public.submit_entry(uuid, text, jsonb, text, text),
   public.extension_submit(text, text, jsonb, text),
@@ -367,7 +375,7 @@ from public, anon;
 grant execute on function
   public.can_see_entry(uuid, uuid),
   public.create_crew(text, text),
-  public.update_crew_settings(uuid, text, boolean),
+  public.update_crew_settings(uuid, text, boolean, text),
   public.set_crew_game(uuid, text, boolean),
   public.submit_entry(uuid, text, jsonb, text, text),
   public.get_round_board(uuid, text, text),

@@ -71,7 +71,7 @@
   }
 
   function formatScore(result) {
-    return `${(result.points * 10).toLocaleString("en-US")} m`;
+    return result.points.toLocaleString("en-US");
   }
 
   const api = { numberFromDate, findFinishedDives, toResult, shareText, formatScore };

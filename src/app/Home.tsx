@@ -37,16 +37,14 @@ function Landing() {
           <br />
           SHOWDOWNS.
         </h1>
-        <p>Same puzzle. Your friends. One winner.</p>
+        <p>Compete in daily puzzles with your friends!</p>
       </section>
       <ol className="steps">
-        <li>Start a crew and pick its daily games</li>
-        <li>Share the invite link</li>
-        <li>Everyone plays on their own time</li>
-        <li>Finish the game and your score lands automatically — others stay hidden until you have</li>
-        <li>Each day crowns a winner, and the rankings keep score for good</li>
+        <li>Start a crew with your friends</li>
+        <li>Play your favourite games</li>
+        <li>Beat your friends and earn bragging rights!</li>
       </ol>
-      <SignIn title="Jump in" />
+      <SignIn title="Start scrimming" />
     </div>
   );
 }
@@ -110,6 +108,13 @@ function Dashboard() {
     // Still to play first.
     .sort((a, b) => Number(a.done) - Number(b.done));
 
+  // Grouped by crew. Crews with something left to play come first; otherwise
+  // crews keep their usual order.
+  const todayByCrew = crews
+    .map((crew) => ({ crew, rows: today.filter((t) => t.crew.id === crew.id) }))
+    .filter((g) => g.rows.length > 0)
+    .sort((a, b) => Number(a.rows.every((r) => r.done)) - Number(b.rows.every((r) => r.done)));
+
   return (
     <div className="stack-lg">
       {user && (
@@ -124,34 +129,44 @@ function Dashboard() {
       {today.length > 0 && (
         <section className="stack">
           <h2>Today</h2>
-          <ul className="list list-live">
-            {today.map(({ crew, game, puzzleId, deadline, done }) => (
-              <li key={`${crew.id}:${game.id}`}>
-                <Link
-                  href={`/crew/${crew.invite_code}`}
-                  className={`list-row ${done ? "" : "todo"}`}
-                  style={gameStyle(game)}
-                >
-                  <span>
-                    <span className="live-dot" aria-hidden>●</span>
-                    <GameTag game={game} /> <strong>{game.puzzleLabel(puzzleId)}</strong>{" "}
-                    <span className="muted">· {crew.name}</span>
-                  </span>
-                  <span className="row">
-                    <span className="time-left">{timeLeft(deadline)} left</span>
-                    {done ? <span className="pill">✓ in</span> : <span className="pill pill-hot">play</span>}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {todayByCrew.map(({ crew, rows }) => (
+            <div key={crew.id} className="today-crew">
+              <h3 className="today-crew-name">
+                <Link href={`/crew/${crew.invite_code}`}>{crew.name}</Link>
+              </h3>
+              <ul className="list list-live">
+                {rows.map(({ game, puzzleId, deadline, done }) => (
+                  <li key={game.id}>
+                    <Link
+                      href={`/crew/${crew.invite_code}`}
+                      className={`list-row ${done ? "" : "todo"}`}
+                      style={gameStyle(game)}
+                    >
+                      <span>
+                        <span className="live-dot" aria-hidden>●</span>
+                        <GameTag game={game} /> <strong>{game.puzzleLabel(puzzleId)}</strong>
+                      </span>
+                      <span className="row">
+                        <span className="time-left">{timeLeft(deadline)} left</span>
+                        {done ? (
+                          <span className="pill pill-done">done</span>
+                        ) : (
+                          <span className="pill pill-hot">play</span>
+                        )}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </section>
       )}
 
       <section className="stack">
         <h2>Your crews</h2>
         {crews.length === 0 ? (
-          <p className="muted">No crews yet. Start one, or open an invite link from a friend.</p>
+          <p className="muted">No crews yet. Start one!</p>
         ) : (
           <ul className="crew-grid">
             {crews.map((c) => {

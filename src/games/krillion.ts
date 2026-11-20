@@ -89,11 +89,11 @@ export const krillion: GameAdapter<KrillionResult> = {
 
   compare: (a, b) => b.points - a.points,
   canWin: (r) => r.points > 0,
-  formatScore: (r) => `${(r.points * 10).toLocaleString("en-US")} m`,
-  averageLabel: "Avg depth",
+  formatScore: (r) => r.points.toLocaleString("en-US"),
+  averageLabel: "Avg score",
   average(results) {
     if (results.length === 0) return null;
     const avg = results.reduce((sum, r) => sum + r.points, 0) / results.length;
-    return `${Math.round(avg * 10).toLocaleString("en-US")} m`;
+    return Math.round(avg).toLocaleString("en-US");
   },
 };

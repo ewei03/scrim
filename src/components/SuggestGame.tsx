@@ -103,7 +103,7 @@ export function SuggestGame() {
         />
       </label>
       <p className="muted small">
-        We'll contact you by email regarding any updates to your suggestion!
+        We&apos;ll contact you by email regarding any updates to your suggestion!
       </p>
       <button className="btn btn-primary" disabled={busy || !name.trim()}>
         {busy ? "Sending…" : "Send suggestion"}

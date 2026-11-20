@@ -6,10 +6,11 @@
   --ink: #1c1b19;
   --muted: #77736b;
   --line: #1c1b19;
-  --accent: #ff5b1f;
+  /* Light mode: mint. Fills carry dark text; text and outlines use a
+     deeper mint, since the fill colour is too pale to read on paper. */
+  --accent: #3eb489;
   --accent-ink: #1c1b19;
-  /* Accent used for text and outlines; same as the accent itself. */
-  --accent-text: var(--accent);
+  --accent-text: #18734f;
   --good: #2f8f4e;
   --bad: #c2362b;
   /* Time running out: red that stays readable on cards in both themes. */
@@ -35,6 +36,8 @@
   --line: #ece7dc;
   --tile-x: #45423c;
   --urgent: #ff6b5e;
+  /* Dark mode keeps the orange accent. */
+  --accent: #ff5b1f;
   --accent-text: var(--accent);
   color-scheme: dark;
 }
@@ -47,7 +50,9 @@
     --muted: #8f8a80;
     --line: #ece7dc;
     --tile-x: #45423c;
-  --urgent: #ff6b5e;
+    --urgent: #ff6b5e;
+    /* Dark mode keeps the orange accent. */
+    --accent: #ff5b1f;
     --accent-text: var(--accent);
     color-scheme: dark;
   }
@@ -317,6 +322,13 @@ main.container {
   color: var(--accent-ink);
 }
 
+/* Played today. Fixed colours so the white text stays readable in both themes. */
+.pill-done {
+  background: #26733d;
+  color: #fff;
+  font-weight: 700;
+}
+
 .pill-live {
   color: var(--good);
   border-color: var(--good);
@@ -403,6 +415,11 @@ main.container {
 
 textarea.input {
   resize: vertical;
+}
+
+/* A text box with its button beside it: both the same height. */
+.input-row {
+  align-items: stretch;
 }
 
 /* Marching ants: small dashes that run anticlockwise around a 2px border.
@@ -654,10 +671,48 @@ select.input {
 
 .board .score {
   font-size: calc(1.8rem * var(--display-scale));
+  white-space: nowrap;
 }
 
 .board .name {
   font-weight: 600;
+}
+
+/* Scoreboards pack their columns to the left: every column hugs its content
+   and the last one (the owner's void button) takes the spare width. */
+.scoreboard th,
+.scoreboard td {
+  white-space: nowrap;
+}
+
+.scoreboard th:last-child,
+.scoreboard td:last-child {
+  width: 100%;
+}
+
+/* Room for a full 24-character display name, and the same width on every
+   card so the score columns line up between games. */
+.scoreboard td.name {
+  min-width: 15rem;
+}
+
+/* On phones, long names wrap instead of pushing the score off screen. */
+@media (max-width: 520px) {
+  .scoreboard td.name {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Grids as blocks, so they sit centred in the row instead of on the text
+   baseline. */
+.board .result {
+  white-space: nowrap;
+}
+
+.board .result .wgrid {
+  display: flex;
 }
 
 .board tr.winner td {
@@ -915,6 +970,35 @@ select.input {
 }
 
 /* ---------- today: live ---------- */
+
+/* Home page: today's games, one block per crew. */
+.today-crew {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.today-crew + .today-crew {
+  margin-top: 6px;
+}
+
+.today-crew-name {
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.today-crew-name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.today-crew-name a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
 
 .list-live {
   border-color: var(--accent);

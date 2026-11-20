@@ -29,7 +29,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Header />
           <main className="container">{children}</main>
           <footer className="container footer muted small">
-            <span>Scrim is an independent fan project, not affiliated with any game it supports.</span>
+            <span>
+              Made by{" "}
+              <a href="https://x.com/eggnonk" target="_blank" rel="noreferrer">
+                @eggnonk
+              </a>.
+              <br />
+              Scrim is an independent fan project, not affiliated with any game it supports.
+            </span>
             <nav>
               <SuggestGameLink />
               <a href="https://github.com/ewei03/scrim" target="_blank" rel="noreferrer">

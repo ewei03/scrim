@@ -142,6 +142,6 @@ function describe(game, result) {
         : `${result.mistakes} mistake${result.mistakes === 1 ? "" : "s"}`;
     return { name: "Connections", score };
   }
-  if (game === "krillion") return { name: "Krillion", score: `${(result.points * 10).toLocaleString("en-US")} m` };
+  if (game === "krillion") return { name: "Krillion", score: result.points.toLocaleString("en-US") };
   return { name: "Wordle", score: `${result.solved ? result.guesses : "X"}/6` };
 }

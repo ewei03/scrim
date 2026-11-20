@@ -52,7 +52,7 @@ export function HelpButton() {
               declares the day&apos;s winner.
             </li>
             <li>
-              <strong>Don't wanna stay?</strong> Leave the crew from the crew page.
+              <strong>Don&apos;t wanna stay?</strong> Leave the crew from the crew page.
             </li>
           </ol>
 
@@ -92,13 +92,13 @@ export function HelpButton() {
 
           <h3>Rankings</h3>
           <p>
-            Each crew tracks wins, games played, win rate, an average for the game (guesses, mistakes or depth) and
+            Each crew tracks wins, games played, win rate, an average for the game (guesses, mistakes or score) and
             current win streak.
           </p>
 
           <h3>Accounts</h3>
           <p>
-            Play as a guest or sign in with Google. It's recommended to sign in with Google to keep your stats.
+            Play as a guest or sign in with Google. It&apos;s recommended to sign in with Google to keep your stats.
           </p>
 
           <h3>Which puzzles?</h3>
