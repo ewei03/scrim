@@ -1,3 +1,4 @@
+import { nextMidnight } from "@/lib/time";
 import type { GameAdapter, ParseResult } from "./types";
 
 export type WordleResult = {
@@ -85,13 +86,16 @@ export const wordle: GameAdapter<WordleResult> = {
   id: "wordle",
   name: "Wordle",
   url: "https://www.nytimes.com/games/wordle/index.html",
-  blurb: "Guess the five-letter word in six tries. Fewest guesses wins; ties share the win.",
+  source: "The New York Times",
   free: true,
 
   currentPuzzleId: (now = new Date()) => String(wordleNumberFor(now)),
   puzzleLabel: (id) => `#${Number(id).toLocaleString("en-US")}`,
+  nextReset: nextMidnight,
+  autoSubmit: true,
 
   shareHint: "Finish the Wordle, click Share, then paste it here.",
+  sharePlaceholder: "Wordle 1,612 4/6\n\n⬛🟨⬛⬛⬛\n🟩⬛⬛🟨⬛\n🟩🟩⬛🟩⬛\n🟩🟩🟩🟩🟩",
   parseShareText: parseWordle,
 
   compare: (a, b) => points(a) - points(b),

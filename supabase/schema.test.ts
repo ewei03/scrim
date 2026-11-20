@@ -314,3 +314,91 @@ describe("crew owner controls", () => {
     expect(rows[0].n).toBe(0);
   });
 });
+
+describe("connections and krillion", () => {
+  let crew: string;
+  let C: string;
+  let K: string;
+  const lobby = async (game: string, puzzle: string) =>
+    (
+      await as<{ id: string }>(ANN, `select * from create_lobby($1, $2, $3, now() + interval '1 day')`, [
+        crew,
+        game,
+        puzzle,
+      ])
+    )[0].id;
+  const submit = (user: string, lobbyId: string, result: object) =>
+    as<{ result: Record<string, unknown> }>(user, `select * from submit_entry($1, $2, '', 'paste')`, [
+      lobbyId,
+      JSON.stringify(result),
+    ]);
+
+  beforeAll(async () => {
+    const c = await createCrew(ANN, "More Games");
+    crew = c.id;
+    await as(BOB, "select join_crew($1)", [c.invite_code]);
+    await as(EVE, "select join_crew($1)", [c.invite_code]);
+    const { rows } = await db.query<{ c: number; k: number }>(
+      `select ((now() at time zone 'UTC')::date - date '2023-06-11') as c,
+              ((now() at time zone 'America/New_York')::date - date '2026-07-15') as k`,
+    );
+    C = String(rows[0].c);
+    K = String(rows[0].k);
+  });
+
+  it("only allows today's puzzle for each game", async () => {
+    await expect(lobby("connections", String(Number(C) - 5))).rejects.toThrow(/today's puzzle/);
+    await expect(lobby("krillion", String(Number(K) - 1))).rejects.toThrow(/today's puzzle/);
+  });
+
+  it("scores Connections from the grid and validates it", async () => {
+    const id = await lobby("connections", C);
+    await expect(
+      submit(EVE, id, { puzzle: C, solved: true, mistakes: 0, grid: ["yyyy", "yyyy", "bbbb", "pppp"] }),
+    ).rejects.toThrow(/does not match/);
+    await expect(submit(EVE, id, { puzzle: C, grid: ["yyyy", "gbgg"] })).rejects.toThrow(/finished/);
+    // Claimed perfect, but the grid has a mistake: the grid wins.
+    const [bob] = await submit(BOB, id, {
+      puzzle: C,
+      solved: true,
+      mistakes: 0,
+      grid: ["yyyy", "gbgg", "gggg", "bbbb", "pppp"],
+    });
+    expect(bob.result).toMatchObject({ solved: true, mistakes: 1, groups: 4 });
+    const [eve] = await submit(EVE, id, { puzzle: C, solved: false, groups: 2, mistakes: 0 });
+    expect(eve.result).toEqual({ puzzle: C, solved: false, mistakes: 4, groups: 2 });
+  });
+
+  it("scores Krillion from the tiers and bounds manual depth", async () => {
+    const id = await lobby("krillion", K);
+    const [bob] = await submit(BOB, id, { puzzle: K, points: 700, tiers: "sprxksd" });
+    expect(bob.result).toEqual({ puzzle: K, points: 315, tiers: "sprxksd" });
+    await expect(submit(EVE, id, { puzzle: K, points: 701 })).rejects.toThrow(/between/);
+    await expect(submit(EVE, id, { puzzle: K, tiers: "kkkkkkkk" })).rejects.toThrow(/Invalid answers/);
+    const [eve] = await submit(EVE, id, { puzzle: K, points: 360 });
+    expect(eve.result).toEqual({ puzzle: K, points: 360 });
+  });
+});
+
+describe("recreating a closed lobby", () => {
+  it("reopens it if nobody played, and leaves a finished one alone", async () => {
+    const crew = await createCrew(ANN, "Reopen");
+    await as(BOB, "select join_crew($1)", [crew.invite_code]);
+    const [first] = await createLobby(ANN, crew.id, T);
+    await as(ANN, "select close_lobby($1)", [first.id]);
+
+    // Bob creates it again: same lobby, open, and he's now the host.
+    const [again] = await as<{ id: string; closed_at: string | null; created_by: string; allow_manual: boolean }>(
+      BOB,
+      `select * from create_lobby($1, 'wordle', $2, now() + interval '1 day', true, false)`,
+      [crew.id, T],
+    );
+    expect(again).toMatchObject({ id: first.id, closed_at: null, created_by: BOB, allow_manual: false });
+
+    await as(BOB, `select submit_entry($1, $2, '', 'paste')`, [first.id, solve(T, 3)]);
+    await as(BOB, "select close_lobby($1)", [first.id]);
+    const [finished] = await createLobby(ANN, crew.id, T);
+    expect(finished).toMatchObject({ id: first.id });
+    expect((finished as { closed_at?: string | null }).closed_at).not.toBeNull();
+  });
+});

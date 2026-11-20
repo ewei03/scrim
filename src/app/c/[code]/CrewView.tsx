@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { CopyLink } from "@/components/CopyLink";
 import { NewLobbyForm } from "@/components/NewLobbyForm";
-import { HeadToHeadGrid, Rankings } from "@/components/Rankings";
+import { Rankings } from "@/components/Rankings";
 import { Modal } from "@/components/Modal";
 import { Loading, RequireAuth } from "@/components/RequireAuth";
 import { rankEntries } from "@/games/ranking";
@@ -49,6 +49,7 @@ function CrewPage() {
   const [lobbies, setLobbies] = useState<LobbyWithEntries[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [showManage, setShowManage] = useState(false);
+  const [rankingsGame, setRankingsGame] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -75,14 +76,15 @@ function CrewPage() {
     return map;
   }, [lobbies, members]);
   const open = lobbies.filter((l) => !isClosed(l));
-  const closed = lobbies.filter((l) => isClosed(l));
+  // Lobbies nobody played aren't worth keeping in the archive.
+  const closed = lobbies.filter((l) => isClosed(l) && l.entries.length > 0);
 
   const statsByGame = useMemo(() => {
     const memberIds = members.map((m) => m.user_id);
     return Object.values(GAMES)
       .map((game) => {
         const played = lobbies
-          .filter((l) => l.game === game.id && isClosed(l))
+          .filter((l) => l.game === game.id && isClosed(l) && l.entries.length > 0)
           .map((l) => ({ ...l, ended_at: endedAt(l) }));
         return { game, count: played.length, ...crewStats(game, played, memberIds) };
       })
@@ -93,6 +95,8 @@ function CrewPage() {
   if (!crew) return <Loading />;
 
   const isOwner = crew.created_by === user?.id;
+  // Games with finished lobbies; defaults to the first until one is picked.
+  const ranked = statsByGame.find((s) => s.game.id === rankingsGame) ?? statsByGame[0];
 
   function memberRemoved(userId: string) {
     setMembers((ms) => ms.filter((m) => m.user_id !== userId));
@@ -178,16 +182,30 @@ function CrewPage() {
         )}
       </section>
 
-      {statsByGame.map(({ game, players, h2h, count }) => (
-        <section key={game.id} className="stack">
-          <h2>
-            {game.name} rankings <span className="muted small">· {count} played</span>
-          </h2>
-          <Rankings game={game} players={players} names={names} />
-          <h3>Head to head</h3>
-          <HeadToHeadGrid players={players} names={names} h2h={h2h} />
+      {ranked && (
+        <section className="stack">
+          <div className="row between wrap">
+            <h2>
+              Rankings <span className="muted small">· {ranked.count} played</span>
+            </h2>
+            <select
+              className="input rankings-game"
+              aria-label="Game"
+              value={ranked.game.id}
+              onChange={(e) => setRankingsGame(e.target.value)}
+            >
+              {statsByGame.map(({ game }) => (
+                <option key={game.id} value={game.id}>
+                  {game.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="stack">
+            <Rankings game={ranked.game} players={ranked.players} names={names} />
+          </div>
         </section>
-      ))}
+      )}
 
       <section className="stack">
         <h2>Archive</h2>
@@ -208,9 +226,7 @@ function CrewPage() {
                     <span>
                       {winners.length
                         ? `★ ${winners.map((w) => names.get(w.user_id) ?? "?").join(", ")} · ${game.formatScore(winners[0].result)}`
-                        : l.entries.length
-                          ? "no winner"
-                          : "no entries"}
+                        : "no winner"}
                     </span>
                   </Link>
                 </li>

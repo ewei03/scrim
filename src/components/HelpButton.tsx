@@ -39,12 +39,12 @@ export function HelpButton() {
           <h3>The basics</h3>
           <ol>
             <li>
-              <strong>Make a crew.</strong> A crew is your friend group. It keeps rankings, head-to-head records and
+              <strong>Make a crew.</strong> A crew is your friend group. It keeps rankings and
               an archive of past lobbies.
             </li>
             <li>
-              <strong>Start a lobby</strong> for today&apos;s puzzle. Pick when it closes and whether scores stay
-              hidden until you submit.
+              <strong>Start a lobby</strong> for today&apos;s puzzle. Choose whether scores stay hidden until you
+              submit. It closes when the next puzzle comes out.
             </li>
             <li>
               <strong>Share the invite link.</strong> Opening a crew or lobby link joins that crew.
@@ -65,7 +65,8 @@ export function HelpButton() {
                 profile
               </Link>
               . Finish a game and your result goes into every open lobby for that puzzle. It shows
-              up with a ⚡.
+              up with a ⚡. For NYT games, play while signed in to your NYT account: games played signed out
+              don&apos;t count.
             </li>
             <li>
               <strong>Paste:</strong> click Share in the game and paste the text into the lobby (⎘).
@@ -78,9 +79,20 @@ export function HelpButton() {
 
           <h3>Winning</h3>
           <ul>
-            <li>Fewest guesses wins. A miss (X/6) can&apos;t win.</li>
+            <li>
+              <strong>Wordle:</strong> fewest guesses wins. A miss (X/6) can&apos;t win.
+            </li>
+            <li>
+              <strong>Connections:</strong> fewest mistakes wins. Running out of mistakes can&apos;t win.
+            </li>
+            <li>
+              <strong>Krillion:</strong> deepest dive wins.
+            </li>
             <li>Ties share the win: if two people get it in one, both get a win.</li>
-            <li>A lobby closes at its deadline, or earlier if the host closes it.</li>
+            <li>
+              A lobby closes when the next puzzle comes out (midnight, or midnight New York time for Krillion), or
+              earlier if the host closes it.
+            </li>
           </ul>
 
           <h3>No spoilers</h3>
@@ -91,8 +103,8 @@ export function HelpButton() {
 
           <h3>Rankings</h3>
           <p>
-            Each crew tracks wins (W), games played (GP), win rate, average guesses, current win streak, your last
-            five results, and head-to-head records between every pair of players.
+            Each crew tracks wins (W), games played (GP), win rate, an average for the game (guesses, mistakes or depth), current
+            win streak and your last five results.
           </p>
 
           <h3>Accounts</h3>
@@ -103,8 +115,8 @@ export function HelpButton() {
 
           <h3>Which puzzles?</h3>
           <p>
-            Wordle for now, and only today&apos;s puzzle. More free daily games are on the way. Scrim only supports
-            games anyone can play for free.
+            Wordle, Connections and Krillion, today&apos;s puzzle only. Scrim only supports games anyone can play
+            for free.
           </p>
         </div>
       </dialog>

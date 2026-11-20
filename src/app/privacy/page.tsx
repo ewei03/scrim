@@ -46,12 +46,17 @@ export default function PrivacyPage() {
       <h2>The Chrome extension</h2>
       <ul>
         <li>
-          It only runs on the Wordle page on nytimes.com and on the Scrim website. It doesn&apos;t read any other site
-          or your browsing history.
+          It only runs on the Wordle and Connections pages on nytimes.com, on krillion.io, and on the Scrim website.
+          It doesn&apos;t read any other site or your browsing history.
         </li>
         <li>
-          On the Wordle page it reads the game state that Wordle saves in your browser, and the coloured tiles on the
-          board, once a game is finished. From that it sends Scrim your score, the colour grid and the puzzle number.
+          On each game&apos;s page it reads the progress the game saves in your browser (and, for Wordle, the coloured
+          tiles on the board) once a game is finished. From that it sends Scrim your score, the colour grid or answer
+          rarity, and the puzzle number. It never sends your guesses or answers themselves.
+        </li>
+        <li>
+          When you connect it, it checks whether you already finished today&apos;s puzzles. For any game whose page
+          isn&apos;t open, it opens that page in a background tab for a few seconds to read the result, then closes it.
         </li>
         <li>
           It keeps your recent results and its connection details in the extension&apos;s own storage on your

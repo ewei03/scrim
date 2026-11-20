@@ -11,7 +11,8 @@ export interface GameAdapter<R = unknown> {
   id: string;
   name: string;
   url: string;
-  blurb: string;
+  /** Who makes the game, credited where Scrim links to it. */
+  source: string;
   /**
    * Scrim only supports games anyone can play for free. The literal `true`
    * type means a paywalled game can't be registered without a type error.
@@ -21,9 +22,16 @@ export interface GameAdapter<R = unknown> {
   /** The puzzle that is live for the player right now (in their timezone). */
   currentPuzzleId(now?: Date): string;
   puzzleLabel(puzzleId: string): string;
+  /** When the next puzzle comes out; lobbies close then. */
+  nextReset(now?: Date): Date;
+
+  /** Whether the Scrim extension can capture results for this game. */
+  autoSubmit: boolean;
 
   /** Short instruction shown above the paste box. */
   shareHint: string;
+  /** Example share text for the paste box. */
+  sharePlaceholder: string;
   parseShareText(text: string): ParseResult<R>;
 
   /** Negative if `a` ranks above `b`, positive if below, 0 for a tie. */

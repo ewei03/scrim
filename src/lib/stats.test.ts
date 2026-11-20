@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { manualWordle, wordle, type WordleResult } from "@/games/wordle";
-import { crewStats, h2hKey, type StatLobby } from "./stats";
+import { crewStats, type StatLobby } from "./stats";
 
 function lobby(day: number, scores: Record<string, number | null>): StatLobby<WordleResult> {
   return {
@@ -18,7 +18,7 @@ describe("crewStats", () => {
     lobby(2, { ann: 2, bob: 2, cat: 5 }), // ann + bob co-win
     lobby(3, { bob: 3, cat: null }),
   ];
-  const { players, h2h } = crewStats(wordle, lobbies, ["ann", "bob", "cat", "dan"]);
+  const { players } = crewStats(wordle, lobbies, ["ann", "bob", "cat", "dan"]);
   const get = (id: string) => players.find((p) => p.userId === id)!;
 
   it("counts wins, games and streaks", () => {
@@ -38,12 +38,5 @@ describe("crewStats", () => {
       ["2", 1, "2/6"],
       ["1", 2, "4/6"],
     ]);
-  });
-
-  it("tracks head-to-head records", () => {
-    expect(h2h.get(h2hKey("ann", "bob"))).toEqual({ wins: 1, losses: 0, ties: 1 });
-    expect(h2h.get(h2hKey("bob", "ann"))).toEqual({ wins: 0, losses: 1, ties: 1 });
-    expect(h2h.get(h2hKey("bob", "cat"))).toEqual({ wins: 2, losses: 0, ties: 0 });
-    expect(h2h.get(h2hKey("ann", "dan"))).toBeUndefined();
   });
 });

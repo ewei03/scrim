@@ -5,7 +5,6 @@ import { useState } from "react";
 import { Modal } from "@/components/Modal";
 import { gameList, getGame } from "@/games/registry";
 import { errorMessage, rpc } from "@/lib/supabase";
-import { nextMidnight } from "@/lib/time";
 import type { Lobby } from "@/lib/types";
 
 export function NewLobbyForm({ crewId }: { crewId: string }) {
@@ -29,7 +28,7 @@ export function NewLobbyForm({ crewId }: { crewId: string }) {
         // Only today's puzzle for now (the server enforces this too).
         p_puzzle: getGame(gameId).currentPuzzleId(),
         // Lobbies close when the puzzle rolls over to the next day's.
-        p_closes_at: nextMidnight().toISOString(),
+        p_closes_at: getGame(gameId).nextReset().toISOString(),
         p_hide_until_submitted: hide,
         p_allow_manual: allowManual,
       });
@@ -86,7 +85,9 @@ export function NewLobbyForm({ crewId }: { crewId: string }) {
         </select>
       </label>
       <p className="muted small">
-        {game.blurb} Closes at midnight, when the next puzzle drops.
+        <a href={game.url} target="_blank" rel="noreferrer">
+          {game.name} · {game.source} ↗
+        </a>
       </p>
       <button className="btn btn-primary" disabled={busy}>
         {busy ? "Creating…" : "Create lobby"}

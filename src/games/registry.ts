@@ -1,10 +1,13 @@
+import { connections } from "./connections";
+import { krillion } from "./krillion";
 import type { GameAdapter } from "./types";
 import { wordle } from "./wordle";
 
 // Only free-to-play games belong here (see `GameAdapter.free`).
-// Planned next: Connections, then Krillion once its result format is known.
 export const GAMES: Record<string, GameAdapter<unknown>> = {
   [wordle.id]: wordle,
+  [connections.id]: connections,
+  [krillion.id]: krillion,
 };
 
 export function getGame(id: string): GameAdapter<unknown> {

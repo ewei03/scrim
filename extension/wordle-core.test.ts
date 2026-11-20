@@ -27,10 +27,20 @@ describe("numberFromPrintDate", () => {
 describe("findFinishedGames", () => {
   it("reads real NYT win and loss states", () => {
     expect(core.findFinishedGames([["games-state-wordleV2/ANON", WIN]])).toEqual([
-      { puzzle: "1979", printDate: "2026-11-19", solved: true, guesses: ["clout"], hardMode: false },
+      { signedIn: false, puzzle: "1979", printDate: "2026-11-19", solved: true, guesses: ["clout"], hardMode: false },
     ]);
     const [loss] = core.findFinishedGames([["games-state-wordleV2/12345", FAIL]]);
-    expect(loss).toMatchObject({ solved: false, guesses: ["audio", "pious", "tempo", "dumpy", "fight", "brick"] });
+    expect(loss).toMatchObject({
+      signedIn: true,
+      solved: false,
+      guesses: ["audio", "pious", "tempo", "dumpy", "fight", "brick"],
+    });
+  });
+
+  it("tells signed-in saves from signed-out ones", () => {
+    expect(core.isSignedInKey("games-state-wordleV2/98765432")).toBe(true);
+    expect(core.isSignedInKey("games-state-wordleV2/ANON")).toBe(false);
+    expect(core.isSignedInKey("games-state-wordleV2")).toBe(false);
   });
 
   it("ignores in-progress games, archive plays, junk and other keys", () => {

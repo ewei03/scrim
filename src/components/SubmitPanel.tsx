@@ -18,7 +18,11 @@ export function SubmitPanel({
   onSubmitted: () => void;
 }) {
   const game = getGame(lobby.game);
-  const auto = extension === "connected";
+  // Only some games can be captured by the extension.
+  const ext = game.autoSubmit ? extension : null;
+  const auto = ext === "connected";
+  // Paste/manual entry starts hidden; the toggle reveals it.
+  const [showEntry, setShowEntry] = useState(false);
 
   return (
     <section className="card stack">
@@ -34,19 +38,32 @@ export function SubmitPanel({
           <strong>⚡ Auto-submit is on.</strong> Play {game.name} {game.puzzleLabel(lobby.puzzle_id)} and your result
           shows up here as soon as you finish.
         </p>
-      ) : extension === "checking" ? null : (
+      ) : ext === null || ext === "checking" ? null : (
         <p className="muted small">
-          {extension === "missing"
+          {ext === "missing"
             ? "Get the Scrim extension and your result is submitted automatically when you finish. "
             : "Connect the Scrim extension to submit automatically. "}
           <Link href="/me">Set it up on your profile →</Link>
         </p>
       )}
 
-      <details className="fallback" open={!auto && extension !== "checking"}>
-        <summary>{auto ? "Extension not working? Enter your result yourself" : "Enter your result yourself"}</summary>
-        <ManualSubmit lobby={lobby} onSubmitted={onSubmitted} />
-      </details>
+      <div className="fallback">
+        <button
+          type="button"
+          className="fallback-toggle"
+          aria-expanded={showEntry}
+          aria-controls="result-entry"
+          onClick={() => setShowEntry((s) => !s)}
+        >
+          {showEntry ? "▾" : "▸"}{" "}
+          {auto ? "Extension not working? Enter your result manually" : "Or, enter your result manually"}
+        </button>
+        {showEntry && (
+          <div id="result-entry">
+            <ManualSubmit lobby={lobby} onSubmitted={onSubmitted} />
+          </div>
+        )}
+      </div>
     </section>
   );
 }
@@ -109,7 +126,7 @@ function ManualSubmit({ lobby, onSubmitted }: { lobby: Lobby; onSubmitted: () =>
           <textarea
             className="input mono"
             rows={7}
-            placeholder={"Wordle 1,612 4/6\n\n⬛🟨⬛⬛⬛\n🟩⬛⬛🟨⬛\n🟩🟩⬛🟩⬛\n🟩🟩🟩🟩🟩"}
+            placeholder={game.sharePlaceholder}
             value={text}
             onChange={(e) => setText(e.target.value)}
           />

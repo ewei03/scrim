@@ -1,22 +1,69 @@
 {
   "manifest_version": 3,
   "name": "Scrim",
-  "version": "0.1.0",
-  "description": "Finish a daily game and Scrim submits the result to your lobbies automatically.",
-  "permissions": ["storage"],
-  "host_permissions": ["https://*.supabase.co/*"],
-  "background": { "service_worker": "background.js" },
+  "version": "0.3.2",
+  "description": "A daily puzzle showdown between you and your friends.",
+  "permissions": [
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*.supabase.co/*",
+    "https://www.nytimes.com/games/*",
+    "https://krillion.io/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
-      "matches": ["https://www.nytimes.com/games/wordle/*"],
-      "js": ["wordle-core.js", "nyt-wordle.js"],
+      "matches": [
+        "https://www.nytimes.com/games/wordle/*"
+      ],
+      "js": [
+        "scrim-content.js",
+        "wordle-core.js",
+        "nyt-wordle.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["http://localhost/*", "http://127.0.0.1/*"],
-      "js": ["scrim-bridge.js"],
+      "matches": [
+        "https://www.nytimes.com/games/connections*"
+      ],
+      "js": [
+        "scrim-content.js",
+        "connections-core.js",
+        "nyt-connections.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://krillion.io/*"
+      ],
+      "js": [
+        "scrim-content.js",
+        "krillion-core.js",
+        "krillion.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": [
+        "scrim-bridge.js"
+      ],
       "run_at": "document_start"
     }
   ],
-  "action": { "default_popup": "popup.html", "default_title": "Scrim" }
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Scrim"
+  }
 }

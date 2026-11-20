@@ -32,14 +32,11 @@ export type PlayerStats = {
   recent: Performance[];
 };
 
-export type HeadToHead = { wins: number; losses: number; ties: number };
-
 /** Only pass closed lobbies of a single game. */
 export function crewStats<R>(game: GameAdapter<R>, lobbies: StatLobby<R>[], memberIds: string[]) {
   const byRecent = [...lobbies].sort((a, b) => b.ended_at.localeCompare(a.ended_at));
   const perf = new Map<string, Performance[]>(memberIds.map((id) => [id, []]));
   const results = new Map<string, R[]>(memberIds.map((id) => [id, []]));
-  const h2h = new Map<string, HeadToHead>();
 
   for (const lobby of byRecent) {
     const ranked = rankEntries(game, lobby.entries);
@@ -54,18 +51,6 @@ export function crewStats<R>(game: GameAdapter<R>, lobbies: StatLobby<R>[], memb
         score: game.formatScore(e.result),
       });
       results.get(e.user_id)!.push(e.result);
-    }
-    for (const a of lobby.entries) {
-      for (const b of lobby.entries) {
-        if (a.user_id === b.user_id) continue;
-        const key = h2hKey(a.user_id, b.user_id);
-        const rec = h2h.get(key) ?? { wins: 0, losses: 0, ties: 0 };
-        const cmp = game.compare(a.result, b.result);
-        if (cmp < 0) rec.wins++;
-        else if (cmp > 0) rec.losses++;
-        else rec.ties++;
-        h2h.set(key, rec);
-      }
     }
   }
 
@@ -86,10 +71,5 @@ export function crewStats<R>(game: GameAdapter<R>, lobbies: StatLobby<R>[], memb
   });
 
   players.sort((a, b) => b.wins - a.wins || b.winRate - a.winRate || b.played - a.played);
-  return { players, h2h };
-}
-
-/** Record of `a` against `b`, from a's point of view. */
-export function h2hKey(a: string, b: string) {
-  return `${a}|${b}`;
+  return { players };
 }

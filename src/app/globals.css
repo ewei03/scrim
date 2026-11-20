@@ -6,10 +6,10 @@
   --ink: #1c1b19;
   --muted: #77736b;
   --line: #1c1b19;
-  --accent: #5ee0ad;
+  --accent: #ff5b1f;
   --accent-ink: #1c1b19;
-  /* Mint is too light for text on paper, so text and outlines use a deeper shade. */
-  --accent-text: #148a5f;
+  /* Accent used for text and outlines; same as the accent itself. */
+  --accent-text: var(--accent);
   --good: #2f8f4e;
   --bad: #c2362b;
   --tile-g: #6aaa64;
@@ -401,6 +401,21 @@ textarea.input {
   resize: vertical;
 }
 
+/* Custom arrow so it sits inset from the edge rather than flush against it. */
+select.input {
+  appearance: none;
+  padding-right: 36px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink) 50%),
+    linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+  background-position:
+    right 18px center,
+    right 13px center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -579,14 +594,6 @@ textarea.input {
   color: var(--muted);
 }
 
-.h2h td.up {
-  color: var(--good);
-  font-weight: 600;
-}
-.h2h td.down {
-  color: var(--bad);
-}
-
 .form {
   display: inline-flex;
   gap: 3px;
@@ -644,6 +651,25 @@ textarea.input {
   background: var(--tile-y);
 }
 
+/* Connections group colours */
+.cy {
+  background: #f9df6d;
+}
+.cg {
+  background: #a0c35a;
+}
+.cb {
+  background: #b0c4ef;
+}
+.cp {
+  background: #ba81c5;
+}
+
+.ktiers {
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
 @media (max-width: 520px) {
   .hide-sm {
     display: none;
@@ -656,14 +682,24 @@ textarea.input {
 
 /* ---------- fallback entry ---------- */
 
-.fallback summary {
-  cursor: pointer;
-  color: var(--muted);
+.fallback-toggle {
+  font: inherit;
   font-size: 0.85rem;
+  color: var(--muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
-.fallback summary:hover {
+.fallback-toggle:hover,
+.fallback-toggle[aria-expanded="true"] {
   color: var(--ink);
+}
+
+.fallback-toggle:focus-visible {
+  outline: 2px dashed var(--accent-text);
+  outline-offset: 2px;
 }
 
 .fallback-body {
@@ -914,6 +950,11 @@ textarea.input {
 
 .dialog-sm {
   width: min(440px, calc(100vw - 32px));
+}
+
+.rankings-game {
+  width: auto;
+  min-width: 10rem;
 }
 
 /* ---------- crew page: owner controls ---------- */
