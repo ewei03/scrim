@@ -159,9 +159,16 @@ optional email. Only you can read them: open **Table Editor →
 game_suggestions** in the Supabase dashboard. The app can write suggestions
 but can't read them back.
 
-When Scrim gets a real domain, add it to the `scrim-bridge.js` `matches` and
-the host permissions in `extension/manifest.json` (they only cover `localhost`
-now). Publishing the extension on the Chrome Web Store needs that domain too.
+The extension talks to the live site (`https://daily-scrim.vercel.app`) and,
+for development, `localhost`; both are in `extension/manifest.json`, along with
+the Supabase project. If the domain or project changes, update them there.
+
+### Publishing the extension
+
+`npm run ext:zip` builds `dist/scrim-extension-<version>.zip` for the Chrome
+Web Store: the `extension/` files without tests and type declarations, and
+with `localhost` removed from the manifest. Bump `version` in
+`extension/manifest.json` before each upload.
 
 ## Scripts
 
@@ -171,6 +178,6 @@ now). Publishing the extension on the Chrome Web Store needs that domain too.
 
 ## Roadmap
 
-- Deploy to a real domain and publish the extension on the Chrome Web Store
+- Publish the extension on the Chrome Web Store
 - Archive puzzles (past days); today only for now
 - More games (see the suggestions table)

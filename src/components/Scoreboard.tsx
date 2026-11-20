@@ -67,10 +67,12 @@ export function Scoreboard({
             <tr key={r.entry_id} className="hidden-row">
               <td className="place">?</td>
               <td className="name">{r.display_name}</td>
-              <td className="score" title="Submit your own result to see this">
-                ▒▒▒
+              <td className="score">
+                <span className="pill hidden-pill" title="Submit your own result to see this">
+                  Hidden
+                </span>
               </td>
-              <td className="hide-sm result muted small">locked in</td>
+              <td className="hide-sm result muted small">Submit yours to see</td>
               <td className="right">{canVoid && <VoidButton onClick={() => onVoid(r)} />}</td>
             </tr>
           ))}

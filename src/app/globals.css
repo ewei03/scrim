@@ -767,6 +767,14 @@ select.input {
   color: var(--muted);
 }
 
+/* Someone's score you can't see yet (spoiler protection). */
+.hidden-pill {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: var(--muted);
+  border: 1.5px dashed var(--muted);
+}
+
 .preview .score {
   font-size: calc(2.4rem * var(--display-scale));
 }
