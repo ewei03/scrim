@@ -86,7 +86,7 @@ export function Scoreboard({
         </tbody>
       </table>
       {!closed && hidden.length > 0 && (
-        <p className="muted small">Scores stay hidden until you submit yours. No peeking.</p>
+        <p className="muted small">Scores stay hidden until you submit yours. No peeking!</p>
       )}
     </section>
   );
