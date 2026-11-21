@@ -64,12 +64,6 @@ async function makeNonce() {
   return { raw, hashed };
 }
 
-function darkTheme(): boolean {
-  const chosen = document.documentElement.dataset.theme;
-  if (chosen) return chosen === "dark";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
-
 export function GoogleButton({
   mode,
   onError,
@@ -122,7 +116,7 @@ function GoogleIdButton({
       });
       slot.current.replaceChildren();
       id.renderButton(slot.current, {
-        theme: darkTheme() ? "filled_black" : "outline",
+        theme: "outline",
         size: "large",
         text: mode === "signin" ? "continue_with" : "signin_with",
         shape: "rectangular",
@@ -143,7 +137,15 @@ function GoogleIdButton({
 
   // If Google's script can't load (blocked, offline), offer the redirect flow.
   if (failed) return <RedirectButton mode={mode} onError={onError} />;
-  return <div ref={slot} className="google-button" />;
+  // Scrim's own button, with Google's (invisible) laid over it to take the click.
+  return (
+    <span className="google-wrap">
+      <span aria-hidden className={mode === "signin" ? "btn" : "btn btn-primary"}>
+        {mode === "signin" ? "Continue with Google" : "Link Google account"}
+      </span>
+      <div ref={slot} className="google-slot" />
+    </span>
+  );
 }
 
 /** Opens a small window centred over this one, like Google's own pop-up. */
