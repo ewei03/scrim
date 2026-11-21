@@ -64,6 +64,7 @@ NYT account or knowing today's answer.
 | `crew.spec.ts` | Create, invite (friend + guest), duplicate names refused, settings (rename, hide scores, time zone, remove member), games (built-in + custom), delete, leave |
 | `extension.spec.ts` | Finishing a game: not connected, connected (straight into the crew), signed out of NYT, unfinished, played before the crew picked the game, extension popup |
 | `manual.spec.ts` | Pasting results (invalid ones refused, wrong day, a good one), hidden scores, voiding, custom game scores |
+| `midnight.spec.ts` | The crew's day rolling over at midnight (faked browser clock): results move to the archive, rankings update, a new day starts |
 | `welcome.spec.ts` | The welcome guide: first visit only, never again, never for older accounts or guests |
 
 Signing in to Google itself isn't automated: Google blocks automated
