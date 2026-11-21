@@ -353,6 +353,8 @@ function CrewPage() {
     () => (resetAt ? finished.filter((r) => Date.parse(r.closes_at) > Date.parse(resetAt)) : finished),
     [finished, resetAt],
   );
+  // Anything played since the last reset (today or finished): only then is there something to reset.
+  const hasRankings = useMemo(() => sinceReset.some((r) => r.entries.length > 0), [sinceReset]);
 
   const ranked = useMemo(() => {
     const game = rankedGames.find((g) => g.id === rankingsGame) ?? rankedGames[0];
@@ -788,7 +790,7 @@ function CrewPage() {
           ) : (
             <p className="muted">Rankings show up once someone has played.</p>
           )}
-          {isOwner && rankedGames.length > 0 && (
+          {isOwner && hasRankings && (
             <p>
               <button className="btn btn-small btn-danger" onClick={resetRankings}>
                 Reset rankings
