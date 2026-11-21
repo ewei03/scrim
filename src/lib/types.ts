@@ -31,6 +31,7 @@ export type BoardRow = {
   entry_id: string;
   user_id: string;
   display_name: string;
+  is_guest: boolean;
   submitted_at: string;
   source: EntrySource;
   /** Null while hidden by spoiler protection. */

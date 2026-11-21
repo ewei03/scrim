@@ -5,10 +5,13 @@ export function Rankings({
   game,
   players,
   names,
+  guests,
 }: {
   game: GameAdapter<unknown>;
   players: PlayerStats[];
   names: Map<string, string>;
+  /** Marked "(guest)" after their name. */
+  guests: Set<string>;
 }) {
   return (
     <div className="table-wrap">
@@ -28,7 +31,10 @@ export function Rankings({
           {players.map((p) => (
             <tr key={p.userId}>
               <td className="place">{p.played ? sharedRank(players, p) : "–"}</td>
-              <td className="name">{names.get(p.userId) ?? "?"}</td>
+              <td className="name">
+                {names.get(p.userId) ?? "?"}
+                {guests.has(p.userId) && <span className="guest-tag"> (guest)</span>}
+              </td>
               <td className="right score">{p.wins}</td>
               <td className="right">{p.played}</td>
               <td className="right">{p.played ? `${Math.round(p.winRate * 100)}%` : "–"}</td>

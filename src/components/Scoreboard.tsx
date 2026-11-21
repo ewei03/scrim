@@ -55,7 +55,10 @@ export function Scoreboard({
           {ranked.map((r) => (
             <tr key={r.entry_id} className={r.winner ? "winner" : ""}>
               <td className={r.place <= 3 ? `place place-${r.place}` : "place"}>{ordinal(r.place)}</td>
-              <td className="name">{r.display_name}</td>
+              <td className="name">
+                {r.display_name}
+                {r.is_guest && <span className="guest-tag"> (guest)</span>}
+              </td>
               <td className="score">{game.formatScore(r.result)}</td>
               <td className="hide-sm result">
                 <ResultDetail gameId={game.id} result={r.result} />
@@ -66,7 +69,10 @@ export function Scoreboard({
           {hidden.map((r) => (
             <tr key={r.entry_id} className="hidden-row">
               <td className="place">?</td>
-              <td className="name">{r.display_name}</td>
+              <td className="name">
+                {r.display_name}
+                {r.is_guest && <span className="guest-tag"> (guest)</span>}
+              </td>
               <td className="score">
                 <span className="pill hidden-pill" title="Submit your own result to see this">
                   Hidden

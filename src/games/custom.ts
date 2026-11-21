@@ -130,7 +130,6 @@ export function customAdapter(g: CustomGame): GameAdapter<CustomResult> & { cust
 
     autoSubmit: false,
     shareHint: "",
-    sharePlaceholder: "",
     parseShareText: () => ({ ok: false, error: "Scores for custom games are entered by hand." }),
 
     compare: (a, b) => {

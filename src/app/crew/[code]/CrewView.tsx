@@ -88,7 +88,7 @@ type RoundWithEntries = Round & {
     result: unknown;
     source: EntrySource;
     submitted_at: string;
-    profiles: { display_name: string } | null;
+    profiles: { display_name: string; is_guest: boolean } | null;
   }[];
 };
 
@@ -127,7 +127,7 @@ async function fetchCrew(code: string, join: boolean) {
     sb.from("custom_games").select("*").eq("crew_id", crew.id).order("created_at"),
     sb
       .from("rounds")
-      .select("*, entries(id, user_id, result, source, submitted_at, profiles(display_name))")
+      .select("*, entries(id, user_id, result, source, submitted_at, profiles(display_name, is_guest))")
       .eq("crew_id", crew.id)
       .order("closes_at", { ascending: false }),
   ]);
@@ -292,6 +292,14 @@ function CrewPage() {
     return map;
   }, [rounds, members]);
 
+  // Guests, current and past: marked "(guest)" in the rankings.
+  const guests = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rounds) for (const e of r.entries) if (e.profiles?.is_guest) set.add(e.user_id);
+    for (const m of members) if (m.profiles.is_guest) set.add(m.user_id);
+    return set;
+  }, [rounds, members]);
+
   // Rounds nobody finished aren't worth showing.
   const finished = useMemo(() => rounds.filter((r) => isClosed(r, now) && r.entries.length > 0), [rounds, now]);
 
@@ -311,8 +319,12 @@ function CrewPage() {
         ? rounds.filter((r) => r.entries.length > 0 && !isClosed(r, now))
         : finished;
     const played = pool.filter((r) => r.game === game.id && inPeriod(r, rankingsPeriod, zone, now));
-    return { game, count: played.length, ...crewStats(game, played, members.map((m) => m.user_id)) };
-  }, [rankedGames, rankingsGame, rankingsPeriod, crew, rounds, finished, members, now]);
+    // Members, plus guests who have left: their scores still count. (Regular
+    // players who left drop out of the rankings.)
+    const ids = new Set(members.map((m) => m.user_id));
+    for (const r of played) for (const e of r.entries) if (guests.has(e.user_id)) ids.add(e.user_id);
+    return { game, count: played.length, ...crewStats(game, played, [...ids]) };
+  }, [rankedGames, rankingsGame, rankingsPeriod, crew, rounds, finished, members, guests, now]);
 
   if (gone) {
     return (
@@ -467,8 +479,8 @@ function CrewPage() {
 
       {isGuest && !isOwner && (
         <p className="card small guest-note">
-          You&apos;re playing as a guest: you&apos;ll leave this crew, and your scores here are removed, a day after
-          you joined. <Link href="/profile">Link a Google account</Link> to stay.
+          You&apos;re playing as a guest: you&apos;ll leave this crew when today&apos;s round ends (your scores stay).{" "}
+          <Link href="/profile">Link a Google account</Link> to stay.
         </p>
       )}
 
@@ -605,7 +617,7 @@ function CrewPage() {
                 </select>
               </p>
               {ranked.count > 0 ? (
-                <Rankings game={ranked.game} players={ranked.players} names={names} />
+                <Rankings game={ranked.game} players={ranked.players} names={names} guests={guests} />
               ) : (
                 <p className="muted">
                   {rankingsPeriod === "today"
@@ -886,6 +898,7 @@ function PastRound({
     entry_id: e.id,
     user_id: e.user_id,
     display_name: names.get(e.user_id) ?? "?",
+    is_guest: e.profiles?.is_guest ?? false,
     submitted_at: e.submitted_at,
     source: e.source,
     result: e.result,

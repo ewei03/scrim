@@ -804,9 +804,23 @@ describe("guests", () => {
     ]);
   });
 
-  it("removes guests and their scores a day after they join, but not owners or regular players", async () => {
+  it("marks guests on the scoreboard", async () => {
+    const rows = await as<{ user_id: string; is_guest: boolean }>(
+      ANN,
+      "select user_id, is_guest from get_round_board($1, 'wordle', $2)",
+      [crew.id, T],
+    );
+    expect(rows).toEqual([
+      { user_id: GUEST, is_guest: true },
+      { user_id: BOB, is_guest: false },
+    ]);
+  });
+
+  it("removes guests once the day they joined ends in the crew's time zone, keeping their scores", async () => {
+    // Joined today: still in.
     expect(await db.query("select remove_expired_guests() as n").then((r) => r.rows[0])).toEqual({ n: 0 });
-    await db.query("update crew_members set joined_at = now() - interval '25 hours' where user_id in ($1, $2, $3)", [
+    // Joined yesterday, crew time: gone, but not owners or regular players.
+    await db.query("update crew_members set joined_at = now() - interval '1 day' where user_id in ($1, $2, $3)", [
       GUEST,
       HOST,
       BOB,
@@ -815,7 +829,8 @@ describe("guests", () => {
 
     const members = await as<{ user_id: string }>(ANN, "select user_id from crew_members where crew_id = $1", [crew.id]);
     expect(members.map((m) => m.user_id).sort()).toEqual([ANN, BOB]);
-    expect((await board(ANN, crew.id, T)).map((r) => r.user_id)).toEqual([BOB]);
+    // Their score stays.
+    expect((await board(ANN, crew.id, T)).map((r) => r.user_id)).toEqual([GUEST, BOB]);
     // The guest owner keeps their crew and their score.
     expect((await board(HOST, hosted.id, T)).map((r) => r.user_id)).toEqual([HOST]);
     // Nobody can trigger the cleanup through the API.

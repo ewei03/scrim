@@ -84,7 +84,6 @@ export const krillion: GameAdapter<KrillionResult> = {
   autoSubmit: true,
 
   shareHint: "Finish the Daily Dive, copy your result, then paste it here.",
-  sharePlaceholder: "Krillion #127 🦐\n…\n🐟🫧🦑⬛🌟🐟🏮",
   parseShareText: parseKrillion,
 
   compare: (a, b) => b.points - a.points,

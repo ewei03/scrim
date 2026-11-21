@@ -98,7 +98,6 @@ export const connections: GameAdapter<ConnectionsResult> = {
   autoSubmit: true,
 
   shareHint: "Finish the puzzle, click Share Your Results, then paste it here.",
-  sharePlaceholder: "Connections\nPuzzle #500\n🟨🟨🟨🟨\n🟩🟦🟩🟩\n🟩🟩🟩🟩\n🟦🟦🟦🟦\n🟪🟪🟪🟪",
   parseShareText: parseConnections,
 
   compare: (a, b) => points(a) - points(b),

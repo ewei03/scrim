@@ -37,10 +37,11 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
   honour system. Scoring locks once anyone has entered a score. The owner
   edits or deletes one from its card under Today (✎); deleting also
   removes its scores and past days.
-- **Guests:** a guest account is removed from a crew, with its scores there,
-  a day after joining (hourly, via pg_cron). Linking Google makes it a regular
-  account that stays. Guests show as "(guest)" in the crew box, and can't
-  create crews; they join with invite links.
+- **Guests:** a guest account leaves a crew when the day it joined ends
+  (midnight in the crew's time zone; checked every 5 minutes via pg_cron). Its
+  scores stay, in past days and rankings. Linking Google makes it a regular
+  account that stays. Guests show as "(guest)" in the crew box, scoreboards and
+  rankings, and can't create crews; they join with invite links.
 - **Winning:** ties share the win (two people who both get Wordle in 1 both
   win). A miss can't win.
 - **Spoiler protection:** with "hide scores until you submit" on, other
@@ -138,8 +139,8 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run each file in `supabase/migrations/` in order
-   (`0001_init.sql` through `0014_delete_custom_game.sql`). Before `0012`, enable the
-   **pg_cron** extension (Database → Extensions) so guests are cleaned up hourly. `0009` replaces the old
+   (`0001_init.sql` through `0016_guests_leave_at_midnight.sql`). Before `0012`, enable the
+   **pg_cron** extension (Database → Extensions) so guests are cleaned up after each day. `0009` replaces the old
    lobbies and **erases any lobby results**; afterwards each crew owner picks
    their crew's games on the crew page.
 3. **Authentication → Sign In / Providers:**

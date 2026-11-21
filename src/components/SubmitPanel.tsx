@@ -125,7 +125,7 @@ function PasteSubmit({ crew, game, puzzleId, onSubmitted }: Target & { onSubmitt
       <textarea
         className="input mono"
         rows={7}
-        placeholder={game.sharePlaceholder}
+        placeholder="Paste your result here..."
         value={text}
         onChange={(e) => setText(e.target.value)}
       />

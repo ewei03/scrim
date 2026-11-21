@@ -102,7 +102,6 @@ export const wordle: GameAdapter<WordleResult> = {
   autoSubmit: true,
 
   shareHint: "Finish the Wordle, click Share, then paste it here.",
-  sharePlaceholder: "Wordle 1,612 4/6\n\n⬛🟨⬛⬛⬛\n🟩⬛⬛🟨⬛\n🟩🟩⬛🟩⬛\n🟩🟩🟩🟩🟩",
   parseShareText: parseWordle,
 
   compare: (a, b) => points(a) - points(b),

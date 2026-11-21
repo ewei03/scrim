@@ -38,8 +38,6 @@ export interface GameAdapter<R = unknown> {
 
   /** Short instruction shown above the paste box. */
   shareHint: string;
-  /** Example share text for the paste box. */
-  sharePlaceholder: string;
   parseShareText(text: string): ParseResult<R>;
 
   /** Negative if `a` ranks above `b`, positive if below, 0 for a tie. */
