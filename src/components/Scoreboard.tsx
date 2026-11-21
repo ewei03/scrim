@@ -3,7 +3,8 @@
 import { rankEntries } from "@/games/ranking";
 import { ResultDetail } from "@/games/ui";
 import { PlayerName } from "./PlayerName";
-import { ordinal } from "@/lib/time";
+import { toggleClock, useClock24h } from "@/lib/clock";
+import { formatTime, ordinal } from "@/lib/time";
 import type { GameAdapter } from "@/games/types";
 import type { BoardRow } from "@/lib/types";
 
@@ -26,6 +27,8 @@ export function Scoreboard({
     rows.filter((r) => !r.hidden).map((r) => ({ ...r, result: r.result })),
   );
   const hidden = rows.filter((r) => r.hidden);
+  // Your 12/24-hour choice, shared by every scoreboard (click the heading to flip it).
+  const clock24h = useClock24h();
   const winners = ranked.filter((r) => r.winner);
 
   return (
@@ -51,6 +54,17 @@ export function Scoreboard({
               <th>Score</th>
               <th>Result</th>
               <th>
+                <button
+                  type="button"
+                  className="th-toggle"
+                  onClick={toggleClock}
+                  title={clock24h ? "Switch to 12-hour time" : "Switch to 24-hour time"}
+                  aria-label={`Time, ${clock24h ? "24" : "12"}-hour. Switch to ${clock24h ? "12" : "24"}-hour`}
+                >
+                  Time
+                </button>
+              </th>
+              <th>
                 <span className="sr-only">Actions</span>
               </th>
             </tr>
@@ -69,6 +83,9 @@ export function Scoreboard({
                 <td className="score">{game.formatScore(r.result)}</td>
                 <td className="result">
                   <ResultDetail gameId={game.id} result={r.result} />
+                </td>
+                <td className="time muted small">
+                  <time dateTime={r.submitted_at}>{formatTime(r.submitted_at, clock24h)}</time>
                 </td>
                 <td className="right nowrap">
                   {canVoid && <VoidButton onClick={() => onVoid(r)} />}
@@ -90,6 +107,9 @@ export function Scoreboard({
                   </span>
                 </td>
                 <td className="result muted small">Submit yours to see</td>
+                <td className="time muted small">
+                  <time dateTime={r.submitted_at}>{formatTime(r.submitted_at, clock24h)}</time>
+                </td>
                 <td className="right">
                   {canVoid && <VoidButton onClick={() => onVoid(r)} />}
                 </td>
@@ -97,8 +117,8 @@ export function Scoreboard({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="muted center">
-                  Nobody has submitted yet{closed ? "" : " — be the first"}!
+                <td colSpan={6} className="muted center">
+                  Nobody has submitted yet{closed ? "" : " - be the first"}!
                 </td>
               </tr>
             )}

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { SuggestGameButton } from "@/components/SuggestGame";
 import { gameList } from "@/games/registry";
 
-export const metadata: Metadata = { title: "Games — Scrim" };
+export const metadata: Metadata = { title: "Games - Scrim" };
 
 /** Every game Scrim supports, credited to whoever makes it. */
 export default function GamesPage() {

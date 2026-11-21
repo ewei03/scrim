@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { newGuest, loginBrowser } from "./support/accounts";
+import { accounts, hasAccounts, loginBrowser, newGuest, NO_ACCOUNTS, signIn } from "./support/accounts";
 
 // 3. The header and footer buttons and links.
 
@@ -78,13 +78,24 @@ test("Suggest a game opens from the footer and closes with × or a click outside
   const dialog = page.getByRole("dialog", { name: "Suggest a game" });
   await checkModalCloses(page, () => page.getByRole("button", { name: "Suggest a game" }).click(), dialog);
 
-  // Signed out, it asks you to sign in first.
+  // Signed out, it asks you to sign in with Google first.
   await page.getByRole("button", { name: "Suggest a game" }).click();
-  await expect(dialog.getByText("Sign in (a guest account works) to suggest a game.")).toBeVisible();
+  await expect(dialog.getByText("Sign in with Google to suggest a game.")).toBeVisible();
 });
 
-test("Suggest a game sends a suggestion when signed in", async ({ page, context }) => {
+test("guests are asked to link Google before suggesting a game", async ({ page, context }) => {
   await loginBrowser(context, await newGuest("Suggesting Guest"));
+  await page.goto("/");
+  await page.getByRole("button", { name: "Suggest a game" }).click();
+  const dialog = page.getByRole("dialog", { name: "Suggest a game" });
+  await expect(dialog.getByText("Suggestions need a Google account.")).toBeVisible();
+  await expect(dialog.getByRole("link", { name: "Link one on your profile" })).toHaveAttribute("href", "/profile");
+  await expect(dialog.getByRole("button", { name: "Send suggestion" })).toHaveCount(0);
+});
+
+test("Suggest a game sends a suggestion from a Google (regular) account", async ({ page, context }) => {
+  test.skip(!hasAccounts, NO_ACCOUNTS);
+  await loginBrowser(context, await signIn("owner"));
   // Answer the request here rather than storing a real suggestion (and starting the 1-hour cooldown).
   let sent: Record<string, unknown> | null = null;
   await context.route("**/rest/v1/rpc/suggest_game", async (route) => {
@@ -103,7 +114,12 @@ test("Suggest a game sends a suggestion when signed in", async ({ page, context 
   await send.click();
 
   await expect(dialog.getByText("Thanks! Your suggestion was sent.")).toBeVisible();
-  expect(sent).toMatchObject({ p_name: "Strands", p_url: "https://www.nytimes.com/games/strands", p_email: null });
+  // The account's own email is filled in for them.
+  expect(sent).toMatchObject({
+    p_name: "Strands",
+    p_url: "https://www.nytimes.com/games/strands",
+    p_email: accounts.owner.email,
+  });
 });
 
 test("GitHub opens the repository in a new tab", async ({ page }) => {

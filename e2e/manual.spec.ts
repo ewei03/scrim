@@ -33,7 +33,7 @@ const card = (page: Page, game: string) => page.locator(".game-card", { hasText:
 
 async function openPasteBox(page: Page) {
   const wordle = card(page, "Wordle");
-  await wordle.getByRole("button", { name: /paste your result/ }).click();
+  await wordle.getByRole("button", { name: "Enter your result" }).click();
   return { box: wordle.locator("textarea"), lock: wordle.getByRole("button", { name: "Lock it in" }), wordle };
 }
 
@@ -137,7 +137,7 @@ test("the crew owner can void an entry so it can be submitted again", async ({ p
   await row.getByTitle("Void this entry").click();
   await answerConfirm(page, true);
   await expect(wordle.getByText(/Nobody has submitted yet/)).toBeVisible();
-  await expect(wordle.getByRole("button", { name: /paste your result/ })).toBeVisible();
+  await expect(wordle.getByRole("button", { name: "Enter your result" })).toBeVisible();
 });
 
 test("custom game scores are typed in and checked", async ({ page, context }) => {

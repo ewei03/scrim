@@ -8,6 +8,7 @@ import { CopyLink } from "@/components/CopyLink";
 import { CustomGameForm } from "@/components/CustomGameForm";
 import { GameTag, gameStyle } from "@/components/GameTag";
 import { Modal } from "@/components/Modal";
+import { MemberStats } from "@/components/MemberStats";
 import { ReorderGames } from "@/components/ReorderGames";
 import { Rankings } from "@/components/Rankings";
 import { Loading, RequireAuth } from "@/components/RequireAuth";
@@ -83,9 +84,10 @@ function rememberTab(code: string, tab: Tab) {
   }
 }
 
-type Member = { user_id: string; profiles: { display_name: string; is_guest: boolean } };
+type Person = { user_id: string; profiles: { display_name: string; is_guest: boolean } };
+type Member = Person & { joined_at: string };
 /** Someone asking to join a crew that needs the owner's approval (only the owner sees these). */
-type JoinRequest = Member & { created_at: string };
+type JoinRequest = Person & { created_at: string };
 type RoundWithEntries = Round & {
   entries: {
     id: string;
@@ -130,7 +132,7 @@ async function fetchCrew(code: string, join: boolean) {
     crew = data as Crew;
   }
   const [m, g, cg, r, jr] = await Promise.all([
-    sb.from("crew_members").select("user_id, profiles(display_name, is_guest)").eq("crew_id", crew.id).order("joined_at"),
+    sb.from("crew_members").select("user_id, joined_at, profiles(display_name, is_guest)").eq("crew_id", crew.id).order("joined_at"),
     sb.from("crew_games").select("game").eq("crew_id", crew.id),
     sb.from("custom_games").select("*").eq("crew_id", crew.id).order("created_at"),
     sb
@@ -198,6 +200,8 @@ function CrewPage() {
   const storedOrder = useMemo(() => (userId && crewId ? savedGameOrder(userId, crewId) : []), [userId, crewId]);
   const gameOrder = dragged?.key === orderKey ? dragged.ids : storedOrder;
   const [showReorder, setShowReorder] = useState(false);
+  // Whose card is open (from their name in the crew box).
+  const [viewing, setViewing] = useState<string | null>(null);
   // Whether you've submitted each of today's games, as their boards report it.
   const [played, setPlayed] = useState<Record<string, boolean>>({});
   const onPlayed = useCallback(
@@ -384,6 +388,24 @@ function CrewPage() {
   if (!crew) return <Loading />;
 
   const isOwner = crew.created_by === user?.id;
+  // The open member card, if any (they may have just left).
+  const viewedRow = members.find((m) => m.user_id === viewing);
+  const viewedMember = viewedRow
+    ? {
+        userId: viewedRow.user_id,
+        name: viewedRow.profiles.display_name,
+        isGuest: viewedRow.profiles.is_guest,
+        isOwner: viewedRow.user_id === crew.created_by,
+        joinedAt: viewedRow.joined_at,
+      }
+    : null;
+  // Everyone the all-time rankings include: members, plus guests who left.
+  const rankedIds = [
+    ...new Set([
+      ...members.map((m) => m.user_id),
+      ...finished.flatMap((r) => r.entries.filter((e) => guests.has(e.user_id)).map((e) => e.user_id)),
+    ]),
+  ];
   const tracked = inSavedOrder(
     allGames.filter((g) => games.includes(g.id)),
     (g) => g.id,
@@ -458,9 +480,18 @@ function CrewPage() {
           <ul className="member-chips">
             {members.map((m) => (
               <li key={m.user_id} className={m.user_id === user?.id ? "me" : undefined}>
-                {m.user_id === crew.created_by && <OwnerCrown />}
-                {m.profiles.display_name}
-                {m.profiles.is_guest && <span className="guest-tag"> (guest)</span>}
+                {/* Opens their card: when they joined, and their stats. */}
+                <button
+                  type="button"
+                  className="member-chip"
+                  aria-haspopup="dialog"
+                  title={`${m.profiles.display_name}'s stats`}
+                  onClick={() => setViewing(m.user_id)}
+                >
+                  {m.user_id === crew.created_by && <OwnerCrown />}
+                  {m.profiles.display_name}
+                  {m.profiles.is_guest && <span className="guest-tag"> (guest)</span>}
+                </button>
               </li>
             ))}
           </ul>
@@ -530,6 +561,31 @@ function CrewPage() {
           </Modal>
         )}
       </section>
+
+      <MemberStats
+        member={viewedMember}
+        games={rankedGames}
+        rounds={finished}
+        rankedIds={rankedIds}
+        byWinRate={crew.rank_by_win_rate}
+        onClose={() => setViewing(null)}
+        onRemove={
+          isOwner && viewedMember && !viewedMember.isOwner
+            ? async () => {
+                const m = members.find((x) => x.user_id === viewedMember.userId);
+                if (!m) return;
+                try {
+                  if (await removeMember(crew, m)) {
+                    setViewing(null);
+                    load();
+                  }
+                } catch (e) {
+                  setError(errorMessage(e));
+                }
+              }
+            : undefined
+        }
+      />
 
       {isOwner && requests.length > 0 && (
         <p className="card small join-requests-note" role="status">
@@ -611,7 +667,7 @@ function CrewPage() {
                   className="link-btn"
                   onClick={() => tracked.forEach((g) => setCardOpen(g.id, anyCollapsed))}
                 >
-                  {anyCollapsed ? "expand" : "collapse"}
+                  {anyCollapsed ? "expand all" : "collapse all"}
                 </button>
               </div>
               <ReorderGames
@@ -695,7 +751,7 @@ function CrewPage() {
                 <p className="muted">
                   {rankingsPeriod === "today"
                     ? `Nobody has played ${ranked.game.name} today yet.`
-                    : `No finished days of ${ranked.game.name} ${PERIODS.find((p) => p.id === rankingsPeriod)!.label.toLowerCase()}.`}
+                    : `No finished days for ${ranked.game.name} ${PERIODS.find((p) => p.id === rankingsPeriod)!.label.toLowerCase()}.`}
                 </p>
               )}
             </>
@@ -849,7 +905,13 @@ function TodayRound({
         {!submitted && (
           <SubmitPanel crew={crew} game={game} puzzleId={puzzleId} extension={extension} onSubmitted={loadBoard} />
         )}
-        <Scoreboard game={game} rows={board} closed={false} canVoid={isOwner} onVoid={onVoid} />
+        <Scoreboard
+          game={game}
+          rows={board}
+          closed={false}
+          canVoid={isOwner}
+          onVoid={onVoid}
+        />
         {error && <p className="error small">{error}</p>}
       </div>
     </article>
@@ -1075,6 +1137,22 @@ function CrewGames({
   );
 }
 
+/**
+ * Removes a member, after asking (with the option to delete their past
+ * results too). Used by Manage crew and by a member's card. Resolves true if
+ * they were removed, false if the owner cancelled; throws if it failed.
+ */
+async function removeMember(crew: Crew, m: Person): Promise<boolean> {
+  const name = m.profiles.display_name;
+  const wipe = await confirmWithOption(
+    `Remove ${name} from ${crew.name}? Their results for today are deleted. They can rejoin with the invite link.`,
+    `Delete ${name}'s past results and stats in this crew`,
+  );
+  if (wipe === null) return false;
+  await rpc("remove_crew_member", { p_crew: crew.id, p_user: m.user_id, p_wipe: wipe });
+  return true;
+}
+
 function ManageCrew({
   crew,
   members,
@@ -1129,15 +1207,8 @@ function ManageCrew({
   }
 
   async function remove(m: Member) {
-    const name = m.profiles.display_name;
-    const wipe = await confirmWithOption(
-      `Remove ${name} from ${crew.name}? Their results for today are deleted. They can rejoin with the invite link.`,
-      `Delete ${name}'s past results and stats in this crew`,
-    );
-    if (wipe === null) return;
     await run(m.user_id, async () => {
-      await rpc("remove_crew_member", { p_crew: crew.id, p_user: m.user_id, p_wipe: wipe });
-      onRemoved();
+      if (await removeMember(crew, m)) onRemoved();
     });
   }
 
@@ -1159,90 +1230,94 @@ function ManageCrew({
   }
 
   return (
-    <>
-      <h3>Name</h3>
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (nameChanged) updateSettings({ p_name: name.trim() });
-        }}
-      >
-        <input
-          className="input grow"
-          aria-label="Crew name"
-          maxLength={16}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
-        <button className="btn btn-small" disabled={busy !== null || !nameChanged}>
-          {busy === "settings" && nameChanged ? "Saving…" : "Rename"}
-        </button>
-      </form>
-
-      <h3>Rules</h3>
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={crew.hide_until_submitted}
-          disabled={busy !== null}
-          onChange={(e) => updateSettings({ p_hide_until_submitted: e.target.checked })}
-        />{" "}
-        Hide scores until you submit (no spoilers)
-      </label>
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={crew.allow_guests}
-          disabled={busy !== null}
-          onChange={(e) => updateSettings({ p_allow_guests: e.target.checked })}
-        />{" "}
-        Allow guests to join crew
-      </label>
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={crew.require_approval}
-          disabled={busy !== null}
-          onChange={(e) => updateSettings({ p_require_approval: e.target.checked })}
-        />{" "}
-        Approve new members before they join
-      </label>
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={crew.rank_by_win_rate}
-          disabled={busy !== null}
-          onChange={(e) => updateSettings({ p_rank_by_win_rate: e.target.checked })}
-        />{" "}
-        Omit skipped days from rankings stats
-      </label>
-      <label className="field">
-        <span>Time Zone</span>
-        <select
-          className="input"
-          value={timezone}
-          disabled={busy !== null}
-          onChange={(e) => updateSettings({ p_timezone: e.target.value })}
-          onFocus={() => setZonesAt(Date.now())}
-          onMouseDown={() => setZonesAt(Date.now())}
+    <div className="stack manage-body">
+      <section className="manage-card">
+        <h3>Name</h3>
+        <form
+          className="row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (nameChanged) updateSettings({ p_name: name.trim() });
+          }}
         >
-          {zones.map((group) => (
-            <optgroup key={group.region} label={group.region}>
-              {group.zones.map((z) => (
-                <option key={z.id} value={z.id}>
-                  {z.label}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </label>
-      <p className="muted small">The day ends at midnight in the selected time zone.</p>
+          <input
+            className="input grow"
+            aria-label="Crew name"
+            maxLength={16}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <button className="btn btn-small" disabled={busy !== null || !nameChanged}>
+            {busy === "settings" && nameChanged ? "Saving…" : "Rename"}
+          </button>
+        </form>
+      </section>
+
+      <section className="manage-card">
+        <h3>Rules</h3>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={crew.hide_until_submitted}
+            disabled={busy !== null}
+            onChange={(e) => updateSettings({ p_hide_until_submitted: e.target.checked })}
+          />{" "}
+          Hide scores until you submit (no spoilers)
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={crew.allow_guests}
+            disabled={busy !== null}
+            onChange={(e) => updateSettings({ p_allow_guests: e.target.checked })}
+          />{" "}
+          Allow guests to join crew
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={crew.require_approval}
+            disabled={busy !== null}
+            onChange={(e) => updateSettings({ p_require_approval: e.target.checked })}
+          />{" "}
+          Approve new members before they join
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={crew.rank_by_win_rate}
+            disabled={busy !== null}
+            onChange={(e) => updateSettings({ p_rank_by_win_rate: e.target.checked })}
+          />{" "}
+          Omit skipped days from rankings stats
+        </label>
+        <label className="field">
+          <span>Time Zone</span>
+          <select
+            className="input"
+            value={timezone}
+            disabled={busy !== null}
+            onChange={(e) => updateSettings({ p_timezone: e.target.value })}
+            onFocus={() => setZonesAt(Date.now())}
+            onMouseDown={() => setZonesAt(Date.now())}
+          >
+            {zones.map((group) => (
+              <optgroup key={group.region} label={group.region}>
+                {group.zones.map((z) => (
+                  <option key={z.id} value={z.id}>
+                    {z.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </label>
+        <p className="muted small">The day ends at midnight in the selected time zone.</p>
+      </section>
 
       {requests.length > 0 && (
-        <>
+        <section className="manage-card">
           <h3>Join requests</h3>
           <ul className="manage-members">
             {requests.map((r) => (
@@ -1262,41 +1337,44 @@ function ManageCrew({
               </li>
             ))}
           </ul>
-        </>
+        </section>
       )}
 
-      <h3>Members (10 max)</h3>
-      <ul className="manage-members">
-        {members.map((m) =>
-          m.user_id === crew.created_by ? (
-            // The owner (you): listed, but can't be removed.
-            <li key={m.user_id}>
-              <span>
-                <OwnerCrown />
-                {m.profiles.display_name} <span className="muted">(you)</span>
-              </span>
-            </li>
-          ) : (
-            <li key={m.user_id}>
-              <span>
-                {m.profiles.display_name}
-                {m.profiles.is_guest && <span className="guest-tag"> (guest)</span>}
-              </span>
-              <button className="link-btn danger" disabled={busy !== null} onClick={() => remove(m)}>
-                {busy === m.user_id ? "Removing…" : "Remove"}
-              </button>
-            </li>
-          ),
-        )}
-        {others.length === 0 && <li className="muted small">No other members yet.</li>}
-      </ul>
+      <section className="manage-card">
+        <h3>Members (10 max)</h3>
+        <ul className="manage-members">
+          {members.map((m) =>
+            m.user_id === crew.created_by ? (
+              // The owner (you): listed, but can't be removed.
+              <li key={m.user_id}>
+                <span>
+                  <OwnerCrown />
+                  {m.profiles.display_name} <span className="muted">(you)</span>
+                </span>
+              </li>
+            ) : (
+              <li key={m.user_id}>
+                <span>
+                  {m.profiles.display_name}
+                  {m.profiles.is_guest && <span className="guest-tag"> (guest)</span>}
+                </span>
+                <button className="link-btn danger" disabled={busy !== null} onClick={() => remove(m)}>
+                  {busy === m.user_id ? "Removing…" : "Remove"}
+                </button>
+              </li>
+            ),
+          )}
+          {others.length === 0 && <li className="muted small">No other members yet.</li>}
+        </ul>
+      </section>
+
       <div className="row between wrap danger-zone">
         <button className="btn btn-small btn-danger" disabled={busy !== null} onClick={deleteCrew}>
           {busy === "crew" ? "Deleting…" : "Delete crew"}
         </button>
       </div>
       {error && <p className="error small">{error}</p>}
-    </>
+    </div>
   );
 }
 

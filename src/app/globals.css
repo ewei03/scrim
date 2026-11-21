@@ -1,4 +1,4 @@
-/* Scrim — minimal, with a little arcade. */
+/* Scrim - minimal, with a little arcade. */
 
 :root {
   --paper: #f3efe6;
@@ -120,7 +120,7 @@ body {
   }
 }
 
-/* Faint scanlines — the retro bit. */
+/* Faint scanlines - the retro bit. */
 body::before {
   content: "";
   position: fixed;
@@ -212,6 +212,14 @@ main.container {
   overflow: visible;
   transform: translateX(-0.04em) scale(1.25);
   transform-origin: 50% 92.5%;
+}
+
+/* The drawn ↗ after links that open elsewhere (ExternalArrow): sized and
+   placed like a letter. */
+.external-arrow {
+  width: 0.75em;
+  height: 0.75em;
+  vertical-align: -0.02em;
 }
 
 .cursor,
@@ -827,6 +835,27 @@ select.input {
   font-weight: 600;
 }
 
+/* A clickable column heading (the scoreboard's Time: 12/24-hour). Looks like
+   the other headings, with an underline on hover so it reads as clickable. */
+.th-toggle {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.th-toggle:hover,
+.th-toggle:focus-visible {
+  color: var(--ink);
+  text-decoration-style: solid;
+}
+
 /* Scoreboards pack their columns to the left: every column hugs its content
    and the last one (the owner's void button) takes the spare width. */
 .scoreboard th,
@@ -990,16 +1019,22 @@ select.input {
 
 /* ---------- fallback entry ---------- */
 
+/* Play {game} and Enter your result, side by side at the bottom of the card. */
+.turn-actions {
+  gap: 10px;
+}
+
+/* Enter your result: outlined, the same size as the small Play button beside it. */
 .fallback-toggle {
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--accent-text);
   background: var(--card);
   border: 2px solid var(--accent-text);
   border-radius: var(--radius);
   box-shadow: 3px 3px 0 var(--accent-text);
-  padding: 6px 12px;
+  padding: 4px 10px;
   cursor: pointer;
   transition:
     transform 0.08s,
@@ -1020,10 +1055,6 @@ select.input {
 .fallback-toggle:focus-visible {
   outline: 2px dashed var(--accent-text);
   outline-offset: 2px;
-}
-
-.fallback-body {
-  margin-top: 12px;
 }
 
 /* ---------- footer ---------- */
@@ -1202,7 +1233,7 @@ select.input {
 }
 
 .today-head-actions {
-  gap: 7px;
+  gap: 12px;
   align-items: center;
 }
 
@@ -1775,10 +1806,50 @@ body:has(.reorder-row.lifted) {
 }
 
 .member-chips li {
-  padding: 1px 8px;
   font-size: 0.8rem;
   border: 1.5px solid var(--line);
   background: var(--paper);
+}
+
+/* Each name opens that member's card (MemberStats). */
+.member-chip {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+
+.member-chips li:has(.member-chip:hover),
+.member-chips li:has(.member-chip:focus-visible) {
+  box-shadow: 2px 2px 0 var(--line);
+  transform: translate(-1px, -1px);
+}
+
+.member-chip:focus-visible {
+  outline: 2px dashed var(--accent-text);
+  outline-offset: 2px;
+}
+
+/* The member card's stats table: compact, every column but the game's right-aligned. */
+.member-stats-table td,
+.member-stats-table th {
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+/* A bit more room between the explanation and its button (Add to Chrome,
+   Connect), on top of the card's usual 12px. */
+.extension-action {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+/* "Extension connected successfully" on the profile page: the accent colour
+   (green in light mode, orange in dark), in its text-safe shade. */
+.extension-ok {
+  color: var(--accent-text);
 }
 
 .guest-tag {
@@ -2020,6 +2091,55 @@ body:has(.reorder-row.lifted) {
 /* ---------- crew page: owner controls ---------- */
 
 /* Full width, in line with the rest of the dialog (beats .dialog-body ul's indent). */
+/* Manage crew: Name, Rules, Join requests and Members each in a card, like
+   the cards in How Scrim works, lifting a little on hover. */
+.manage-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--paper);
+  border: 2px solid var(--line);
+  box-shadow: var(--shadow);
+  transition: transform 120ms, box-shadow 120ms;
+}
+
+.manage-card:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--line);
+}
+
+/* Like How Scrim works: hovering a card brings it forward, and everything
+   else dims and blurs. */
+.manage-body > * {
+  transition: opacity 320ms ease, filter 320ms ease;
+}
+
+.manage-body:has(.manage-card:hover) > :not(:hover) {
+  opacity: 0.3;
+  filter: blur(1.5px);
+}
+
+.manage-card h3 {
+  transition: letter-spacing 150ms;
+}
+
+.manage-card:hover h3 {
+  letter-spacing: 0.04em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .manage-card,
+  .manage-body > *,
+  .manage-card h3 {
+    transition: none;
+  }
+}
+
+.dialog-body .manage-card h3 {
+  margin: 0;
+}
+
 .dialog-body .manage-members {
   list-style: none;
   margin: 0;
@@ -2028,12 +2148,6 @@ body:has(.reorder-row.lifted) {
 
 .dialog-body .manage-members li + li {
   margin-top: 0;
-}
-
-/* The dashed line under the last member: as close as the dividers between
-   members (the row's own padding), not the dialog's usual 12px gap on top. */
-.manage-members + .danger-zone {
-  margin-top: -12px;
 }
 
 .manage-members li {

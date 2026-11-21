@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { EXTENSION_STORE_URL, type ExtensionState } from "@/lib/extension";
+import { ExternalArrow } from "./ExternalArrow";
 
 const seenKey = (userId: string) => `scrim-welcome-seen:${userId}`;
 
@@ -89,7 +90,7 @@ export function Welcome({
         <>
           The extension tracks your scores so you don&apos;t have to submit anything manually. <strong>HIGHLY RECOMMENDED!</strong>{" "}
           <a href={EXTENSION_STORE_URL} target="_blank" rel="noreferrer">
-            Get it on the Chrome Web Store ↗
+            Get it on the Chrome Web Store <ExternalArrow />
           </a>
         </>
       ),

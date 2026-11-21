@@ -48,6 +48,19 @@ export function formatDay(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
 
+/**
+ * When something happened, as a time of day in the viewer's own zone: "21:42"
+ * on a 24-hour clock, "9:42 PM" on a 12-hour one (the viewer's choice, see
+ * src/lib/clock.ts).
+ */
+export function formatTime(iso: string, clock24h = false): string {
+  return new Date(iso).toLocaleTimeString(undefined, {
+    hour: clock24h ? "2-digit" : "numeric",
+    minute: "2-digit",
+    hourCycle: clock24h ? "h23" : "h12",
+  });
+}
+
 export function ordinal(n: number): string {
   const suffixes = ["TH", "ST", "ND", "RD"];
   const v = n % 100;

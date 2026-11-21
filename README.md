@@ -13,6 +13,19 @@ game on its own site as usual, and when you finish, the extension reads the
 result from the page and submits it to every crew you're in that plays that
 game. Pasting the game's share text is the fallback; scores can't be typed in.
 
+## Screenshots
+
+| | |
+|---|---|
+| ![The landing page: sign in as a guest or with Google](demo/demo2.png) | ![Home: today's games, your crews, and joining one with an invite link](demo/demo3.png) |
+| **Landing page.** Sign in as a guest or with Google. | **Home.** What's left to play today, your crews, and joining one by invite link. |
+| ![A crew's page: its games, and today's scoreboards](demo/demo4.png) | ![How Scrim works: the help guide](demo/demo5.png) |
+| **A crew.** Its members and games, then each game's scoreboard for today. | **How Scrim works.** The guide behind the ? button. |
+
+![A crew's Today tab in dark mode](demo/demo.png)
+
+*A crew's Today tab in dark mode.*
+
 ## How it works
 
 | Concept | Lifetime | Notes |
@@ -80,19 +93,19 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 
 ## Code map
 
-- `supabase/migrations/` — tables, RLS and the RPCs every write goes through.
+- `supabase/migrations/` - tables, RLS and the RPCs every write goes through.
   `0009_daily_rounds.sql` has the current model: crews, tracked games, rounds,
   entries, extension rankings and suggestion emails.
-- `supabase/schema.test.ts` — runs every migration in an in-memory Postgres
+- `supabase/schema.test.ts` - runs every migration in an in-memory Postgres
   and exercises the RPCs and RLS as different users.
-- `src/games/` — one adapter per game (parsing share text, scoring, colour),
+- `src/games/` - one adapter per game (parsing share text, scoring, colour),
   the registry, ranking, and game-specific UI (`ui.tsx`).
-- `src/lib/rounds.ts` — which puzzle is a crew's "today", and when its day ends.
-- `src/lib/stats.ts` — rankings and streaks.
-- `src/app/` — `/` home, `/crew/[code]` crew, `/profile`, `/privacy`
+- `src/lib/rounds.ts` - which puzzle is a crew's "today", and when its day ends.
+- `src/lib/stats.ts` - rankings and streaks.
+- `src/app/` - `/` home, `/crew/[code]` crew, `/profile`, `/privacy`
   (Privacy & Terms). `icon.svg` is the favicon.
-- `public/logo.svg` — the logo.
-- `extension/` — Chrome extension (plain JS, no build step).
+- `public/logo.svg` - the logo.
+- `extension/` - Chrome extension (plain JS, no build step).
 
 ## The extension
 
@@ -132,8 +145,9 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 - Connecting (Profile → Chrome extension) mints a random token, stored hashed
   (`0003_extension.sql`). The extension never holds your login session.
   Disconnecting revokes it.
-- Icons in `extension/icons/` are PNGs rendered from `public/logo.svg`;
-  re-render them if the logo changes.
+- Icons in `extension/icons/` are PNGs rendered from the favicon,
+  `src/app/icon.svg` (the small-size logo, with bigger arrowheads):
+  `npm run ext:icons` re-renders them after it changes.
 
 ## Adding a game
 
@@ -203,9 +217,9 @@ with `localhost` removed from the manifest. Bump `version` in
 
 ## Scripts
 
-- `npm run dev` — dev server
-- `npm test` — unit tests plus schema tests
-- `npm run e2e` / `npm run e2e:ui` — browser tests with Playwright, in a visible Chromium with the extension loaded (setup: [e2e/README.md](e2e/README.md))
+- `npm run dev` - dev server
+- `npm test` - unit tests plus schema tests
+- `npm run e2e` / `npm run e2e:ui` - browser tests with Playwright, in a visible Chromium with the extension loaded (setup: [e2e/README.md](e2e/README.md))
 - `npm run lint`, `npm run typecheck`, `npm run build`
 
 ## Roadmap

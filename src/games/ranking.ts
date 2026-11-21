@@ -4,7 +4,7 @@ export type Ranked<T> = T & { place: number; winner: boolean };
 
 /**
  * Sort entries best-first. Tied results share a place, and every entry in
- * first place that is eligible to win is a winner — two people who both get
+ * first place that is eligible to win is a winner - two people who both get
  * Wordle in one both win.
  */
 export function rankEntries<R, T extends { result: R }>(game: GameAdapter<R>, entries: T[]): Ranked<T>[] {

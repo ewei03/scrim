@@ -8,6 +8,7 @@ import { EXTENSION_STORE_URL, type ExtensionState } from "@/lib/extension";
 import { errorMessage, rpc } from "@/lib/supabase";
 import type { Crew } from "@/lib/types";
 import Link from "next/link";
+import { ExternalArrow } from "./ExternalArrow";
 
 type Target = { crew: Crew; game: GameAdapter<unknown>; puzzleId: string };
 
@@ -44,12 +45,7 @@ function AutoOrPaste({
 
   return (
     <section className="card stack">
-      <div className="row between wrap">
-        <strong>Your turn</strong>
-        <a className="btn btn-primary btn-small" href={game.url} target="_blank" rel="noreferrer">
-          Play {game.name} ↗
-        </a>
-      </div>
+      <strong>Your turn</strong>
 
       {auto ? (
         <p>
@@ -62,7 +58,7 @@ function AutoOrPaste({
               Get the Scrim extension so your score is submitted automatically.
               <br />
               <a href={EXTENSION_STORE_URL} target="_blank" rel="noreferrer">
-                Add it from the Chrome Web Store ↗
+                Add it from the Chrome Web Store <ExternalArrow />
               </a>
             </>
           ) : (
@@ -75,22 +71,23 @@ function AutoOrPaste({
         </p>
       )}
 
-      <div className="fallback">
+      {/* Play, and entering a result by hand, side by side at the bottom. */}
+      <div className="row wrap turn-actions">
+        <a className="btn btn-primary btn-small" href={game.url} target="_blank" rel="noreferrer">
+          Play {game.name} <ExternalArrow />
+        </a>
         <button
           type="button"
           className="fallback-toggle"
           aria-expanded={showEntry}
           onClick={() => setShowEntry((s) => !s)}
         >
-          {showEntry ? "▾" : "▸"}{" "}
-          {auto ? "Not working? Paste your result instead" : "Or, paste your result"}
+          Enter your result instead
         </button>
-        {showEntry && (
-          <div>
-            <PasteSubmit crew={crew} game={game} puzzleId={puzzleId} onSubmitted={onSubmitted} />
-          </div>
-        )}
       </div>
+
+      {/* Opens under the buttons. */}
+      {showEntry && <PasteSubmit crew={crew} game={game} puzzleId={puzzleId} onSubmitted={onSubmitted} />}
     </section>
   );
 }
@@ -130,7 +127,7 @@ function PasteSubmit({ crew, game, puzzleId, onSubmitted }: Target & { onSubmitt
   }
 
   return (
-    <div className="stack fallback-body">
+    <div className="stack">
       <p className="muted small">{game.shareHint}</p>
       <textarea
         className="input mono"
@@ -230,7 +227,7 @@ function CustomSubmit({
         <strong>Your turn</strong>
         {game.url && (
           <a className="btn btn-primary btn-small" href={game.url} target="_blank" rel="noreferrer">
-            Play {game.name} ↗
+            Play {game.name} <ExternalArrow />
           </a>
         )}
       </div>

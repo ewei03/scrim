@@ -6,7 +6,7 @@
 // "games-state-connections-collection/…") as { puzzleId, printDate, data }
 // entries, where data is
 //   { puzzleComplete, puzzleWon, mistakes, guesses, solvedCategories, isPlayingArchive }.
-// Each guess is { cards: "3,7,12,15", correct } — the cards are the puzzle's
+// Each guess is { cards: "3,7,12,15", correct } - the cards are the puzzle's
 // card positions, not colours. Colours come from the day's puzzle: a card's
 // level is the index of its category (0 yellow, 1 green, 2 blue, 3 purple).
 // The state is only saved when a guess is made, so `puzzleComplete` may still

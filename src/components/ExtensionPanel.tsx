@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { EXTENSION_STORE_URL, pairExtension, useExtension } from "@/lib/extension";
 import { errorMessage } from "@/lib/supabase";
+import { ExternalArrow } from "./ExternalArrow";
 
 export function ExtensionPanel() {
   const { user, profile } = useAuth();
@@ -35,16 +36,14 @@ export function ExtensionPanel() {
       {state === "missing" && (
         <>
           <p>
-            Install the Scrim extension and your results go straight into your crews when you finish a game.
+            <strong>Install</strong> and <strong>enable</strong> the Scrim extension and your results go straight into your crews when you finish a game. It&apos;s completely free!
           </p>
-          <div>
+          <div className="extension-action">
             <a className="btn btn-primary" href={EXTENSION_STORE_URL} target="_blank" rel="noreferrer">
-              Add to Chrome ↗
+              Add to Chrome <ExternalArrow />
             </a>
           </div>
-          <p className="small muted">
-            It&apos;s free on the Chrome Web Store. Once it&apos;s added, it connects to your account by itself.
-          </p>
+          <p className="muted small">Just enabled it? Refresh this page to verify.</p>
         </>
       )}
 
@@ -55,7 +54,7 @@ export function ExtensionPanel() {
               ? "The extension is connected to a different Scrim account in this browser."
               : "The extension isn't connected yet. Connect it to your account to turn on automatic scores."}
           </p>
-          <button className="btn btn-primary" disabled={busy} onClick={connect}>
+          <button className="btn btn-primary extension-action" disabled={busy} onClick={connect}>
             {busy ? "Connecting…" : state === "other-account" ? "Connect to this account" : "Connect extension"}
           </button>
         </>
@@ -64,7 +63,7 @@ export function ExtensionPanel() {
       {state === "connected" && (
         <>
           <p>
-            <strong>⚡ Extension connected successfully.</strong> Your scores will now submit to your crews automatically.
+            <strong className="extension-ok">Extension connected successfully.</strong> Your scores will now submit to your crews automatically.
           </p>
         </>
       )}

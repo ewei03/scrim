@@ -48,7 +48,7 @@ export function Rankings({
   );
 }
 
-/** Players with identical records share a rank. */
-function sharedRank(players: PlayerStats[], p: PlayerStats) {
+/** A player's place: players with identical records share a rank. */
+export function sharedRank(players: PlayerStats[], p: PlayerStats) {
   return 1 + players.findIndex((o) => o.wins === p.wins && o.winRate === p.winRate && o.played === p.played);
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-export const metadata: Metadata = { title: "Privacy & Terms — Scrim" };
+export const metadata: Metadata = { title: "Privacy & Terms - Scrim" };
 
 const ISSUES = "https://github.com/ewei03/scrim/issues";
 
