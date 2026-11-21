@@ -1675,22 +1675,12 @@ select.input {
   --ants-fill: var(--game);
   color: #1c1b19;
   background: var(--game);
-  /* Bordered in its own colour, not --line (near-white in dark mode). */
-  border: 2px solid var(--game);
-  box-shadow: 3px 3px 0 var(--line);
-}
-
-.crew-games .game-tag {
-  border-color: var(--game);
+  border: 2px solid var(--line);
 }
 
 .game-toggle:hover:not(:disabled) {
   transform: translate(-1px, -1px);
   box-shadow: 4px 4px 0 var(--game);
-}
-
-.game-toggle[aria-pressed="true"]:hover:not(:disabled) {
-  box-shadow: 4px 4px 0 var(--line);
 }
 
 .game-toggle:disabled {
