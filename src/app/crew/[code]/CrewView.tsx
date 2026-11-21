@@ -478,22 +478,25 @@ function CrewPage() {
             </div>
           </div>
           <ul className="member-chips">
-            {members.map((m) => (
-              <li key={m.user_id} className={m.user_id === user?.id ? "me" : undefined}>
-                {/* Opens their card: when they joined, and their stats. */}
-                <button
-                  type="button"
-                  className="member-chip"
-                  aria-haspopup="dialog"
-                  title={`${m.profiles.display_name}'s stats`}
-                  onClick={() => setViewing(m.user_id)}
-                >
-                  {m.user_id === crew.created_by && <OwnerCrown />}
-                  {m.profiles.display_name}
-                  {m.profiles.is_guest && <span className="guest-tag"> (guest)</span>}
-                </button>
-              </li>
-            ))}
+            {/* The owner first (after a transfer, the new one), then in the order they joined. */}
+            {[...members]
+              .sort((a, b) => Number(b.user_id === crew.created_by) - Number(a.user_id === crew.created_by))
+              .map((m) => (
+                <li key={m.user_id} className={m.user_id === user?.id ? "me" : undefined}>
+                  {/* Opens their card: when they joined, and their stats. */}
+                  <button
+                    type="button"
+                    className="member-chip"
+                    aria-haspopup="dialog"
+                    title={`${m.profiles.display_name}'s stats`}
+                    onClick={() => setViewing(m.user_id)}
+                  >
+                    {m.user_id === crew.created_by && <OwnerCrown />}
+                    {m.profiles.display_name}
+                    {m.profiles.is_guest && <span className="guest-tag"> (guest)</span>}
+                  </button>
+                </li>
+              ))}
           </ul>
           <CrewGames
             crew={crew}
@@ -557,6 +560,12 @@ function CrewPage() {
                 load();
               }}
               onDeleted={() => setShowManage(false)}
+              onTransferred={(next) => {
+                // Not the owner any more: the settings aren't yours to change.
+                setShowManage(false);
+                setCrew(next);
+                load();
+              }}
             />
           </Modal>
         )}
@@ -1160,6 +1169,7 @@ function ManageCrew({
   onCrew,
   onRemoved,
   onDeleted,
+  onTransferred,
 }: {
   crew: Crew;
   members: Member[];
@@ -1169,11 +1179,16 @@ function ManageCrew({
   onRemoved: () => void;
   /** The crew is gone: close the dialog before leaving the page. */
   onDeleted: () => void;
+  /** Someone else owns it now: close the dialog and reload. */
+  onTransferred: (crew: Crew) => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const others = members.filter((m) => m.user_id !== crew.created_by);
+  // Who it can go to: other members with a Google account (not guests).
+  const heirs = others.filter((m) => !m.profiles.is_guest);
+  const [heir, setHeir] = useState("");
   const timezone = crew.timezone ?? "UTC";
   // The times shown are refreshed whenever the list is opened.
   const [zonesAt, setZonesAt] = useState(() => Date.now());
@@ -1209,6 +1224,23 @@ function ManageCrew({
   async function remove(m: Member) {
     await run(m.user_id, async () => {
       if (await removeMember(crew, m)) onRemoved();
+    });
+  }
+
+  // Hand the crew to another member, after they type that member's name.
+  async function transfer() {
+    const to = heirs.find((m) => m.user_id === heir);
+    if (!to) return;
+    const name = to.profiles.display_name;
+    if (
+      !(await confirmByTyping(
+        `Make ${name} the owner of ${crew.name}? They'll be able to change its settings and remove anyone, including you. You'll stay in the crew as a regular member. Only ${name} can give it back.`,
+        name,
+      ))
+    )
+      return;
+    await run("transfer", async () => {
+      onTransferred(await rpc<Crew>("transfer_crew", { p_crew: crew.id, p_user: to.user_id }));
     });
   }
 
@@ -1313,7 +1345,7 @@ function ManageCrew({
             ))}
           </select>
         </label>
-        <p className="muted small">The day ends at midnight in the selected time zone.</p>
+        <p className="muted small">The day ends at midnight in this time zone.</p>
       </section>
 
       {requests.length > 0 && (
@@ -1366,6 +1398,37 @@ function ManageCrew({
           )}
           {others.length === 0 && <li className="muted small">No other members yet.</li>}
         </ul>
+      </section>
+
+      <section className="manage-card">
+        <h3>Transfer ownership (non-guests only)</h3>
+        {heirs.length === 0 ? (
+          <p className="muted small">
+            Nobody to hand it to yet. The new owner has to be in the crew, signed in with Google (not a guest).
+          </p>
+        ) : (
+          <>
+            <div className="row">
+              <select
+                className="input grow"
+                aria-label="New owner"
+                value={heir}
+                disabled={busy !== null}
+                onChange={(e) => setHeir(e.target.value)}
+              >
+                <option value="">Choose a member…</option>
+                {heirs.map((m) => (
+                  <option key={m.user_id} value={m.user_id}>
+                    {m.profiles.display_name}
+                  </option>
+                ))}
+              </select>
+              <button className="btn btn-small" disabled={busy !== null || !heir} onClick={transfer}>
+                {busy === "transfer" ? "Transferring…" : "Transfer"}
+              </button>
+            </div>
+          </>
+        )}
       </section>
 
       <div className="row between wrap danger-zone">

@@ -1065,6 +1065,51 @@ describe("removing a member's stats", () => {
   });
 });
 
+describe("transferring a crew", () => {
+  const [OWNER, HEIR, VISITOR, OUTSIDER] = [
+    "00000000-0000-0000-0000-0000000006a1",
+    "00000000-0000-0000-0000-0000000006a2",
+    "00000000-0000-0000-0000-0000000006a3",
+    "00000000-0000-0000-0000-0000000006a4",
+  ];
+  let crew: CrewRow;
+
+  beforeAll(async () => {
+    await db.query(
+      `insert into auth.users (id, raw_user_meta_data, is_anonymous) values
+       ($1, '{"display_name":"Olga"}', false), ($2, '{"display_name":"Hank"}', false),
+       ($3, '{"display_name":"Vera"}', true), ($4, '{"display_name":"Otto"}', false)`,
+      [OWNER, HEIR, VISITOR, OUTSIDER],
+    );
+    crew = await createCrew(OWNER, "Handover", "wordle");
+    await as(HEIR, "select join_crew($1)", [crew.invite_code]);
+    await as(VISITOR, "select join_crew($1)", [crew.invite_code]);
+  });
+
+  it("only the owner can, and only to a member who isn't a guest", async () => {
+    await expect(as(HEIR, "select transfer_crew($1, $2)", [crew.id, HEIR])).rejects.toThrow(/Only the crew owner/);
+    await expect(as(OWNER, "select transfer_crew($1, $2)", [crew.id, OWNER])).rejects.toThrow(/already own/);
+    await expect(as(OWNER, "select transfer_crew($1, $2)", [crew.id, OUTSIDER])).rejects.toThrow(/has to be in the crew/);
+    await expect(as(OWNER, "select transfer_crew($1, $2)", [crew.id, VISITOR])).rejects.toThrow(/Guests can't own/);
+  });
+
+  it("hands over every owner power, and the old owner stays as a member", async () => {
+    const [moved] = await as<{ created_by: string }>(OWNER, "select * from transfer_crew($1, $2)", [crew.id, HEIR]);
+    expect(moved.created_by).toBe(HEIR);
+    // The new owner runs it now; the old one can't.
+    await as(HEIR, "select update_crew_settings($1, p_name => 'Handed Over')", [crew.id]);
+    await expect(as(OWNER, "select update_crew_settings($1, p_name => 'Mine again')", [crew.id])).rejects.toThrow(
+      /Only the crew owner/,
+    );
+    await expect(as(OWNER, "select transfer_crew($1, $2)", [crew.id, OWNER])).rejects.toThrow(/Only the crew owner/);
+    const members = await as<{ user_id: string }>(HEIR, "select user_id from crew_members where crew_id = $1", [crew.id]);
+    expect(members.map((m) => m.user_id).sort()).toEqual([OWNER, HEIR, VISITOR].sort());
+    // So the old owner can leave, and the new one can remove people.
+    await as(OWNER, "select leave_crew($1)", [crew.id]);
+    await as(HEIR, "select remove_crew_member($1, $2)", [crew.id, VISITOR]);
+  });
+});
+
 describe("function permissions", () => {
   beforeAll(() => clearCrewsOf(ANN));
   // Everything the site, the extension and RLS call. Every other function is
@@ -1088,6 +1133,7 @@ describe("function permissions", () => {
     "set_crew_game",
     "submit_entry",
     "suggest_game",
+    "transfer_crew",
     "update_crew_settings",
     "update_custom_game",
     "void_entry",
