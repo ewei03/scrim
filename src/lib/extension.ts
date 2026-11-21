@@ -11,6 +11,9 @@ import { rpc, supabaseConfig } from "./supabase";
 
 type Reply = { ok: boolean; error?: string; [key: string]: unknown };
 
+/** The extension's Chrome Web Store page. */
+export const EXTENSION_STORE_URL = "https://chromewebstore.google.com/detail/scrim/ccemknbnedmlnmjjaidgjckjbhiphidg";
+
 export function extensionInstalled(): boolean {
   return typeof document !== "undefined" && Boolean(document.documentElement.dataset.scrimExtension);
 }

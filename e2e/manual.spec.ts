@@ -44,7 +44,11 @@ test("pasted results are checked, and a good one is locked in", async ({ page, c
   await expandGameCards(page);
 
   // No extension in this browser: it says so, and offers pasting instead.
-  await expect(card(page, "Wordle")).toContainText("Enable the Scrim extension");
+  await expect(card(page, "Wordle")).toContainText("Get the Scrim extension");
+  await expect(card(page, "Wordle").getByRole("link", { name: /Chrome Web Store/ })).toHaveAttribute(
+    "href",
+    /chromewebstore\.google\.com\/detail\/scrim\//,
+  );
   const { box, lock, wordle } = await openPasteBox(page);
   await expect(lock).toBeDisabled();
 

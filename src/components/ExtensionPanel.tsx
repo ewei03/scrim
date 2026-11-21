@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { pairExtension, useExtension } from "@/lib/extension";
+import { EXTENSION_STORE_URL, pairExtension, useExtension } from "@/lib/extension";
 import { errorMessage } from "@/lib/supabase";
 
 export function ExtensionPanel() {
@@ -37,15 +37,14 @@ export function ExtensionPanel() {
           <p>
             Install the Scrim extension and your results go straight into your crews when you finish a game.
           </p>
-          <ol className="small muted">
-            <li>
-              Open <code>chrome://extensions</code> and turn on <strong>Developer mode</strong>.
-            </li>
-            <li>
-              Click <strong>Load unpacked</strong> and choose the <code>extension</code> folder in the Scrim project.
-            </li>
-            <li>Reload this page.</li>
-          </ol>
+          <div>
+            <a className="btn btn-primary" href={EXTENSION_STORE_URL} target="_blank" rel="noreferrer">
+              Add to Chrome ↗
+            </a>
+          </div>
+          <p className="small muted">
+            It&apos;s free on the Chrome Web Store. Once it&apos;s added, it connects to your account by itself.
+          </p>
         </>
       )}
 

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { EXTENSION_STORE_URL } from "@/lib/extension";
 import { Modal } from "./Modal";
 import { openSuggestGame } from "./SuggestGame";
 
@@ -16,7 +17,15 @@ const SUBMIT = [
   {
     title: "Extension",
     badge: "Recommended",
-    text: "Install the Scrim extension for your scores to auto-save.",
+    text: (
+      <>
+        Install the{" "}
+        <a href={EXTENSION_STORE_URL} target="_blank" rel="noreferrer">
+          Scrim extension
+        </a>{" "}
+        for your scores to auto-save.
+      </>
+    ),
   },
   { title: "Paste", text: "Submit your score manually on the crew page." },
 ];

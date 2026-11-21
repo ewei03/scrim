@@ -4,7 +4,7 @@ import { useState } from "react";
 import { customOf, failLabel, parseTime, type CustomGame, type CustomResult } from "@/games/custom";
 import type { GameAdapter } from "@/games/types";
 import { ResultDetail } from "@/games/ui";
-import type { ExtensionState } from "@/lib/extension";
+import { EXTENSION_STORE_URL, type ExtensionState } from "@/lib/extension";
 import { errorMessage, rpc } from "@/lib/supabase";
 import type { Crew } from "@/lib/types";
 import Link from "next/link";
@@ -57,11 +57,21 @@ function AutoOrPaste({
         </p>
       ) : ext === null || ext === "checking" ? null : (
         <p className="muted small">
-          {ext === "missing"
-            ? "Enable the Scrim extension to ensure your score is submitted automatically."
-            : "Connect the Scrim extension to submit automatically."}
-          <br />
-          <Link href="/profile">Set it up on your profile →</Link>
+          {ext === "missing" ? (
+            <>
+              Get the Scrim extension so your score is submitted automatically.
+              <br />
+              <a href={EXTENSION_STORE_URL} target="_blank" rel="noreferrer">
+                Add it from the Chrome Web Store ↗
+              </a>
+            </>
+          ) : (
+            <>
+              Connect the Scrim extension to submit automatically.
+              <br />
+              <Link href="/profile">Set it up on your profile →</Link>
+            </>
+          )}
         </p>
       )}
 

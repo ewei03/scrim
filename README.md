@@ -176,10 +176,13 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
    ID, Google sign-in falls back to Supabase's redirect flow, which shows the
    Supabase address.
 6. `npm install && npm run dev`, then open http://localhost:3000
-7. Install the extension: `chrome://extensions` → turn on **Developer mode** →
-   **Load unpacked** → pick the `extension/` folder. Then in Scrim go to
-   **Profile → Chrome extension → Connect extension**. Reload it there after
-   pulling extension changes.
+7. Install the extension. Players get it from the
+   [Chrome Web Store](https://chromewebstore.google.com/detail/scrim/ccemknbnedmlnmjjaidgjckjbhiphidg).
+   For development, load your copy instead: `chrome://extensions` → turn on
+   **Developer mode** → **Load unpacked** → pick the `extension/` folder (remove
+   the Web Store version first, or both run). Then in Scrim go to **Profile →
+   Chrome extension → Connect extension**. Reload it there after pulling
+   extension changes.
 
 Game suggestions land in the `game_suggestions` table, with the sender's
 optional email. Only you can read them: open **Table Editor →
@@ -192,8 +195,9 @@ the Supabase project. If the domain or project changes, update them there.
 
 ### Publishing the extension
 
-`npm run ext:zip` builds `dist/scrim-extension-<version>.zip` for the Chrome
-Web Store: the `extension/` files without tests and type declarations, and
+The extension is live on the
+[Chrome Web Store](https://chromewebstore.google.com/detail/scrim/ccemknbnedmlnmjjaidgjckjbhiphidg).
+`npm run ext:zip` builds `dist/scrim-extension-<version>.zip` for it: the `extension/` files without tests and type declarations, and
 with `localhost` removed from the manifest. Bump `version` in
 `extension/manifest.json` before each upload.
 
@@ -206,6 +210,5 @@ with `localhost` removed from the manifest. Bump `version` in
 
 ## Roadmap
 
-- Publish the extension on the Chrome Web Store
 - Archive puzzles (past days); today only for now
 - More games (see the suggestions table)
