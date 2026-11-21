@@ -18,7 +18,11 @@ const MIGRATIONS = readdirSync(MIGRATIONS_DIR)
 
 const SUPABASE_STUB = `
   create schema auth;
-  create table auth.users (id uuid primary key, raw_user_meta_data jsonb not null default '{}');
+  create table auth.users (
+    id uuid primary key,
+    raw_user_meta_data jsonb not null default '{}',
+    is_anonymous boolean not null default false
+  );
   create function auth.uid() returns uuid language sql stable as $$
     select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
   $$;
@@ -597,6 +601,209 @@ describe("display names within a crew", () => {
     await as(ZED2, "update profiles set display_name = 'zed two' where id = $1", [ZED2]);
     // A name nobody in your crews has is fine too.
     await as(ZED2, "update profiles set display_name = 'Annie' where id = $1", [ZED2]);
+  });
+});
+
+describe("custom games", () => {
+  let crew: CrewRow;
+  /** Today's custom-game "puzzle": days since 2020-01-01, by UTC date. */
+  let D: string;
+  type Custom = { id: string; name: string; score_type: string; higher_is_better: boolean; decimals: number };
+  const create = (user: string, settings: object) =>
+    as<Custom>(user, "select * from create_custom_game($1, $2)", [crew.id, JSON.stringify(settings)]);
+  const enter = (user: string, game: string, result: object, source = "manual") =>
+    as(user, "select submit_entry($1, $2, $3, null, $4)", [crew.id, game, JSON.stringify(result), source]);
+  const stored = async (user: string, game: string) =>
+    (
+      await as<{ result: Record<string, unknown> }>(
+        user,
+        "select e.result from entries e join rounds r on r.id = e.round_id where e.user_id = $1 and r.game = $2",
+        [user, game],
+      )
+    )[0]?.result;
+
+  beforeAll(async () => {
+    crew = await createCrew(ANN, "Customs");
+    await as(BOB, "select join_crew($1)", [crew.invite_code]);
+    await as(EVE, "select join_crew($1)", [crew.invite_code]);
+    const { rows } = await db.query<{ d: number }>("select ((now() at time zone 'UTC')::date - date '2020-01-01') as d");
+    D = String(rows[0].d);
+  });
+
+  it("lets only the owner create one, with valid settings, and starts playing it", async () => {
+    const golf = { name: "Golf", color: "#3eb489", score_type: "points", higher_is_better: false };
+    await expect(create(BOB, golf)).rejects.toThrow(/Only the crew owner/);
+    await expect(create(ANN, { ...golf, name: "  " })).rejects.toThrow(/name/);
+    await expect(create(ANN, { ...golf, color: "red" })).rejects.toThrow(/colour/);
+    await expect(create(ANN, { ...golf, score_type: "vibes" })).rejects.toThrow(/score type/);
+    await expect(create(ANN, { ...golf, url: "javascript:alert(1)" })).rejects.toThrow(/web address/);
+    await expect(create(ANN, { ...golf, decimals: 5 })).rejects.toThrow(/Decimals/);
+
+    const [g] = await create(ANN, { ...golf, unit: "strokes", url: "https://example.com/golf" });
+    expect(g).toMatchObject({ name: "Golf", score_type: "points", higher_is_better: false, decimals: 0 });
+    expect(await as(BOB, "select game from crew_games where crew_id = $1", [crew.id])).toEqual([{ game: `custom:${g.id}` }]);
+    // Members can see it; other crews can't.
+    expect(await as(BOB, "select name from custom_games where crew_id = $1", [crew.id])).toEqual([{ name: "Golf" }]);
+    const other = await createCrew(BOB, "Elsewhere");
+    expect(await as(BOB, "select * from custom_games where crew_id = $1", [other.id])).toEqual([]);
+    await expect(as(BOB, "select set_crew_game($1, $2, true)", [other.id, `custom:${g.id}`])).rejects.toThrow(/Unsupported/);
+  });
+
+  it("takes typed-in points, lowest first when that's the setting", async () => {
+    const [golf] = await as<{ id: string }>(ANN, "select id from custom_games where crew_id = $1 and name = 'Golf'", [crew.id]);
+    const game = `custom:${golf.id}`;
+    // Custom games take typed-in scores, not pastes.
+    await expect(enter(BOB, game, { puzzle: D, value: 70 }, "paste")).rejects.toThrow(/Invalid source/);
+    await expect(enter(BOB, game, { puzzle: String(Number(D) - 3), value: 70 })).rejects.toThrow(/day is over/);
+    await expect(enter(BOB, game, { puzzle: D })).rejects.toThrow(/Enter a score/);
+    await expect(enter(BOB, game, { puzzle: D, failed: true })).rejects.toThrow(/didn't finish/);
+    await enter(BOB, game, { puzzle: D, value: 71.6 });
+    expect(await stored(BOB, game)).toEqual({ puzzle: D, failed: false, value: 72 });
+    const board = await as<{ source: string }>(ANN, "select * from get_round_board($1, $2, $3)", [crew.id, game, D]);
+    expect(board.map((r) => r.source)).toEqual(["manual"]);
+  });
+
+  it("checks times and attempts, and allows a 'didn't finish' when the game does", async () => {
+    const [race] = await create(ANN, { name: "Race", color: "#4ea8cc", score_type: "time", time_format: "m:ss.s" });
+    expect(race.higher_is_better).toBe(false);
+    await expect(enter(BOB, `custom:${race.id}`, { puzzle: D, value: 0 })).rejects.toThrow(/time between/);
+    await enter(BOB, `custom:${race.id}`, { puzzle: D, value: 83.44 });
+    expect(await stored(BOB, `custom:${race.id}`)).toMatchObject({ value: 83.4 });
+
+    const [tries] = await create(ANN, {
+      name: "Tries",
+      color: "#b18ad8",
+      score_type: "attempts",
+      max_attempts: 6,
+      allow_fail: true,
+    });
+    const game = `custom:${tries.id}`;
+    await expect(enter(BOB, game, { puzzle: D, value: 7 })).rejects.toThrow(/1 to 6/);
+    await expect(enter(BOB, game, { puzzle: D, value: 2.5 })).rejects.toThrow(/whole number/);
+    await enter(BOB, game, { puzzle: D, failed: true, value: 3 });
+    expect(await stored(BOB, game)).toEqual({ puzzle: D, failed: true });
+  });
+
+  it("keeps built-in games paste-only", async () => {
+    await as(ANN, "select set_crew_game($1, 'wordle', true)", [crew.id]);
+    await expect(as(BOB, "select submit_entry($1, 'wordle', $2, 'x', 'manual')", [crew.id, solve(T, 3)])).rejects.toThrow(
+      /Invalid source/,
+    );
+  });
+
+  it("locks scoring once someone has entered a score, but not the name or colour", async () => {
+    const [golf] = await as<{ id: string }>(ANN, "select id from custom_games where crew_id = $1 and name = 'Golf'", [crew.id]);
+    const base = { name: "Golf", color: "#3eb489", score_type: "points", higher_is_better: false };
+    const update = (user: string, settings: object) =>
+      as<Custom>(user, "select * from update_custom_game($1, $2)", [golf.id, JSON.stringify(settings)]);
+    await expect(update(BOB, base)).rejects.toThrow(/Only the crew owner/);
+    await expect(update(ANN, { ...base, higher_is_better: true })).rejects.toThrow(/Scoring can't change/);
+    const [renamed] = await update(ANN, { ...base, name: "Mini Golf", color: "#ff5b1f", unit: "shots" });
+    expect(renamed).toMatchObject({ name: "Mini Golf", higher_is_better: false });
+
+    // A game nobody has played yet can still change its scoring.
+    const [fresh] = await create(ANN, { name: "Fresh", color: "#aaaaaa", score_type: "points" });
+    const [changed] = await as<Custom>(ANN, "select * from update_custom_game($1, $2)", [
+      fresh.id,
+      JSON.stringify({ name: "Fresh", color: "#aaaaaa", score_type: "time" }),
+    ]);
+    expect(changed.score_type).toBe("time");
+  });
+
+  it("caps a crew at 10 custom games", async () => {
+    const { rows } = await db.query<{ n: number }>("select count(*)::int as n from custom_games where crew_id = $1", [crew.id]);
+    for (let i = rows[0].n; i < 10; i++) await create(ANN, { name: `G${i}`, color: "#aaaaaa", score_type: "points" });
+    await expect(create(ANN, { name: "One more", color: "#aaaaaa", score_type: "points" })).rejects.toThrow(/up to 10/);
+  });
+
+  it("ranks custom games in the extension, by the game's own rules", async () => {
+    const [golf] = await as<{ id: string }>(ANN, "select id from custom_games where crew_id = $1 and name = 'Mini Golf'", [crew.id]);
+    const game = `custom:${golf.id}`;
+    await enter(EVE, game, { puzzle: D, value: 65 });
+    await enter(ANN, game, { puzzle: D, value: 80 });
+    // Finish the day.
+    await db.query("update rounds set closes_at = now() - interval '1 minute' where crew_id = $1 and game = $2", [crew.id, game]);
+    const token = (await as<{ create_extension_token: string }>(ANN, "select create_extension_token()"))[0]
+      .create_extension_token;
+    const rows = (
+      await as<{ crew_name: string; game: string; game_name: string; user_id: string; wins: number }>(
+        null,
+        "select * from extension_rankings($1)",
+        [token],
+      )
+    ).filter((r) => r.crew_name === "Customs" && r.game === game);
+    // Lowest wins: Eve (65) beats Bob (72) and Ann (80), who tie for the rest.
+    expect(rows.map((r) => r.game_name)).toEqual(["Mini Golf", "Mini Golf", "Mini Golf"]);
+    expect([rows[0].user_id, rows[0].wins]).toEqual([EVE, 1]);
+    expect(rows.slice(1).map((r) => [r.user_id, r.wins]).sort()).toEqual([
+      [ANN, 0],
+      [BOB, 0],
+    ]);
+  });
+});
+
+describe("guests", () => {
+  const GUEST = "00000000-0000-0000-0000-0000000000a1";
+  const HOST = "00000000-0000-0000-0000-0000000000a2";
+  let crew: CrewRow;
+  let hosted: CrewRow;
+
+  beforeAll(async () => {
+    await db.query(
+      `insert into auth.users (id, raw_user_meta_data, is_anonymous) values
+       ($1, '{"display_name":"Gus"}', true), ($2, '{"display_name":"Hal"}', true)`,
+      [GUEST, HOST],
+    );
+    crew = await createCrew(ANN, "Has Guests", "wordle");
+    await as(GUEST, "select join_crew($1)", [crew.invite_code]);
+    await as(BOB, "select join_crew($1)", [crew.invite_code]);
+    await submitEntry(GUEST, crew.id, solve(T, 3));
+    await submitEntry(BOB, crew.id, solve(T, 4));
+    // A guest who owns a crew (made before guests were stopped from creating them).
+    await db.query("update auth.users set is_anonymous = false where id = $1", [HOST]);
+    hosted = await createCrew(HOST, "Guest Owned", "wordle");
+    await db.query("update auth.users set is_anonymous = true where id = $1", [HOST]);
+    await submitEntry(HOST, hosted.id, solve(T, 2));
+  });
+
+  it("doesn't let guests create crews", async () => {
+    await expect(as(GUEST, "select create_crew('Nope', 'UTC')")).rejects.toThrow(/Sign in with Google/);
+  });
+
+  it("marks guests on their profile, for everyone to see", async () => {
+    const rows = await as<{ id: string; is_guest: boolean }>(
+      ANN,
+      "select id, is_guest from profiles where id in ($1, $2) order by id",
+      [GUEST, BOB],
+    );
+    expect(rows).toEqual([
+      { id: BOB, is_guest: false },
+      { id: GUEST, is_guest: true },
+    ]);
+  });
+
+  it("removes guests and their scores a day after they join, but not owners or regular players", async () => {
+    expect(await db.query("select remove_expired_guests() as n").then((r) => r.rows[0])).toEqual({ n: 0 });
+    await db.query("update crew_members set joined_at = now() - interval '25 hours' where user_id in ($1, $2, $3)", [
+      GUEST,
+      HOST,
+      BOB,
+    ]);
+    expect(await db.query("select remove_expired_guests() as n").then((r) => r.rows[0])).toEqual({ n: 1 });
+
+    const members = await as<{ user_id: string }>(ANN, "select user_id from crew_members where crew_id = $1", [crew.id]);
+    expect(members.map((m) => m.user_id).sort()).toEqual([ANN, BOB]);
+    expect((await board(ANN, crew.id, T)).map((r) => r.user_id)).toEqual([BOB]);
+    // The guest owner keeps their crew and their score.
+    expect((await board(HOST, hosted.id, T)).map((r) => r.user_id)).toEqual([HOST]);
+    // Nobody can trigger the cleanup through the API.
+    await expect(as(ANN, "select remove_expired_guests()")).rejects.toThrow(/permission denied/);
+  });
+
+  it("stops counting someone as a guest once they link Google", async () => {
+    await db.query("update auth.users set is_anonymous = false where id = $1", [GUEST]);
+    const [row] = await as<{ is_guest: boolean }>(ANN, "select is_guest from profiles where id = $1", [GUEST]);
+    expect(row.is_guest).toBe(false);
   });
 });
 

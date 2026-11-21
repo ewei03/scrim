@@ -30,7 +30,8 @@ const NEW_ACCOUNT_MS = 10 * 60_000;
  * the home page, right after signing up. It's marked as seen the moment it
  * opens, so it never comes back, whether it's closed, the player navigates
  * away, or they return to the home page later. Older accounts never see it,
- * even on a new browser. Each step ticks off as it's done.
+ * even on a new browser, and guests never do (they can't create crews). Each
+ * step ticks off as it's done.
  */
 export function Welcome({
   userId,

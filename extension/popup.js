@@ -99,7 +99,10 @@ async function loadRankings(view, scrimOrigin) {
 
   function fillGames() {
     const games = crews.get(pickCrew.value).games;
-    pickGame.replaceChildren(...[...games.keys()].map((g) => new Option(GAME_NAMES[g] ?? g, g)));
+    // The server names each game (custom games have their own names).
+    pickGame.replaceChildren(
+      ...[...games.entries()].map(([g, players]) => new Option(players[0]?.game_name ?? GAME_NAMES[g] ?? g, g)),
+    );
     pickGame.value = games.has(view.game) ? view.game : games.keys().next().value;
   }
 

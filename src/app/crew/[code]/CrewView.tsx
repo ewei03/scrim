@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { CopyLink } from "@/components/CopyLink";
+import { CustomGameForm } from "@/components/CustomGameForm";
 import { GameTag, gameStyle } from "@/components/GameTag";
 import { Modal } from "@/components/Modal";
 import { Rankings } from "@/components/Rankings";
@@ -11,6 +12,7 @@ import { Loading, RequireAuth } from "@/components/RequireAuth";
 import { Scoreboard } from "@/components/Scoreboard";
 import { SubmitPanel } from "@/components/SubmitPanel";
 import { rankEntries } from "@/games/ranking";
+import { customAdapter, customGameId, customOf, type CustomGame } from "@/games/custom";
 import { gameList, getGame } from "@/games/registry";
 import type { GameAdapter } from "@/games/types";
 import { useAuth } from "@/lib/auth";
@@ -23,7 +25,7 @@ import { isClosed, type BoardRow, type Crew, type EntrySource, type Round } from
 
 const POLL_MS = 10_000;
 
-type Member = { user_id: string; profiles: { display_name: string } };
+type Member = { user_id: string; profiles: { display_name: string; is_guest: boolean } };
 type RoundWithEntries = Round & {
   entries: {
     id: string;
@@ -64,32 +66,35 @@ async function fetchCrew(code: string, join: boolean) {
     if (!data) throw new CrewGoneError();
     crew = data as Crew;
   }
-  const [m, g, r] = await Promise.all([
-    sb.from("crew_members").select("user_id, profiles(display_name)").eq("crew_id", crew.id).order("joined_at"),
+  const [m, g, cg, r] = await Promise.all([
+    sb.from("crew_members").select("user_id, profiles(display_name, is_guest)").eq("crew_id", crew.id).order("joined_at"),
     sb.from("crew_games").select("game").eq("crew_id", crew.id),
+    sb.from("custom_games").select("*").eq("crew_id", crew.id).order("created_at"),
     sb
       .from("rounds")
       .select("*, entries(id, user_id, result, source, submitted_at, profiles(display_name))")
       .eq("crew_id", crew.id)
       .order("closes_at", { ascending: false }),
   ]);
-  if (m.error || g.error || r.error) throw m.error ?? g.error ?? r.error;
+  if (m.error || g.error || cg.error || r.error) throw m.error ?? g.error ?? cg.error ?? r.error;
   return {
     crew,
     members: m.data as unknown as Member[],
     games: (g.data as { game: string }[]).map((x) => x.game),
+    customGames: cg.data as CustomGame[],
     rounds: r.data as RoundWithEntries[],
   };
 }
 
 function CrewPage() {
   const { code } = useParams<{ code: string }>();
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const router = useRouter();
   const extension = useExtension();
   const [crew, setCrew] = useState<Crew | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [games, setGames] = useState<string[]>([]);
+  const [customGames, setCustomGames] = useState<CustomGame[]>([]);
   const [rounds, setRounds] = useState<RoundWithEntries[]>([]);
   const [showManage, setShowManage] = useState(false);
   const [rankingsGame, setRankingsGame] = useState<string | null>(null);
@@ -107,6 +112,7 @@ function CrewPage() {
           setCrew(d.crew);
           setMembers(d.members);
           setGames(d.games);
+          setCustomGames(d.customGames);
           setRounds(d.rounds);
           setError(null);
         },
@@ -149,7 +155,11 @@ function CrewPage() {
     const tick = setInterval(() => setNow(Date.now()), 15_000);
     return () => clearInterval(tick);
   }, []);
-  const today = crew ? `${crew.timezone}:${games.map((g) => crewPuzzle(getGame(g), crew, new Date(now))).join()}` : "";
+  // Built-in games, then the crew's own custom games.
+  const allGames = useMemo(() => [...gameList(), ...customGames.map(customAdapter)], [customGames]);
+  const findGame = useCallback((id: string) => allGames.find((g) => g.id === id) ?? getGame(id), [allGames]);
+
+  const today = crew ? `${crew.timezone}:${games.map((g) => crewPuzzle(findGame(g), crew, new Date(now))).join()}` : "";
   const lastToday = useRef(today);
   useEffect(() => {
     if (lastToday.current && lastToday.current !== today) load();
@@ -188,13 +198,13 @@ function CrewPage() {
 
   const statsByGame = useMemo(() => {
     const memberIds = members.map((m) => m.user_id);
-    return gameList()
+    return allGames
       .map((game) => {
         const played = finished.filter((r) => r.game === game.id);
         return { game, count: played.length, ...crewStats(game, played, memberIds) };
       })
       .filter((s) => s.count > 0);
-  }, [finished, members]);
+  }, [finished, members, allGames]);
 
   if (gone) {
     return (
@@ -213,7 +223,9 @@ function CrewPage() {
   const isOwner = crew.created_by === user?.id;
   // Games with finished rounds; defaults to the first until one is picked.
   const ranked = statsByGame.find((s) => s.game.id === rankingsGame) ?? statsByGame[0];
-  const tracked = gameList().filter((g) => games.includes(g.id));
+  const tracked = allGames.filter((g) => games.includes(g.id));
+  // Custom games with scores in them have their scoring locked.
+  const playedGames = new Set(rounds.filter((rd) => rd.entries.length > 0).map((rd) => rd.game));
 
   async function voidEntry(name: string, entryId: string) {
     if (!confirm(`Void ${name}'s entry? They'll be able to submit again while the day is still on.`)) return;
@@ -274,10 +286,28 @@ function CrewPage() {
             {members.map((m) => (
               <li key={m.user_id} className={m.user_id === user?.id ? "me" : undefined}>
                 {m.profiles.display_name}
+                {m.profiles.is_guest && <span className="guest-tag"> (guest)</span>}
               </li>
             ))}
           </ul>
-          <CrewGames crew={crew} games={games} isOwner={isOwner} onGames={setGames} />
+          <CrewGames
+            crew={crew}
+            games={games}
+            allGames={allGames}
+            playedGames={playedGames}
+            isOwner={isOwner}
+            onGames={setGames}
+            onCustomSaved={(saved, isNew) => {
+              setCustomGames((list) =>
+                isNew ? [...list, saved] : list.map((g) => (g.id === saved.id ? saved : g)),
+              );
+              // A new custom game is played straight away (the server adds it).
+              if (isNew) {
+                rememberCollapsed(crew.id, customGameId(saved.id), false);
+                setGames((list) => [...list, customGameId(saved.id)]);
+              }
+            }}
+          />
         </div>
         {isOwner && (
           <Modal open={showManage} onClose={() => setShowManage(false)} title="Manage crew">
@@ -293,6 +323,13 @@ function CrewPage() {
           </Modal>
         )}
       </section>
+
+      {isGuest && !isOwner && (
+        <p className="card small guest-note">
+          You&apos;re playing as a guest: you&apos;ll leave this crew, and your scores here are removed, a day after
+          you joined. <Link href="/profile">Link a Google account</Link> to stay.
+        </p>
+      )}
 
       <section className="stack">
         <div className="row between">
@@ -356,6 +393,7 @@ function CrewPage() {
           <ul className="list list-archive">
             {finished.map((r) => (
               <PastRound
+                game={findGame(r.game)}
                 key={r.id}
                 round={r}
                 names={names}
@@ -479,17 +517,18 @@ function rememberCollapsed(crewId: string, gameId: string, collapsed: boolean) {
 }
 
 function PastRound({
+  game,
   round,
   names,
   isOwner,
   onVoid,
 }: {
+  game: GameAdapter<unknown>;
   round: RoundWithEntries;
   names: Map<string, string>;
   isOwner: boolean;
   onVoid: (row: BoardRow) => void;
 }) {
-  const game = getGame(round.game);
   const winners = rankEntries(game, round.entries).filter((e) => e.winner);
   const rows: BoardRow[] = round.entries.map((e) => ({
     entry_id: e.id,
@@ -537,22 +576,31 @@ function timeZones(current: string): string[] {
 
 /**
  * The games a crew plays, in its identity plate. The owner turns them on and
- * off right here; everyone else sees which ones count.
+ * off right here, and adds or edits custom games; everyone else sees which
+ * ones count.
  */
 function CrewGames({
   crew,
   games,
+  allGames,
+  playedGames,
   isOwner,
   onGames,
+  onCustomSaved,
 }: {
   crew: Crew;
   games: string[];
+  allGames: GameAdapter<unknown>[];
+  playedGames: Set<string>;
   isOwner: boolean;
   onGames: (games: string[]) => void;
+  onCustomSaved: (game: CustomGame, isNew: boolean) => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const tracked = gameList().filter((g) => games.includes(g.id));
+  // null: closed; "new": adding one; otherwise the custom game being edited.
+  const [editing, setEditing] = useState<CustomGame | "new" | null>(null);
+  const tracked = allGames.filter((g) => games.includes(g.id));
 
   async function toggle(game: GameAdapter<unknown>) {
     const on = !games.includes(game.id);
@@ -577,10 +625,11 @@ function CrewGames({
       {isOwner ? (
         <>
           <ul className="game-toggles">
-            {gameList().map((g) => {
+            {allGames.map((g) => {
               const on = games.includes(g.id);
+              const custom = customOf(g);
               return (
-                <li key={g.id}>
+                <li key={g.id} className="game-toggle-item">
                   <button
                     type="button"
                     className="game-toggle"
@@ -592,11 +641,47 @@ function CrewGames({
                   >
                     <span aria-hidden>{on ? "✓" : "+"}</span> {g.name}
                   </button>
+                  {custom && (
+                    <button
+                      type="button"
+                      className="link-btn custom-edit"
+                      aria-label={`Edit ${g.name}`}
+                      title={`Edit ${g.name}`}
+                      onClick={() => setEditing(custom)}
+                    >
+                      ✎
+                    </button>
+                  )}
                 </li>
               );
             })}
+            <li>
+              <button type="button" className="game-toggle add-custom" onClick={() => setEditing("new")}>
+                <span aria-hidden>+</span> Custom
+              </button>
+            </li>
           </ul>
           {error && <p className="error small">{error}</p>}
+          <Modal
+            open={editing !== null}
+            onClose={() => setEditing(null)}
+            title={editing && editing !== "new" ? `Edit ${editing.name}` : "Add a custom game"}
+          >
+            {editing !== null && (
+              <CustomGameForm
+                key={editing === "new" ? "new" : editing.id}
+                crewId={crew.id}
+                game={editing === "new" ? undefined : editing}
+                takenColors={allGames.map((g) => g.color)}
+                scoringLocked={editing !== "new" && playedGames.has(customGameId(editing.id))}
+                onSaved={(saved) => {
+                  onCustomSaved(saved, editing === "new");
+                  setEditing(null);
+                }}
+                onCancel={() => setEditing(null)}
+              />
+            )}
+          </Modal>
         </>
       ) : tracked.length ? (
         <ul className="game-toggles">
@@ -673,7 +758,7 @@ function ManageCrew({
     <>
       <h3>Name</h3>
       <form
-        className="row input-row"
+        className="row"
         onSubmit={(e) => {
           e.preventDefault();
           if (nameChanged) updateSettings({ p_name: name.trim() });
@@ -687,7 +772,7 @@ function ManageCrew({
           onChange={(e) => setName(e.target.value)}
           required
         />
-        <button className="btn" disabled={busy !== null || !nameChanged}>
+        <button className="btn btn-small" disabled={busy !== null || !nameChanged}>
           {busy === "settings" && nameChanged ? "Saving…" : "Rename"}
         </button>
       </form>

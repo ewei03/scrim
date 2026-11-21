@@ -30,6 +30,15 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 - **Time zone:** a new crew takes its creator's time zone. Crews from before
   time zones existed get the owner's the next time they open the crew page.
   The owner can change it under ⚙ Manage crew.
+- **Custom games:** for daily games Scrim doesn't integrate, the owner adds
+  a custom game (crew box → "+ Custom"): name, link, instructions, colour,
+  score type (points, time or attempts) and its format, which way wins, and
+  whether "didn't finish" is allowed. Scores are typed in by hand, on the
+  honour system. Scoring locks once anyone has entered a score.
+- **Guests:** a guest account is removed from a crew, with its scores there,
+  a day after joining (hourly, via pg_cron). Linking Google makes it a regular
+  account that stays. Guests show as "(guest)" in the crew box, and can't
+  create crews; they join with invite links.
 - **Winning:** ties share the win (two people who both get Wordle in 1 both
   win). A miss can't win.
 - **Spoiler protection:** with "hide scores until you submit" on, other
@@ -127,7 +136,8 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run each file in `supabase/migrations/` in order
-   (`0001_init.sql` through `0010_unique_names_in_crew.sql`). `0009` replaces the old
+   (`0001_init.sql` through `0013_guests_cant_create_crews.sql`). Before `0012`, enable the
+   **pg_cron** extension (Database → Extensions) so guests are cleaned up hourly. `0009` replaces the old
    lobbies and **erases any lobby results**; afterwards each crew owner picks
    their crew's games on the crew page.
 3. **Authentication → Sign In / Providers:**

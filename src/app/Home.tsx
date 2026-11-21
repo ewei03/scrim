@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { customAdapter, type CustomGame } from "@/games/custom";
 import { gameList } from "@/games/registry";
 import { AuthError, Loading } from "@/components/RequireAuth";
 import { GameTag, gameStyle } from "@/components/GameTag";
@@ -17,7 +18,11 @@ import { timeLeft } from "@/lib/time";
 import type { Crew, Round } from "@/lib/types";
 
 type OpenRound = Pick<Round, "crew_id" | "game" | "puzzle_id"> & { entries: { user_id: string }[] };
-type CrewWithCount = Crew & { crew_members: { count: number }[]; crew_games: { game: string }[] };
+type CrewWithCount = Crew & {
+  crew_members: { count: number }[];
+  crew_games: { game: string }[];
+  custom_games: CustomGame[];
+};
 
 export function Home() {
   const { status, error } = useAuth();
@@ -50,7 +55,7 @@ function Landing() {
 }
 
 function Dashboard() {
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const extension = useExtension();
   const router = useRouter();
   const [crews, setCrews] = useState<CrewWithCount[] | null>(null);
@@ -62,7 +67,7 @@ function Dashboard() {
     (async () => {
       const sb = supabase();
       const [c, l] = await Promise.all([
-        sb.from("crews").select("*, crew_members(count), crew_games(game)").order("created_at"),
+        sb.from("crews").select("*, crew_members(count), crew_games(game), custom_games(*)").order("created_at"),
         sb
           .from("rounds")
           .select("crew_id, game, puzzle_id, entries(user_id)")
@@ -90,7 +95,8 @@ function Dashboard() {
   const now = new Date();
   const today = crews
     .flatMap((crew) =>
-      gameList()
+      // Built-in games, then the crew's own custom games.
+      [...gameList(), ...crew.custom_games.map(customAdapter)]
         .filter((game) => crew.crew_games.some((g) => g.game === game.id))
         .map((game) => {
           const puzzleId = crewPuzzle(game, crew, now);
@@ -116,7 +122,8 @@ function Dashboard() {
 
   return (
     <div className="stack-lg page-enter">
-      {user && (
+      {/* Guests can't create crews or pick games, so the setup guide isn't for them. */}
+      {user && !isGuest && (
         <Welcome
           userId={user.id}
           accountCreatedAt={user.created_at}
@@ -193,12 +200,20 @@ function Dashboard() {
             maxLength={40}
             value={name}
             onChange={(e) => setName(e.target.value)}
+            disabled={isGuest}
+            aria-describedby={isGuest ? "guest-create-note" : undefined}
             required
           />
-          <button className="btn btn-primary" disabled={!name.trim()}>
+          <button className="btn btn-primary" disabled={isGuest || !name.trim()}>
             Create crew
           </button>
         </form>
+        {isGuest && (
+          <p className="muted small" id="guest-create-note">
+            Guests can&apos;t create crews. <Link href="/profile">Sign in with Google</Link> to make one. As a guest,
+            you can join crews with an invite link.
+          </p>
+        )}
       </section>
       {error && <p className="error">{error}</p>}
     </div>

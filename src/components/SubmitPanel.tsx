@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { customOf, failLabel, parseTime, type CustomGame, type CustomResult } from "@/games/custom";
 import type { GameAdapter } from "@/games/types";
 import { ResultDetail } from "@/games/ui";
 import type { ExtensionState } from "@/lib/extension";
@@ -11,6 +12,21 @@ import Link from "next/link";
 type Target = { crew: Crew; game: GameAdapter<unknown>; puzzleId: string };
 
 export function SubmitPanel({
+  crew,
+  game,
+  puzzleId,
+  extension,
+  onSubmitted,
+}: Target & {
+  extension: ExtensionState;
+  onSubmitted: () => void;
+}) {
+  const custom = customOf(game);
+  if (custom) return <CustomSubmit crew={crew} game={game} custom={custom} puzzleId={puzzleId} onSubmitted={onSubmitted} />;
+  return <AutoOrPaste crew={crew} game={game} puzzleId={puzzleId} extension={extension} onSubmitted={onSubmitted} />;
+}
+
+function AutoOrPaste({
   crew,
   game,
   puzzleId,
@@ -133,5 +149,113 @@ function PasteSubmit({ crew, game, puzzleId, onSubmitted }: Target & { onSubmitt
       <p className="muted small">You get one submission per puzzle.</p>
       {error && <p className="error">{error}</p>}
     </div>
+  );
+}
+
+/** Custom games: Scrim can't read them, so the score is typed in. */
+function CustomSubmit({
+  crew,
+  game,
+  custom,
+  puzzleId,
+  onSubmitted,
+}: Target & { custom: CustomGame; onSubmitted: () => void }) {
+  const [text, setText] = useState("");
+  const [failed, setFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // What was typed, as a value, or why it isn't one yet.
+  let value: number | null = null;
+  let problem: string | null = null;
+  if (!failed && text.trim()) {
+    if (custom.score_type === "time") {
+      value = parseTime(text);
+      if (value === null || value <= 0) problem = "Enter a time like 4:05.";
+    } else {
+      value = Number(text.replace(/,/g, ""));
+      if (!Number.isFinite(value)) problem = "Enter a number.";
+      else if (custom.score_type === "attempts" && (!Number.isInteger(value) || value < 1 || value > (custom.max_attempts ?? 1000)))
+        problem = `Enter a whole number from 1 to ${custom.max_attempts ?? 1000}.`;
+    }
+  }
+  const result: CustomResult | null = failed
+    ? { puzzle: puzzleId, failed: true }
+    : value !== null && !problem
+      ? { puzzle: puzzleId, value }
+      : null;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!result) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await rpc("submit_entry", { p_crew: crew.id, p_game: game.id, p_result: result, p_raw: null, p_source: "manual" });
+      onSubmitted();
+    } catch (err) {
+      setError(errorMessage(err));
+      setBusy(false);
+    }
+  }
+
+  const placeholder =
+    custom.score_type === "time"
+      ? custom.time_format === "h:mm:ss"
+        ? "e.g. 1:04:05"
+        : custom.time_format === "m:ss.s"
+          ? "e.g. 4:05.3"
+          : "e.g. 4:05"
+      : custom.score_type === "attempts"
+        ? custom.max_attempts
+          ? `1 to ${custom.max_attempts}`
+          : "e.g. 4"
+        : custom.unit
+          ? `Your score, in ${custom.unit}`
+          : "Your score";
+
+  return (
+    <section className="card stack">
+      <div className="row between wrap">
+        <strong>Your turn</strong>
+        {game.url && (
+          <a className="btn btn-primary btn-small" href={game.url} target="_blank" rel="noreferrer">
+            Play {game.name} ↗
+          </a>
+        )}
+      </div>
+      {custom.instructions && <p>{custom.instructions}</p>}
+      <form className="stack" onSubmit={submit}>
+        <div className="row input-row">
+          <input
+            className="input grow"
+            inputMode={custom.score_type === "time" ? "text" : "decimal"}
+            aria-label={`Your ${game.name} score`}
+            placeholder={placeholder}
+            value={text}
+            disabled={failed}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <button className="btn btn-primary" disabled={!result || busy}>
+            {busy ? "Submitting…" : "Lock it in"}
+          </button>
+        </div>
+        {custom.allow_fail && (
+          <label className="check">
+            <input type="checkbox" checked={failed} onChange={(e) => setFailed(e.target.checked)} /> {failLabel(custom)}
+          </label>
+        )}
+        {problem && <p className="error small">{problem}</p>}
+        {result && !failed && (
+          <p className="muted small">
+            Shows as <strong>{game.formatScore(result)}</strong>
+          </p>
+        )}
+      </form>
+      <p className="muted small">
+        Scores for custom games are entered by hand, on the honour system. You get one submission per day.
+      </p>
+      {error && <p className="error">{error}</p>}
+    </section>
   );
 }
