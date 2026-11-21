@@ -228,11 +228,20 @@ test("pick the crew's games, including a custom one", async ({ page, context, br
   await expect(toggle("E2E Mini")).toHaveAttribute("aria-pressed", "true");
   await expect(todayCard("E2E Mini")).toBeVisible();
 
+  // Custom games are edited from their card under Today.
+  await todayCard("E2E Mini").getByRole("button", { name: "✎ Edit" }).click();
+  const edit = page.getByRole("dialog", { name: "Edit E2E Mini" });
+  await edit.getByLabel("Name", { exact: true }).fill("E2E Mini Crossword");
+  await edit.getByRole("button", { name: "Save changes" }).click();
+  await expect(edit).toBeHidden();
+  await expect(todayCard("E2E Mini Crossword")).toBeVisible();
+  await expect(toggle("E2E Mini Crossword")).toHaveAttribute("aria-pressed", "true");
+
   // The friend sees the crew's games, but can't change them.
   const friendContext = await browser.newContext();
   const friendPage = await openAs(friendContext, friend);
   await friendPage.goto(`/crew/${crew.invite_code}`);
-  await expect(friendPage.locator(".crew-games .game-tag")).toHaveText(["Wordle", "E2E Mini"]);
+  await expect(friendPage.locator(".crew-games .game-tag")).toHaveText(["Wordle", "E2E Mini Crossword"]);
   await expect(friendPage.locator(".game-toggles button")).toHaveCount(0);
   await friendContext.close();
 });

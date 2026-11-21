@@ -1,7 +1,12 @@
 -- Guests can't create crews: they're only in a crew for a day (0012), so they
 -- join through invite links. Signing in with Google lifts this.
+--
+-- Dropped and recreated (not "create or replace"): some databases have an
+-- older create_crew whose p_timezone had a default, which can't be replaced.
 
-create or replace function public.create_crew(p_name text, p_timezone text) returns public.crews
+drop function if exists public.create_crew(text, text);
+
+create function public.create_crew(p_name text, p_timezone text) returns public.crews
 language plpgsql security definer set search_path = public as $$
 declare c crews;
 begin
@@ -16,3 +21,7 @@ begin
   insert into crew_members (crew_id, user_id) values (c.id, auth.uid());
   return c;
 end $$;
+
+-- A new function starts out callable by everyone; only signed-in players may.
+revoke execute on function public.create_crew(text, text) from public, anon;
+grant execute on function public.create_crew(text, text) to authenticated;

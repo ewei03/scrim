@@ -1334,6 +1334,22 @@ select.input {
   width: 1ch;
 }
 
+.game-card-edit {
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: inherit;
+  padding: 1px 8px;
+  background: rgb(255 255 255 / 0.35);
+  border: 1.5px solid currentColor;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.game-card-edit:hover {
+  background: rgb(255 255 255 / 0.6);
+}
+
 .game-card-summary {
   margin-left: auto;
   font-size: 0.8rem;
@@ -1483,20 +1499,6 @@ select.input {
 }
 
 /* ---------- custom games ---------- */
-
-.game-toggle-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.custom-edit {
-  color: var(--muted);
-}
-
-.custom-edit:hover {
-  color: var(--ink);
-}
 
 /* "+ Custom" sits with the game buttons but isn't a game. */
 .game-toggle.add-custom {

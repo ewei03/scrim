@@ -97,6 +97,8 @@ function CrewPage() {
   const [customGames, setCustomGames] = useState<CustomGame[]>([]);
   const [rounds, setRounds] = useState<RoundWithEntries[]>([]);
   const [showManage, setShowManage] = useState(false);
+  // The custom game form: null when closed, "new" when adding one, or the game being edited.
+  const [editing, setEditing] = useState<CustomGame | "new" | null>(null);
   const [rankingsGame, setRankingsGame] = useState<string | null>(null);
   // Bumped to make today's boards refetch.
   const [boardsKey, setBoardsKey] = useState(0);
@@ -294,21 +296,42 @@ function CrewPage() {
             crew={crew}
             games={games}
             allGames={allGames}
-            playedGames={playedGames}
             isOwner={isOwner}
             onGames={setGames}
-            onCustomSaved={(saved, isNew) => {
-              setCustomGames((list) =>
-                isNew ? [...list, saved] : list.map((g) => (g.id === saved.id ? saved : g)),
-              );
-              // A new custom game is played straight away (the server adds it).
-              if (isNew) {
-                rememberCollapsed(crew.id, customGameId(saved.id), false);
-                setGames((list) => [...list, customGameId(saved.id)]);
-              }
-            }}
+            onAddCustom={() => setEditing("new")}
           />
         </div>
+        {isOwner && (
+          <Modal
+            open={editing !== null}
+            onClose={() => setEditing(null)}
+            dismissOnBackdrop={false}
+            title={editing && editing !== "new" ? `Edit ${editing.name}` : "Add a custom game"}
+          >
+            {editing !== null && (
+              <CustomGameForm
+                key={editing === "new" ? "new" : editing.id}
+                crewId={crew.id}
+                game={editing === "new" ? undefined : editing}
+                takenColors={allGames.map((g) => g.color)}
+                scoringLocked={editing !== "new" && playedGames.has(customGameId(editing.id))}
+                onSaved={(saved) => {
+                  const isNew = editing === "new";
+                  setCustomGames((list) =>
+                    isNew ? [...list, saved] : list.map((g) => (g.id === saved.id ? saved : g)),
+                  );
+                  // A new custom game is played straight away (the server adds it).
+                  if (isNew) {
+                    rememberCollapsed(crew.id, customGameId(saved.id), false);
+                    setGames((list) => [...list, customGameId(saved.id)]);
+                  }
+                  setEditing(null);
+                }}
+                onCancel={() => setEditing(null)}
+              />
+            )}
+          </Modal>
+        )}
         {isOwner && (
           <Modal open={showManage} onClose={() => setShowManage(false)} title="Manage crew">
             <ManageCrew
@@ -367,6 +390,7 @@ function CrewPage() {
               isOwner={isOwner}
               extension={extension.state}
               refreshKey={boardsKey}
+              onEdit={isOwner && customOf(game) ? () => setEditing(customOf(game)) : undefined}
               onVoid={(row) => voidEntry(row.display_name, row.entry_id)}
             />
           ))
@@ -428,6 +452,7 @@ function TodayRound({
   isOwner,
   extension,
   refreshKey,
+  onEdit,
   onVoid,
 }: {
   crew: Crew;
@@ -436,6 +461,8 @@ function TodayRound({
   isOwner: boolean;
   extension: ExtensionState;
   refreshKey: number;
+  /** Set for the owner on a custom game: opens its settings. */
+  onEdit?: () => void;
   onVoid: (row: BoardRow) => void;
 }) {
   const { user } = useAuth();
@@ -487,6 +514,11 @@ function TodayRound({
             {game.name} <span className="game-card-puzzle">{game.puzzleLabel(puzzleId)}</span>
           </button>
         </h3>
+        {onEdit && (
+          <button type="button" className="game-card-edit" onClick={onEdit} title={`Edit ${game.name}`}>
+            ✎ Edit
+          </button>
+        )}
         {!open && (
           <span className="game-card-summary">
             {submitted ? "✓ You're in" : "Your turn"} · {board.length} played
@@ -592,30 +624,27 @@ function timeZones(current: string): string[] {
 
 /**
  * The games a crew plays, in its identity plate. The owner turns them on and
- * off right here, and adds or edits custom games; everyone else sees which
- * ones count.
+ * off right here and adds custom games (edited from their card under Today);
+ * everyone else sees which ones count.
  */
 function CrewGames({
   crew,
   games,
   allGames,
-  playedGames,
   isOwner,
   onGames,
-  onCustomSaved,
+  onAddCustom,
 }: {
   crew: Crew;
   games: string[];
   allGames: GameAdapter<unknown>[];
-  playedGames: Set<string>;
   isOwner: boolean;
   onGames: (games: string[]) => void;
-  onCustomSaved: (game: CustomGame, isNew: boolean) => void;
+  /** Opens the form for a new custom game. Custom games are edited from their card under Today. */
+  onAddCustom: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // null: closed; "new": adding one; otherwise the custom game being edited.
-  const [editing, setEditing] = useState<CustomGame | "new" | null>(null);
   const tracked = allGames.filter((g) => games.includes(g.id));
 
   async function toggle(game: GameAdapter<unknown>) {
@@ -643,9 +672,8 @@ function CrewGames({
           <ul className="game-toggles">
             {allGames.map((g) => {
               const on = games.includes(g.id);
-              const custom = customOf(g);
               return (
-                <li key={g.id} className="game-toggle-item">
+                <li key={g.id}>
                   <button
                     type="button"
                     className="game-toggle"
@@ -657,48 +685,16 @@ function CrewGames({
                   >
                     <span aria-hidden>{on ? "✓" : "+"}</span> {g.name}
                   </button>
-                  {custom && (
-                    <button
-                      type="button"
-                      className="link-btn custom-edit"
-                      aria-label={`Edit ${g.name}`}
-                      title={`Edit ${g.name}`}
-                      onClick={() => setEditing(custom)}
-                    >
-                      ✎
-                    </button>
-                  )}
                 </li>
               );
             })}
             <li>
-              <button type="button" className="game-toggle add-custom" onClick={() => setEditing("new")}>
+              <button type="button" className="game-toggle add-custom" onClick={onAddCustom}>
                 <span aria-hidden>+</span> Custom
               </button>
             </li>
           </ul>
           {error && <p className="error small">{error}</p>}
-          <Modal
-            open={editing !== null}
-            onClose={() => setEditing(null)}
-            dismissOnBackdrop={false}
-            title={editing && editing !== "new" ? `Edit ${editing.name}` : "Add a custom game"}
-          >
-            {editing !== null && (
-              <CustomGameForm
-                key={editing === "new" ? "new" : editing.id}
-                crewId={crew.id}
-                game={editing === "new" ? undefined : editing}
-                takenColors={allGames.map((g) => g.color)}
-                scoringLocked={editing !== "new" && playedGames.has(customGameId(editing.id))}
-                onSaved={(saved) => {
-                  onCustomSaved(saved, editing === "new");
-                  setEditing(null);
-                }}
-                onCancel={() => setEditing(null)}
-              />
-            )}
-          </Modal>
         </>
       ) : tracked.length ? (
         <ul className="game-toggles">

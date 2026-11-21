@@ -5,28 +5,28 @@ import { useState } from "react";
 import { Modal } from "./Modal";
 
 /**
- * "How Scrim works": mostly pictures. Each picture is a screenshot in
+ * "How Scrim works": mostly pictures. Each picture is a short GIF in
  * public/help/. Until a file is added, a placeholder shows what it should be,
  * so adding one is just dropping the file in.
  */
 
 const STEPS = [
-  { media: "create-crew.png", title: "Make a crew", text: "Name it and pick your games.", alt: "Creating a crew and picking games" },
-  { media: "invite.png", title: "Invite friends", text: "Share the link. Opening it joins.", alt: "Copying the invite link" },
-  { media: "play.png", title: "Play", text: "Play each puzzle on its own site.", alt: "Finishing a game and the score appearing" },
-  { media: "win.png", title: "Win the day", text: "At midnight, the best score wins.", alt: "The day's winner on the scoreboard" },
+  { media: "create-crew.gif", title: "Make a crew", text: "Name it and pick your games.", alt: "Creating a crew and picking games" },
+  { media: "invite.gif", title: "Invite friends", text: "Share the link. Opening it joins.", alt: "Copying the invite link" },
+  { media: "play.gif", title: "Play", text: "Play each puzzle on its own site.", alt: "Finishing a game and the score appearing" },
+  { media: "win.gif", title: "Win the day", text: "At midnight, the best score wins.", alt: "The day's winner on the scoreboard" },
 ];
 
 const SUBMIT = [
   {
-    media: "extension.png",
+    media: "extension.gif",
     title: "Extension",
     badge: "Recommended",
     text: "Finish a game and your score lands by itself. Play NYT games signed in.",
     alt: "The extension submitting a score",
   },
   {
-    media: "paste.png",
+    media: "paste.gif",
     title: "Paste",
     text: "Tap Share in the game, then paste it on the crew page.",
     alt: "Pasting a result on the crew page",
@@ -57,7 +57,7 @@ export function HelpButton() {
         ?
       </button>
       <Modal open={open} onClose={close} title="How Scrim works" size="large">
-        {/* Rendered only while open, so screenshots load when someone looks. */}
+        {/* Rendered only while open, so GIFs load when someone looks. */}
         {open && (
           <>
             <p className="help-lead">Daily puzzles, played as a friendly competition.</p>
@@ -123,7 +123,7 @@ function HelpMedia({ src, alt }: { src: string; alt: string }) {
     return (
       <div className="help-media help-placeholder" role="img" aria-label={alt}>
         <span className="help-placeholder-icon" aria-hidden>
-          ▣
+          ▶
         </span>
         <span>{alt}</span>
         <code>public/help/{src}</code>
@@ -131,7 +131,7 @@ function HelpMedia({ src, alt }: { src: string; alt: string }) {
     );
   }
   return (
-    // A plain <img>: these are small screenshots, served as they are.
+    // A plain <img>: GIFs play as they are, rather than being optimised into stills.
     // eslint-disable-next-line @next/next/no-img-element
     <img className="help-media" src={`/help/${src}`} alt={alt} loading="lazy" onError={() => setMissing(true)} />
   );
