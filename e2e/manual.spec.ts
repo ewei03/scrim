@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  answerConfirm,
   NO_ACCOUNTS,
   accounts,
   createCrewApi,
@@ -128,8 +129,8 @@ test("the crew owner can void an entry so it can be submitted again", async ({ p
   const row = wordle.locator("tbody tr", { hasText: accounts.owner.name });
   await expect(row).toContainText("3/6");
 
-  page.once("dialog", (d) => d.accept());
   await row.getByTitle("Void this entry").click();
+  await answerConfirm(page, true);
   await expect(wordle.getByText(/Nobody has submitted yet/)).toBeVisible();
   await expect(wordle.getByRole("button", { name: /paste your result/ })).toBeVisible();
 });

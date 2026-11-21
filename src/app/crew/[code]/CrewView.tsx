@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { CopyLink } from "@/components/CopyLink";
 import { CustomGameForm } from "@/components/CustomGameForm";
 import { GameTag, gameStyle } from "@/components/GameTag";
@@ -349,7 +350,8 @@ function CrewPage() {
   const playedGames = new Set(rounds.filter((rd) => rd.entries.length > 0).map((rd) => rd.game));
 
   async function voidEntry(name: string, entryId: string) {
-    if (!confirm(`Void ${name}'s entry? They'll be able to submit again while the day is still on.`)) return;
+    if (!(await confirmDialog(`Void ${name}'s entry? They'll be able to submit again while the day is still on.`)))
+      return;
     try {
       await rpc("void_entry", { p_entry: entryId });
       setBoardsKey((k) => k + 1);
@@ -360,7 +362,7 @@ function CrewPage() {
   }
 
   async function leave() {
-    if (!crew || !confirm(`Leave ${crew.name}? Your results for today are removed. You can rejoin with the invite link.`))
+    if (!crew || !(await confirmDialog(`Leave ${crew.name}? Your results for today are removed. You can rejoin with the invite link.`)))
       return;
     try {
       await rpc("leave_crew", { p_crew: crew.id });
@@ -406,6 +408,7 @@ function CrewPage() {
           <ul className="member-chips">
             {members.map((m) => (
               <li key={m.user_id} className={m.user_id === user?.id ? "me" : undefined}>
+                {m.user_id === crew.created_by && <OwnerCrown />}
                 {m.profiles.display_name}
                 {m.profiles.is_guest && <span className="guest-tag"> (guest)</span>}
               </li>
@@ -476,6 +479,8 @@ function CrewPage() {
           </Modal>
         )}
       </section>
+
+      {crew.guest_expires_at && <GuestCrewNotice expiresAt={crew.guest_expires_at} isOwner={isOwner} now={now} />}
 
       {isGuest && !isOwner && (
         <p className="card small guest-note">
@@ -953,7 +958,8 @@ function CrewGames({
 
   async function toggle(game: GameAdapter<unknown>) {
     const on = !games.includes(game.id);
-    if (!on && !confirm(`Stop playing ${game.name} in ${crew.name}? Past days and rankings stay.`)) return;
+    if (!on && !(await confirmDialog(`Stop playing ${game.name} in ${crew.name}? Past days and rankings stay.`)))
+      return;
     setBusy(game.id);
     setError(null);
     try {
@@ -1057,7 +1063,7 @@ function ManageCrew({
 
   async function remove(m: Member) {
     const name = m.profiles.display_name;
-    if (!confirm(`Remove ${name} from ${crew.name}? Their results for today are deleted, and they can't rejoin with the invite link.`)) return;
+    if (!(await confirmDialog(`Remove ${name} from ${crew.name}? Their results for today are deleted, and they can't rejoin with the invite link.`))) return;
     await run(m.user_id, async () => {
       await rpc("remove_crew_member", { p_crew: crew.id, p_user: m.user_id });
       onRemoved();
@@ -1065,7 +1071,7 @@ function ManageCrew({
   }
 
   async function deleteCrew() {
-    if (!confirm(`Delete ${crew.name} for everyone? All its results and rankings are deleted. This can't be undone.`)) return;
+    if (!(await confirmDialog(`Delete ${crew.name} for everyone? All its results and rankings are deleted. This can't be undone.`))) return;
     await run("crew", async () => {
       await rpc("delete_crew", { p_crew: crew.id });
       // Have the extension drop this crew from its saved results.
@@ -1088,7 +1094,7 @@ function ManageCrew({
         <input
           className="input grow"
           aria-label="Crew name"
-          maxLength={40}
+          maxLength={16}
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
@@ -1107,6 +1113,15 @@ function ManageCrew({
           onChange={(e) => updateSettings({ p_hide_until_submitted: e.target.checked })}
         />{" "}
         Hide scores until you submit (no spoilers)
+      </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={crew.allow_guests}
+          disabled={busy !== null}
+          onChange={(e) => updateSettings({ p_allow_guests: e.target.checked })}
+        />{" "}
+        Allow guests to join crew
       </label>
       <label className="field">
         <span>Time Zone</span>
@@ -1153,5 +1168,57 @@ function ManageCrew({
       </div>
       {error && <p className="error small">{error}</p>}
     </>
+  );
+}
+
+/**
+ * A guest's crew lasts the day: at midnight it's deleted, with the guest's
+ * account, unless they link Google first. The server does the deleting (every
+ * few minutes); this says what's coming, and that it's happening once the
+ * time has passed.
+ */
+function GuestCrewNotice({ expiresAt, isOwner, now }: { expiresAt: string; isOwner: boolean; now: number }) {
+  const over = new Date(expiresAt).getTime() <= now;
+  const when = over ? null : `at midnight (in ${timeLeft(expiresAt, now)})`;
+  return (
+    <div className="card small guest-note guest-expiry" role="status">
+      {isOwner ? (
+        <p>
+          {over ? (
+            <>
+              <strong>Today&apos;s over, so this crew is being deleted</strong>, along with your guest account and its
+              scores.
+            </>
+          ) : (
+            <>
+              <strong>This crew will be deleted {when}</strong>, along with your guest account and its scores.
+            </>
+          )}{" "}
+          <Link href="/profile">Sign in with Google</Link> {over ? "now " : ""}
+          to keep the crew and save your stats.
+        </p>
+      ) : (
+        <p>
+          {over ? (
+            <strong>This guest&apos;s crew is being deleted: its day is over.</strong>
+          ) : (
+            <>
+              <strong>This crew belongs to a guest and will be deleted {when}</strong>, unless they sign in with Google.
+            </>
+          )}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** A filled crown before the owner's name. Drawn in the text colour (gold, via CSS). */
+function OwnerCrown() {
+  return (
+    <svg className="owner-crown" viewBox="0 0 24 20" role="img" aria-label="Owner">
+      <title>Crew owner</title>
+      <path d="M2 5l5.5 5L12 2l4.5 8L22 5l-2 10H4z" />
+      <rect x="4" y="16.5" width="16" height="3" />
+    </svg>
   );
 }

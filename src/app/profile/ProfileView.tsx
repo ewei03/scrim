@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ExtensionPanel } from "@/components/ExtensionPanel";
@@ -37,7 +38,8 @@ function Profile() {
   }
 
   async function signOut() {
-    if (isGuest && !confirm("Guest accounts can't be recovered after signing out. Sign out anyway?")) return;
+    if (isGuest && !(await confirmDialog("Guest accounts can't be recovered after signing out. Sign out anyway?")))
+      return;
     // Stop the extension submitting results to this account from this browser.
     const status = await askExtension<{ ok: boolean; userId: string | null }>("status");
     if (status?.userId === user?.id) await askExtension("unpair");
@@ -54,7 +56,7 @@ function Profile() {
           <div className="row">
             <input
               className="input grow"
-              maxLength={24}
+              maxLength={16}
               value={name}
               onChange={(e) => {
                 setName(e.target.value);

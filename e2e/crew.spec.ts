@@ -1,5 +1,6 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import {
+  answerConfirm,
   NO_ACCOUNTS,
   accounts,
   createCrewApi,
@@ -118,7 +119,7 @@ test("a name that's already in the crew can't join it", async ({ page, context, 
 });
 
 test("change the crew's settings", async ({ page, context, browser }) => {
-  const crew = await createCrewApi(owner, "E2E Settings Crew");
+  const crew = await createCrewApi(owner, "E2E Settings");
   await friend.client.rpc("join_crew", { p_code: crew.invite_code });
 
   await loginBrowser(context, owner);
@@ -166,8 +167,8 @@ test("change the crew's settings", async ({ page, context, browser }) => {
   // Remove a member.
   dialog = await openManage(page);
   await expect(dialog.locator(".manage-members li")).toHaveText([`${accounts.friend.name}Remove`]);
-  page.once("dialog", (d) => d.accept());
   await dialog.getByRole("button", { name: "Remove" }).click();
+  await answerConfirm(page, true);
   await expect(dialog.getByText("No other members yet.")).toBeVisible();
 
   // The friend sees the crew's gone for them.
@@ -205,11 +206,11 @@ test("pick the crew's games, including a custom one", async ({ page, context, br
   await expect(wordleHeader).toHaveAttribute("aria-expanded", "true");
 
   // Turn Connections off again (after confirming).
-  page.once("dialog", (d) => d.dismiss());
   await toggle("Connections").click();
+  await answerConfirm(page, false);
   await expect(toggle("Connections")).toHaveAttribute("aria-pressed", "true"); // cancelled: still on
-  page.once("dialog", (d) => d.accept());
   await toggle("Connections").click();
+  await answerConfirm(page, true);
   await expect(toggle("Connections")).toHaveAttribute("aria-pressed", "false");
   await expect(todayCard("Connections")).toHaveCount(0);
 
@@ -251,8 +252,8 @@ test("pick the crew's games, including a custom one", async ({ page, context, br
   // Delete the custom game (after confirming): it's gone from the games and from Today.
   await todayCard("E2E Mini Crossword").getByRole("button", { name: "Edit E2E Mini Crossword" }).click();
   const editAgain = page.getByRole("dialog", { name: "Edit E2E Mini Crossword" });
-  page.once("dialog", (d) => d.accept());
   await editAgain.getByRole("button", { name: "Delete game" }).click();
+  await answerConfirm(page, true);
   await expect(editAgain).toBeHidden();
   await expect(toggle("E2E Mini Crossword")).toHaveCount(0);
   await expect(todayCard("E2E Mini Crossword")).toHaveCount(0);
@@ -268,19 +269,16 @@ test("delete a crew", async ({ page, context, browser }) => {
 
   // Cancelling the confirmation keeps it.
   let dialog = await openManage(page);
-  page.once("dialog", (d) => {
-    expect(d.message()).toContain("Delete E2E Doomed Crew for everyone?");
-    return d.dismiss();
-  });
   await dialog.getByRole("button", { name: "Delete crew" }).click();
+  await answerConfirm(page, false, "Delete E2E Doomed Crew for everyone?");
   await expect(dialog).toBeVisible();
   await page.reload();
   await expect(page.getByRole("heading", { level: 1, name: "E2E Doomed Crew" })).toBeVisible();
 
   // Confirming deletes it and goes home.
   dialog = await openManage(page);
-  page.once("dialog", (d) => d.accept());
   await dialog.getByRole("button", { name: "Delete crew" }).click();
+  await answerConfirm(page, true);
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("heading", { name: "Your crews" })).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Manage crew" })).toHaveCount(0);
@@ -303,8 +301,8 @@ test("a member can leave a crew", async ({ page, context }) => {
   await loginBrowser(context, friend);
   await page.goto(`/crew/${crew.invite_code}`);
 
-  page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Leave" }).click();
+  await answerConfirm(page, true);
   await expect(page).toHaveURL(/\/$/);
   await expect(page.locator(".crew-card", { hasText: "E2E Leaving Crew" })).toHaveCount(0);
 });

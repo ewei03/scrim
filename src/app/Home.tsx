@@ -55,7 +55,7 @@ function Landing() {
   );
 }
 
-const MAX_CREW_NAME = 40;
+const MAX_CREW_NAME = 16;
 
 /**
  * "Sam's Crew", or "Sam's Crew 2", "Sam's Crew 3"… if the user already has a
@@ -63,7 +63,9 @@ const MAX_CREW_NAME = 40;
  */
 function suggestCrewName(displayName: string, crews: Pick<Crew, "name">[]): string {
   const taken = new Set(crews.map((c) => c.name.trim().toLowerCase()));
-  const base = `${displayName}'s Crew`;
+  // Long names don't fit "Name's Crew": try the first word, then "My Crew".
+  const first = displayName.trim().split(/\s+/)[0] ?? "";
+  const base = [`${displayName.trim()}'s Crew`, `${first}'s Crew`].find((b) => b.length <= MAX_CREW_NAME - 3) ?? "My Crew";
   for (let n = 1; ; n++) {
     const suffix = n === 1 ? "" : ` ${n}`;
     const name = base.slice(0, MAX_CREW_NAME - suffix.length).trimEnd() + suffix;
@@ -125,6 +127,9 @@ function Dashboard() {
 
   if (!crews) return <Loading />;
 
+  // Guests get one crew, for the day.
+  const guestHasCrew = isGuest && crews.some((c) => c.created_by === user?.id);
+
   // Every game each crew plays, on the crew's own day.
   const now = new Date();
   const today = crews
@@ -158,7 +163,7 @@ function Dashboard() {
 
   return (
     <div className="stack-lg page-enter">
-      {/* Guests can't create crews or pick games, so the setup guide isn't for them. */}
+      {/* A guest's crew only lasts the day, so the setup guide isn't for them. */}
       {user && !isGuest && (
         <Welcome
           userId={user.id}
@@ -236,7 +241,7 @@ function Dashboard() {
           <button
             className="btn btn-primary"
             aria-haspopup="dialog"
-            disabled={isGuest}
+            disabled={guestHasCrew}
             aria-describedby={isGuest ? "guest-create-note" : undefined}
             onClick={() => {
               setCreateError(null);
@@ -270,8 +275,16 @@ function Dashboard() {
         </Modal>
         {isGuest && (
           <p className="muted small" id="guest-create-note">
-            Guests can&apos;t create crews. <Link href="/profile">Sign in with Google</Link> to make one. As a guest,
-            you can join crews with an invite link.
+            {guestHasCrew ? (
+              <>
+                Guests can make one crew. <Link href="/profile">Sign in with Google</Link> to make more.
+              </>
+            ) : (
+              <>
+                As a guest you can make one crew. It lasts for today: at midnight it&apos;s deleted, along with your
+                guest account. <Link href="/profile">Sign in with Google</Link> to keep it.
+              </>
+            )}
           </p>
         )}
       </section>

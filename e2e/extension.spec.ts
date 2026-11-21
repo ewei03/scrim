@@ -128,7 +128,7 @@ test.describe("signed in to Scrim", () => {
   });
 
   test("an earlier day's game doesn't pop up a notice", async ({ extContext, games }) => {
-    await createCrewApi(owner, "E2E Yesterday Crew", ["wordle"]);
+    await createCrewApi(owner, "E2E Yesterday", ["wordle"]);
     const { wordle } = await setUp(extContext);
 
     games.wordle = { signedIn: true, status: "WIN", daysAgo: 1 };
@@ -139,7 +139,7 @@ test.describe("signed in to Scrim", () => {
   });
 
   test("an unfinished game isn't submitted", async ({ extContext, games }) => {
-    const crew = await createCrewApi(owner, "E2E Unfinished Crew", ["wordle"]);
+    const crew = await createCrewApi(owner, "E2E Unfinished", ["wordle"]);
     const { wordle, scrim } = await setUp(extContext);
 
     games.wordle = { signedIn: true, status: "IN_PROGRESS" };

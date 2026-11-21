@@ -29,6 +29,9 @@ const SUPABASE_STUB = `
   create role anon nologin;
   create role authenticated nologin;
   grant usage on schema public, auth to anon, authenticated;
+  -- Like Supabase: every new function in public is callable by the API roles
+  -- unless a migration takes that away.
+  alter default privileges in schema public grant execute on functions to anon, authenticated;
 `;
 
 // Deliberately no default table grants: newer Supabase projects don't add
@@ -87,6 +90,12 @@ const createCrew = async (user: string, name: string, ...games: string[]) => {
   return crew;
 };
 
+/**
+ * Accounts own at most 4 crews, so a test group that makes crews for Ann
+ * first deletes the ones earlier groups made (each group uses only its own).
+ */
+const clearCrewsOf = (user: string) => db.query("delete from crews where created_by = $1", [user]);
+
 const submitEntry = (user: string, crew: string, result: string, source = "paste", game = "wordle") =>
   as(user, "select submit_entry($1, $2, $3, 'Shared result', $4)", [crew, game, result, source]);
 
@@ -118,8 +127,9 @@ describe("schema", () => {
   it("creates a crew in the creator's time zone", async () => {
     await expect(as(ANN, "select create_crew('X', 'Mars/Olympus')")).rejects.toThrow(/time zone/);
     await expect(as(ANN, "select create_crew('X', null)")).rejects.toThrow(/time zone/);
-    const [la] = await as<{ timezone: string }>(ANN, "select * from create_crew('West', 'America/Los_Angeles')");
+    const [la] = await as<{ id: string; timezone: string }>(ANN, "select * from create_crew('West', 'America/Los_Angeles')");
     expect(la.timezone).toBe("America/Los_Angeles");
+    await as(ANN, "select delete_crew($1)", [la.id]); // accounts own at most 4 crews
     crew = await createCrew(ANN, "Breakfast Club");
   });
 
@@ -229,9 +239,9 @@ describe("schema", () => {
     await expect(as(BOB, "select update_crew_settings($1, p_name => 'Mine now')", [crew.id])).rejects.toThrow(
       /Only the crew owner/,
     );
-    await expect(as(ANN, "select update_crew_settings($1, p_name => '   ')", [crew.id])).rejects.toThrow(/1 to 40/);
-    await expect(as(ANN, "select update_crew_settings($1, p_name => $2)", [crew.id, "x".repeat(41)])).rejects.toThrow(
-      /1 to 40/,
+    await expect(as(ANN, "select update_crew_settings($1, p_name => '   ')", [crew.id])).rejects.toThrow(/1 to 16/);
+    await expect(as(ANN, "select update_crew_settings($1, p_name => $2)", [crew.id, "x".repeat(17)])).rejects.toThrow(
+      /1 to 16/,
     );
     const [renamed] = await as<{ name: string; timezone: string }>(
       ANN,
@@ -294,7 +304,9 @@ describe("extension", () => {
     await as(BOB, "select join_crew($1)", [weekend.invite_code]);
     await as(EVE, "select join_crew($1)", [weekend.invite_code]);
     await createCrew(ANN, "Work", "wordle");
-    await createCrew(ANN, "Krillion Only", "krillion");
+    // Eve's, so Ann stays within 4 crews of her own.
+    const krillionOnly = await createCrew(EVE, "Krillion Only", "krillion");
+    await as(ANN, "select join_crew($1)", [krillionOnly.invite_code]);
   });
 
   it("only signed-in users can mint tokens, and tokens are stored hashed", async () => {
@@ -346,6 +358,7 @@ describe("extension", () => {
 });
 
 describe("crew owner controls", () => {
+  beforeAll(() => clearCrewsOf(ANN));
   let crew: CrewRow;
 
   beforeAll(async () => {
@@ -401,6 +414,7 @@ describe("crew owner controls", () => {
 });
 
 describe("connections and krillion", () => {
+  beforeAll(() => clearCrewsOf(ANN));
   let crew: string;
   let C: string;
   let K: string;
@@ -481,6 +495,7 @@ describe("connections and krillion", () => {
 });
 
 describe("extension rankings", () => {
+  beforeAll(() => clearCrewsOf(ANN));
   const samples: Record<string, object[]> = {
     wordle: [1, 2, 3, 6, null].map((g) => manualWordle("1", g, false)),
     connections: [
@@ -605,6 +620,7 @@ describe("display names within a crew", () => {
 });
 
 describe("custom games", () => {
+  beforeAll(() => clearCrewsOf(ANN));
   let crew: CrewRow;
   /** Today's custom-game "puzzle": days since 2020-01-01, by UTC date. */
   let D: string;
@@ -765,6 +781,7 @@ describe("custom games", () => {
 });
 
 describe("guests", () => {
+  beforeAll(() => clearCrewsOf(ANN));
   const GUEST = "00000000-0000-0000-0000-0000000000a1";
   const HOST = "00000000-0000-0000-0000-0000000000a2";
   let crew: CrewRow;
@@ -786,10 +803,6 @@ describe("guests", () => {
     hosted = await createCrew(HOST, "Guest Owned", "wordle");
     await db.query("update auth.users set is_anonymous = true where id = $1", [HOST]);
     await submitEntry(HOST, hosted.id, solve(T, 2));
-  });
-
-  it("doesn't let guests create crews", async () => {
-    await expect(as(GUEST, "select create_crew('Nope', 'UTC')")).rejects.toThrow(/Sign in with Google/);
   });
 
   it("marks guests on their profile, for everyone to see", async () => {
@@ -844,6 +857,223 @@ describe("guests", () => {
   });
 });
 
+describe("guest crews", () => {
+  const MAKER = "00000000-0000-0000-0000-0000000002a1";
+  const KEEPER = "00000000-0000-0000-0000-0000000002a2";
+  const cleanup = () => db.query("select remove_expired_guests()");
+  const exists = async (sql: string, id: string) => (await db.query(sql, [id])).rows.length > 0;
+  let guestCrew: CrewRow & { guest_expires_at: string | null };
+  let annCrew: CrewRow;
+
+  beforeAll(async () => {
+    await db.query(
+      `insert into auth.users (id, raw_user_meta_data, is_anonymous) values
+       ($1, '{"display_name":"Maker"}', true), ($2, '{"display_name":"Keeper"}', true)`,
+      [MAKER, KEEPER],
+    );
+    guestCrew = (await as<typeof guestCrew>(MAKER, "select * from create_crew('Guest Night', 'Asia/Tokyo')"))[0];
+    await as(MAKER, "select set_crew_game($1, 'wordle', true)", [guestCrew.id]);
+    await as(BOB, "select join_crew($1)", [guestCrew.invite_code]);
+    // The guest also plays in someone else's crew.
+    annCrew = await createCrew(ANN, "Ann's Table", "wordle");
+    await as(MAKER, "select join_crew($1)", [annCrew.invite_code]);
+    await submitEntry(MAKER, annCrew.id, solve(T, 3));
+  });
+
+  it("lets a guest make one crew, deleted at the next midnight in its time zone", async () => {
+    const [{ midnight }] = await as<{ midnight: string }>(
+      ANN,
+      "select ((((now() at time zone 'Asia/Tokyo')::date + 1)::timestamp) at time zone 'Asia/Tokyo')::text as midnight",
+    );
+    const [{ expires }] = await as<{ expires: string }>(MAKER, "select guest_expires_at::text as expires from crews where id = $1", [
+      guestCrew.id,
+    ]);
+    expect(expires).toBe(midnight);
+    await expect(as(MAKER, "select create_crew('Another', 'UTC')")).rejects.toThrow(/Guests can make one crew/);
+    // Google accounts' crews never expire.
+    const [{ guest_expires_at }] = await as<{ guest_expires_at: string | null }>(
+      ANN,
+      "select guest_expires_at from crews where id = $1",
+      [annCrew.id],
+    );
+    expect(guest_expires_at).toBeNull();
+  });
+
+  it("keeps the deadline when the time zone changes", async () => {
+    const before = guestCrew.guest_expires_at;
+    const [after] = await as<{ guest_expires_at: string }>(
+      MAKER,
+      "select * from update_crew_settings($1, p_timezone => 'Pacific/Pago_Pago')",
+      [guestCrew.id],
+    );
+    expect(after.guest_expires_at).toEqual(before);
+  });
+
+  it("leaves the crew alone until midnight", async () => {
+    await cleanup();
+    expect(await exists("select 1 from crews where id = $1", guestCrew.id)).toBe(true);
+    expect(await exists("select 1 from auth.users where id = $1", MAKER)).toBe(true);
+  });
+
+  it("at midnight, deletes the crew and the guest account, with its scores everywhere", async () => {
+    await db.query("update crews set guest_expires_at = now() - interval '1 minute' where id = $1", [guestCrew.id]);
+    await cleanup();
+    expect(await exists("select 1 from crews where id = $1", guestCrew.id)).toBe(false);
+    expect(await exists("select 1 from auth.users where id = $1", MAKER)).toBe(false);
+    expect(await exists("select 1 from profiles where id = $1", MAKER)).toBe(false);
+    // Bob only lost the guest's crew; Ann's crew is still there, minus the guest's score.
+    const crews = await as<{ name: string }>(BOB, "select name from crews where id = $1", [guestCrew.id]);
+    expect(crews).toEqual([]);
+    expect((await board(ANN, annCrew.id, T)).map((r) => r.user_id)).toEqual([]);
+  });
+
+  it("keeps the crew and account of a guest who links Google before midnight", async () => {
+    const [kept] = await as<CrewRow>(KEEPER, "select * from create_crew('Kept Crew', 'UTC')");
+    await db.query("update auth.users set is_anonymous = false where id = $1", [KEEPER]);
+    const [row] = await as<{ guest_expires_at: string | null }>(KEEPER, "select guest_expires_at from crews where id = $1", [
+      kept.id,
+    ]);
+    expect(row.guest_expires_at).toBeNull();
+    await cleanup();
+    expect(await exists("select 1 from crews where id = $1", kept.id)).toBe(true);
+    expect(await exists("select 1 from auth.users where id = $1", KEEPER)).toBe(true);
+  });
+});
+
+describe("crew limits", () => {
+  const id = (n: number) => `00000000-0000-0000-0000-0000000001${String(n).padStart(2, "0")}`;
+  const GUEST = id(99);
+
+  beforeAll(async () => {
+    const users = Array.from({ length: 12 }, (_, i) => `('${id(i)}', '{"display_name":"Limit ${i}"}', false)`);
+    await db.query(
+      `insert into auth.users (id, raw_user_meta_data, is_anonymous) values ${users.join(", ")},
+       ('${GUEST}', '{"display_name":"Visitor"}', true)`,
+    );
+  });
+
+  it("holds at most 10 players", async () => {
+    const c = await createCrew(id(0), "Ten Max", "wordle");
+    for (let i = 1; i < 10; i++) await as(id(i), "select join_crew($1)", [c.invite_code]);
+    await expect(as(id(10), "select join_crew($1)", [c.invite_code])).rejects.toThrow(/full/);
+    // Members opening the link again are fine.
+    await as(id(9), "select join_crew($1)", [c.invite_code]);
+  });
+
+  it("lets the owner turn off guest joins", async () => {
+    const c = await createCrew(id(11), "No Guests", "wordle");
+    await as(id(11), "select update_crew_settings($1, p_allow_guests => false)", [c.id]);
+    await expect(as(GUEST, "select join_crew($1)", [c.invite_code])).rejects.toThrow(/doesn't take guests/);
+    await as(id(10), "select join_crew($1)", [c.invite_code]);
+    await as(id(11), "select update_crew_settings($1, p_allow_guests => true)", [c.id]);
+    await as(GUEST, "select join_crew($1)", [c.invite_code]);
+  });
+
+  it("keeps new crew names to 16 characters", async () => {
+    await expect(as(id(3), "select create_crew($1, 'UTC')", ["x".repeat(17)])).rejects.toThrow(/1 to 16/);
+    await expect(as(id(3), "select create_crew('   ', 'UTC')")).rejects.toThrow(/1 to 16/);
+    await createCrew(id(3), "Sixteen Chars Ok");
+  });
+
+  it("lets each account own at most 4 crews", async () => {
+    const owner = id(10);
+    for (let i = 0; i < 4; i++) await createCrew(owner, `Crew ${i}`);
+    await expect(createCrew(owner, "One Too Many")).rejects.toThrow(/4 crews/);
+    // Deleting one makes room.
+    const [c] = await as<{ id: string }>(owner, "select id from crews where created_by = $1 limit 1", [owner]);
+    await as(owner, "select delete_crew($1)", [c.id]);
+    await createCrew(owner, "Room Again");
+  });
+
+  it("keeps display names to 16 characters, without breaking older long names", async () => {
+    await expect(as(id(1), "update profiles set display_name = $2 where id = $1", [id(1), "x".repeat(17)])).rejects.toThrow(
+      /16 characters/,
+    );
+    await as(id(1), "update profiles set display_name = $2 where id = $1", [id(1), "Sixteen Chars Ok"]);
+    // A name from before the limit stays, and the profile can still be updated.
+    await db.exec("alter table profiles disable trigger profiles_display_name_length");
+    await db.query("update profiles set display_name = 'An Older Long Name Here' where id = $1", [id(2)]);
+    await db.exec("alter table profiles enable trigger profiles_display_name_length");
+    await db.query("update profiles set is_guest = false where id = $1", [id(2)]);
+    // New accounts get a name cut to 16.
+    await db.query(`insert into auth.users (id, raw_user_meta_data) values ($1, '{"full_name":"Bartholomew Montgomery"}')`, [
+      id(50),
+    ]);
+    const [p] = await as<{ display_name: string }>(ANN, "select display_name from profiles where id = $1", [id(50)]);
+    expect(p.display_name).toBe("Bartholomew Mont");
+  });
+
+  it("doesn't let guests suggest games", async () => {
+    await expect(as(GUEST, "select suggest_game('Strands')")).rejects.toThrow(/Sign in with Google/);
+  });
+});
+
+describe("function permissions", () => {
+  beforeAll(() => clearCrewsOf(ANN));
+  // Everything the site, the extension and RLS call. Every other function is
+  // internal: callable only from these, never through the API.
+  const SITE = [
+    "can_see_entry",
+    "create_crew",
+    "create_custom_game",
+    "create_extension_token",
+    "delete_crew",
+    "delete_custom_game",
+    "extension_rankings",
+    "extension_submit",
+    "get_round_board",
+    "is_crew_member",
+    "join_crew",
+    "leave_crew",
+    "remove_crew_member",
+    "revoke_extension_tokens",
+    "set_crew_game",
+    "submit_entry",
+    "suggest_game",
+    "update_crew_settings",
+    "update_custom_game",
+    "void_entry",
+  ];
+  const EXTENSION = ["extension_rankings", "extension_submit"];
+
+  const callable = async (role: string) =>
+    (
+      await db.query<{ proname: string }>(
+        `select distinct proname from pg_proc
+         where pronamespace = 'public'::regnamespace and prokind = 'f'
+           and has_function_privilege($1, oid, 'execute')
+         order by proname`,
+        [role],
+      )
+    ).rows.map((r) => r.proname);
+
+  it("exposes only the site's functions to signed-in users", async () => {
+    expect(await callable("authenticated")).toEqual(SITE);
+  });
+
+  it("exposes only the extension's functions to the public key", async () => {
+    expect(await callable("anon")).toEqual(EXTENSION);
+  });
+
+  it("doesn't let anyone record a score for someone else", async () => {
+    const c = await createCrew(ANN, "Impostors", "wordle");
+    await as(BOB, "select join_crew($1)", [c.invite_code]);
+    await expect(
+      as(BOB, "select record_entry($1, $2, 'wordle', $3, 'x', 'paste')", [ANN, c.id, solve(T, 6)]),
+    ).rejects.toThrow(/permission denied/);
+  });
+
+  it("keeps future functions private until a migration grants them", async () => {
+    await db.exec("create function public.zz_new_helper() returns int language sql as 'select 1'");
+    try {
+      expect(await callable("authenticated")).not.toContain("zz_new_helper");
+      expect(await callable("anon")).not.toContain("zz_new_helper");
+    } finally {
+      await db.exec("drop function public.zz_new_helper()");
+    }
+  });
+});
+
 describe("game suggestions", () => {
   it("accepts suggestions from signed-in users and keeps them private", async () => {
     await as(BOB, "select suggest_game($1, $2, $3)", ["  Strands ", "https://nytimes.com/games/strands", "pls"]);
@@ -888,5 +1118,15 @@ describe("game suggestions", () => {
       );
     }
     await expect(as(EVE, "select suggest_game('One more')")).rejects.toThrow(/tomorrow/);
+  });
+});
+
+describe("re-running migrations", () => {
+  it("can run 0018 again on a database that already has it", async () => {
+    const crewLimits = MIGRATIONS.find((sql) => sql.includes("Limits that keep crews small"))!;
+    await db.exec(crewLimits);
+    // Still working afterwards.
+    const c = await createCrew(BOB, "Rerun Check");
+    await as(BOB, "select update_crew_settings($1, p_allow_guests => false)", [c.id]);
   });
 });

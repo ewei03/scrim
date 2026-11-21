@@ -41,7 +41,15 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
   (midnight in the crew's time zone; checked every 5 minutes via pg_cron). Its
   scores stay, in past days and rankings. Linking Google makes it a regular
   account that stays. Guests show as "(guest)" in the crew box, scoreboards and
-  rankings, and can't create crews; they join with invite links.
+  rankings. They can't suggest games, and a crew owner can turn guest joins off.
+  A guest can make one crew, which lasts the day: at midnight (crew time) the
+  crew is deleted along with the guest account and its scores, unless the
+  guest links Google first. The crew page warns everyone in it.
+- **Limits:** a crew holds 10 players; an account owns at most 4 crews;
+  display names and crew names are up to 16 characters.
+- **Function permissions:** only the RPCs the site and extension use can be
+  called through the API (`0017`). A new function is private until its
+  migration grants it; `schema.test.ts` checks the full list.
 - **Winning:** ties share the win (two people who both get Wordle in 1 both
   win). A miss can't win.
 - **Spoiler protection:** with "hide scores until you submit" on, other
@@ -139,7 +147,7 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run each file in `supabase/migrations/` in order
-   (`0001_init.sql` through `0016_guests_leave_at_midnight.sql`). Before `0012`, enable the
+   (`0001_init.sql` through `0018_crew_limits.sql`). Before `0012`, enable the
    **pg_cron** extension (Database → Extensions) so guests are cleaned up after each day. `0009` replaces the old
    lobbies and **erases any lobby results**; afterwards each crew owner picks
    their crew's games on the crew page.

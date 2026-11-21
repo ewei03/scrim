@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { errorMessage, rpc } from "@/lib/supabase";
@@ -20,7 +21,14 @@ export function SuggestGame() {
   const [sent, setSent] = useState(false);
 
   if (status !== "signedIn") {
-    return <p className="muted small">Sign in (a guest account works) to suggest a game.</p>;
+    return <p className="muted small">Sign in with Google to suggest a game.</p>;
+  }
+  if (isGuest) {
+    return (
+      <p className="muted small">
+        Suggestions need a Google account. <Link href="/profile">Link one on your profile</Link> to send one.
+      </p>
+    );
   }
 
   if (sent) {

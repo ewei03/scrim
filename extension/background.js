@@ -2,7 +2,42 @@
 const CONFIG_KEYS = ["token", "supabaseUrl", "supabaseKey", "scrimOrigin", "userId", "displayName"];
 const MAX_RESULTS = 14;
 
+// What this build may talk to, read from the manifest (the store build drops
+// localhost). Chrome's "http://localhost/*" matches any port, so hosts are
+// compared by protocol and hostname.
+const MANIFEST = chrome.runtime.getManifest();
+const hostOf = (pattern) => {
+  const u = new URL(pattern.replace(/\*$/, ""));
+  return `${u.protocol}//${u.hostname}`;
+};
+/** Pages of the Scrim site: the ones the bridge script runs on. */
+const SITE_HOSTS = new Set(
+  MANIFEST.content_scripts.filter((cs) => cs.js.includes("scrim-bridge.js")).flatMap((cs) => cs.matches.map(hostOf)),
+);
+/** Supabase projects results may be sent to: a host permission that's Supabase (or local, for development). */
+const API_HOSTS = new Set(
+  MANIFEST.host_permissions.map(hostOf).filter((h) => /^https:\/\/[a-z0-9-]+\.supabase\.co$|^http:\/\/(localhost|127\.0\.0\.1)$/.test(h)),
+);
+const isAllowed = (url, hosts) => {
+  try {
+    return hosts.has(hostOf(url));
+  } catch {
+    return false;
+  }
+};
+
+// Connecting and disconnecting only come from the Scrim site (via the bridge).
+// Anything else could point the extension at another server or account.
+const SITE_ONLY = new Set(["pair", "unpair"]);
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  const fromSite = sender.id === chrome.runtime.id && isAllowed(sender.url ?? "", SITE_HOSTS);
+  if (SITE_ONLY.has(msg?.type) && !fromSite) {
+    sendResponse({ ok: false, error: "Connect the extension from the Scrim website." });
+    return false;
+  }
+  // The site's origin comes from the page the message came from, not the message.
+  if (fromSite) msg = { ...msg, scrimOrigin: new URL(sender.url).origin };
   handle(msg).then(
     (reply) => {
       sendResponse(reply);
@@ -24,6 +59,7 @@ async function handle(msg) {
     case "pair": {
       const { token, supabaseUrl, supabaseKey, scrimOrigin, userId, displayName } = msg;
       if (!token || !supabaseUrl || !supabaseKey) return { ok: false, error: "Missing pairing details" };
+      if (!isAllowed(supabaseUrl, API_HOSTS)) return { ok: false, error: "That server isn't one Scrim uses" };
       await chrome.storage.local.set({ token, supabaseUrl, supabaseKey, scrimOrigin, userId, displayName });
       // Anything played before connecting gets submitted now: results already
       // seen, then today's games that finished while nothing was watching.

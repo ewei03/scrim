@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fira_Code, Noto_Color_Emoji, Share_Tech_Mono } from "next/font/google";
 import Link from "next/link";
+import { ConfirmDialogHost } from "@/components/ConfirmDialog";
 import { Header } from "@/components/Header";
 import { SuggestGameLink } from "@/components/SuggestGame";
 import { THEME_INIT_SCRIPT } from "@/components/ThemeToggle";
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/privacy">Privacy &amp; Terms</Link>
             </nav>
           </footer>
+          <ConfirmDialogHost />
         </AuthProvider>
       </body>
     </html>

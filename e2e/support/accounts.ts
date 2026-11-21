@@ -1,5 +1,5 @@
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
-import type { BrowserContext, Page } from "@playwright/test";
+import { expect, type BrowserContext, type Page } from "@playwright/test";
 
 /**
  * Test accounts, signed in from Node with supabase-js and handed to the
@@ -103,4 +103,16 @@ export async function expandGameCards(page: Page) {
 /** Waits for the page to show it's signed in (the header has a profile link). */
 export async function expectSignedIn(page: Page, name: string) {
   await page.getByRole("link", { name: new RegExp(name) }).first().waitFor();
+}
+
+/**
+ * Answers the site's confirm modal (it replaced the browser's confirm()):
+ * OK or Cancel, after checking its message when given.
+ */
+export async function answerConfirm(page: Page, ok: boolean, message?: string) {
+  const dialog = page.getByRole("dialog", { name: "Are you sure?" });
+  await expect(dialog).toBeVisible();
+  if (message) await expect(dialog).toContainText(message);
+  await dialog.getByRole("button", { name: ok ? "OK" : "Cancel" }).click();
+  await expect(dialog).toBeHidden();
 }

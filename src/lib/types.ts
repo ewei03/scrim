@@ -13,6 +13,13 @@ export type Crew = {
    */
   timezone: string | null;
   hide_until_submitted: boolean;
+  /** Guests (no Google account) can join with the invite link. */
+  allow_guests: boolean;
+  /**
+   * A guest's crew: when it's deleted (midnight after it was made), along
+   * with the guest's account. Null for Google accounts' crews.
+   */
+  guest_expires_at: string | null;
 };
 
 /** One crew's scoreboard for one daily puzzle. Started by the first result. */

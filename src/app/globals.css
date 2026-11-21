@@ -825,7 +825,7 @@ select.input {
   width: 100%;
 }
 
-/* Room for a full 24-character display name, and the same width on every
+/* Room for a full display name (16 characters, or 24 from before the limit), and the same width on every
    card so the score columns line up between games. */
 .scoreboard td.name {
   min-width: 15rem;
@@ -1662,9 +1662,36 @@ select.input {
   opacity: 0.7;
 }
 
+/* The owner's crown in the crew box: a small filled SVG in gold. */
+.owner-crown {
+  width: 1.05em;
+  height: 0.9em;
+  margin-right: 5px;
+  vertical-align: -0.05em;
+  fill: var(--gold);
+}
+
+.member-chips li.me .owner-crown {
+  fill: currentColor;
+}
+
 .guest-note {
   border-style: dashed;
   box-shadow: none;
+}
+
+/* A guest's crew that gets deleted at midnight. */
+.guest-expiry {
+  border: 2px solid var(--urgent);
+  border-style: solid;
+}
+
+.guest-expiry p {
+  margin: 0;
+}
+
+.guest-expiry strong {
+  color: var(--urgent);
 }
 
 .member-chips li.me {
@@ -1842,6 +1869,15 @@ select.input {
 
 .dialog-sm {
   width: min(440px, calc(100vw - 32px));
+}
+
+/* The site's confirm(): the message, then Cancel and OK at the right. */
+.confirm-message {
+  margin: 0;
+}
+
+.confirm-actions {
+  justify-content: flex-end;
 }
 
 /* "Rankings for [game] from [period]": a sentence with the pickers inline. */

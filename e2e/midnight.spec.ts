@@ -80,7 +80,7 @@ const wordleCard = (page: Page) => page.locator(".game-card", { hasText: "Wordle
 const openTab = (page: Page, name: string) => page.getByRole("tab", { name: new RegExp(`^${name}`) }).click();
 
 test("at midnight, today's results move to the archive and the rankings update", async ({ page, context }) => {
-  const crew = await createCrewApi(owner, "E2E Midnight Crew", ["wordle"]);
+  const crew = await createCrewApi(owner, "E2E Midnight", ["wordle"]);
   const { error } = await owner.client.rpc("update_crew_settings", { p_crew: crew.id, p_timezone: ZONE });
   expect(error).toBeNull();
   await friend.client.rpc("join_crew", { p_code: crew.invite_code });

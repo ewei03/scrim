@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "./ConfirmDialog";
 import { useState } from "react";
 import {
   CUSTOM_COLORS,
@@ -78,9 +79,9 @@ export function CustomGameForm({
   async function remove() {
     if (!game) return;
     if (
-      !confirm(
+      !(await confirmDialog(
         `Delete ${game.name}? Its scores, past days and rankings in this crew are deleted too. This can't be undone.`,
-      )
+      ))
     )
       return;
     setBusy(true);

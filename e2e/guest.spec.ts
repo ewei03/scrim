@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { answerConfirm } from "./support/accounts";
 
 // 1. Play as guest.
 test.describe("Play as guest", () => {
@@ -38,9 +39,9 @@ test.describe("Play as guest", () => {
     await expect(whoami.locator(".tag")).toHaveText("guest");
     await expect(page.getByRole("heading", { name: "Your crews" })).toBeVisible();
 
-    // Guests can't make crews: the form is switched off, with a note saying why.
-    await expect(page.getByRole("button", { name: "Add a new crew" })).toBeDisabled();
-    await expect(page.getByText("Guests can't create crews.")).toBeVisible();
+    // Guests can make one crew, for the day (see guest-crew.spec.ts).
+    await expect(page.getByRole("button", { name: "Add a new crew" })).toBeEnabled();
+    await expect(page.getByText("As a guest you can make one crew.")).toBeVisible();
 
     // Still signed in after a reload.
     await page.reload();
@@ -53,8 +54,8 @@ test.describe("Play as guest", () => {
     await page.locator(".whoami").click();
     await expect(page).toHaveURL(/\/profile$/);
 
-    page.once("dialog", (d) => d.accept()); // "Guest accounts can't be recovered…"
     await page.getByRole("button", { name: "Sign out" }).click();
+    await answerConfirm(page, true, "Guest accounts can't be recovered after signing out. Sign out anyway?");
     await expect(page.getByRole("heading", { name: "Start scrimming" })).toBeVisible();
   });
 });
