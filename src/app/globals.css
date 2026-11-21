@@ -224,12 +224,45 @@ main.container {
   background: var(--paper);
 }
 
+/* Help, theme and crew settings: the same raised look as .btn. */
+.icon-btn-raised {
+  flex: none;
+  padding: 0;
+  box-shadow: var(--shadow);
+  transition: transform 60ms, box-shadow 60ms;
+}
+
+.icon-btn-raised:hover:not(:disabled) {
+  background: var(--card);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--line);
+}
+
+.icon-btn-raised:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: none;
+}
+
+.icon-btn-raised:focus-visible {
+  outline: 2px dashed var(--accent-text);
+  outline-offset: 2px;
+}
+
+/* The signed-in name, top right: a button to your profile. */
 .whoami {
-  margin-left: 6px;
-  text-decoration: none;
-  display: flex;
+  display: inline-flex;
   gap: 8px;
   align-items: center;
+  height: 32px;
+  margin-left: 6px;
+}
+
+.whoami-arrow {
+  transition: transform 120ms;
+}
+
+.whoami:hover .whoami-arrow {
+  transform: translateX(2px);
 }
 
 .stack {
@@ -1087,6 +1120,15 @@ select.input {
   margin-top: 6px;
 }
 
+.today-head {
+  gap: 12px;
+  align-items: center;
+}
+
+.today-crew-head {
+  align-items: center;
+}
+
 .today-crew-name {
   font-size: 0.85rem;
   font-family: var(--font-body);
@@ -1591,4 +1633,132 @@ select.input {
   background: var(--bad);
   color: var(--card);
   box-shadow: 4px 4px 0 var(--bad);
+}
+
+/* ---------- help ---------- */
+
+.dialog:has(.help-grid) {
+  width: min(780px, calc(100vw - 32px));
+}
+
+.help-lead {
+  font-size: 1.05rem;
+}
+
+.dialog-body .help-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.dialog-body .help-grid li + li {
+  margin-top: 0;
+}
+
+.help-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: var(--paper);
+  border: 2px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.help-media {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border: 2px solid var(--line);
+  background: var(--card);
+}
+
+.help-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--card) 0 10px,
+    color-mix(in srgb, var(--muted) 12%, var(--card)) 10px 20px
+  );
+}
+
+.help-placeholder-icon {
+  font-size: 1.6rem;
+  color: var(--accent-text);
+}
+
+.help-placeholder code {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+.help-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+
+.help-num {
+  flex: none;
+  color: var(--accent-text);
+}
+
+.help-badge {
+  padding: 1px 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 2px solid var(--line);
+}
+
+.help-card-text {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.dialog-body .help-tips {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+.dialog-body .help-tips li + li {
+  margin-top: 0;
+}
+
+.help-tips li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.help-tip-icon {
+  flex: none;
+}
+
+@media (max-width: 560px) {
+  .dialog-body .help-grid,
+  .dialog-body .help-tips {
+    grid-template-columns: 1fr;
+  }
 }

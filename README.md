@@ -184,6 +184,7 @@ with `localhost` removed from the manifest. Bump `version` in
 
 - `npm run dev` — dev server
 - `npm test` — unit tests plus schema tests
+- `npm run e2e` / `npm run e2e:ui` — browser tests with Playwright, in a visible Chromium with the extension loaded (setup: [e2e/README.md](e2e/README.md))
 - `npm run lint`, `npm run typecheck`, `npm run build`
 
 ## Roadmap

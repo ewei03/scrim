@@ -17,7 +17,7 @@ import { gameList, getGame } from "@/games/registry";
 import type { GameAdapter } from "@/games/types";
 import { useAuth } from "@/lib/auth";
 import { askExtension, useExtension, type ExtensionState } from "@/lib/extension";
-import { crewDeadline, crewPuzzle, localTimeZone } from "@/lib/rounds";
+import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone, roundZone } from "@/lib/rounds";
 import { crewStats } from "@/lib/stats";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
 import { formatDay, timeLeft } from "@/lib/time";
@@ -267,7 +267,7 @@ function CrewPage() {
               <CopyLink path={`/crew/${crew.invite_code}`} label="Invite to crew" />
               {isOwner ? (
                 <button
-                  className="icon-btn"
+                  className="icon-btn icon-btn-raised"
                   aria-label="Manage crew"
                   aria-haspopup="dialog"
                   title="Manage crew"
@@ -333,7 +333,18 @@ function CrewPage() {
 
       <section className="stack">
         <div className="row between">
-          <h2>Today</h2>
+          <div className="row today-head">
+            <h2>Today</h2>
+            {/* Every game's day ends together, at the crew's midnight (games on another clock say so on their card). */}
+            {tracked.length > 0 && (
+              <span className="time-left">
+                <span className="live-dot" aria-hidden>
+                  ●
+                </span>
+                {timeLeft(crewDayEnd(crew, new Date(now)).toISOString(), now)} left
+              </span>
+            )}
+          </div>
           <button className="btn btn-small" disabled={refreshing} onClick={refreshNow}>
             {refreshing ? "Refreshing…" : "↻ Refresh"}
           </button>
@@ -429,7 +440,10 @@ function TodayRound({
 }) {
   const { user } = useAuth();
   const puzzleId = crewPuzzle(game, crew, new Date(now));
-  const deadline = crewDeadline(game, crew, new Date(now)).toISOString();
+  const ends = crewDeadline(game, crew, new Date(now));
+  const deadline = ends.toISOString();
+  // Shown on the card only when this game's day doesn't end with the crew's (e.g. Krillion, on New York time).
+  const ownClock = ends.getTime() !== crewDayEnd(crew, new Date(now)).getTime();
   const [board, setBoard] = useState<BoardRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(() => !isCollapsed(crew.id, game.id));
@@ -478,12 +492,14 @@ function TodayRound({
             {submitted ? "✓ You're in" : "Your turn"} · {board.length} played
           </span>
         )}
-        <span className="time-left">
-          <span className="live-dot" aria-hidden>
-            ●
+        {ownClock && (
+          <span className="time-left" title={`${game.name} runs on ${roundZone(game, crew).replaceAll("_", " ")} time`}>
+            <span className="live-dot" aria-hidden>
+              ●
+            </span>
+            {timeLeft(deadline, now)} left
           </span>
-          {timeLeft(deadline, now)} left
-        </span>
+        )}
       </header>
       <div className="game-card-body stack" id={bodyId} hidden={!open}>
         {!submitted && (

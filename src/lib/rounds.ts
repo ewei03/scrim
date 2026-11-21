@@ -17,6 +17,11 @@ export function crewDeadline(game: GameAdapter<unknown>, crew: Pick<Crew, "timez
   return nextMidnightIn(roundZone(game, crew), now);
 }
 
+/** When the crew's day ends: midnight in its time zone. Most games end then. */
+export function crewDayEnd(crew: Pick<Crew, "timezone">, now = new Date()): Date {
+  return nextMidnightIn(crew.timezone ?? "UTC", now);
+}
+
 /** The browser's time zone, for new crews. */
 export function localTimeZone(): string {
   try {

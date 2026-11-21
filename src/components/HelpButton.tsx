@@ -1,112 +1,138 @@
 "use client";
 
 import Link from "next/link";
-import { useRef } from "react";
+import { useState } from "react";
+import { Modal } from "./Modal";
+
+/**
+ * "How Scrim works": mostly pictures. Each picture is a screenshot in
+ * public/help/. Until a file is added, a placeholder shows what it should be,
+ * so adding one is just dropping the file in.
+ */
+
+const STEPS = [
+  { media: "create-crew.png", title: "Make a crew", text: "Name it and pick your games.", alt: "Creating a crew and picking games" },
+  { media: "invite.png", title: "Invite friends", text: "Share the link. Opening it joins.", alt: "Copying the invite link" },
+  { media: "play.png", title: "Play", text: "Play each puzzle on its own site.", alt: "Finishing a game and the score appearing" },
+  { media: "win.png", title: "Win the day", text: "At midnight, the best score wins.", alt: "The day's winner on the scoreboard" },
+];
+
+const SUBMIT = [
+  {
+    media: "extension.png",
+    title: "Extension",
+    badge: "Recommended",
+    text: "Finish a game and your score lands by itself. Play NYT games signed in.",
+    alt: "The extension submitting a score",
+  },
+  {
+    media: "paste.png",
+    title: "Paste",
+    text: "Tap Share in the game, then paste it on the crew page.",
+    alt: "Pasting a result on the crew page",
+  },
+];
+
+const TIPS = [
+  { icon: "🏆", text: "Ties? Everyone tied gets the win." },
+  { icon: "🙈", text: "No spoilers: hide scores until you submit." },
+  { icon: "📊", text: "Rankings track wins, streaks and averages." },
+  { icon: "🎲", text: "Custom games: track any daily game by hand." },
+  { icon: "👤", text: "Guests stay a day. Sign in with Google to keep stats." },
+  { icon: "💡", text: "Missing a game? Suggest one at the bottom of the page." },
+];
 
 export function HelpButton() {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const close = () => dialog.current?.close();
+  const [open, setOpen] = useState(false);
+  const close = () => setOpen(false);
 
   return (
     <>
       <button
-        className="icon-btn"
-        onClick={() => dialog.current?.showModal()}
+        className="icon-btn icon-btn-raised"
+        onClick={() => setOpen(true)}
         title="How Scrim works"
         aria-label="How Scrim works"
       >
         ?
       </button>
-      <dialog
-        ref={dialog}
-        className="dialog"
-        aria-labelledby="help-title"
-        // Click on the backdrop closes it.
-        onClick={(e) => e.target === dialog.current && close()}
-      >
-        <div className="dialog-head">
-          <h2 id="help-title">How Scrim works</h2>
-          <button className="icon-btn" onClick={close} aria-label="Close">
-            ×
-          </button>
-        </div>
-        <div className="dialog-body stack">
-          <p>
-            Turn daily puzzles into a friendly competition! Everyone plays the same puzzle on their own time,
-            and Scrim keeps score for you.
-          </p>
+      <Modal open={open} onClose={close} title="How Scrim works" size="large">
+        {/* Rendered only while open, so screenshots load when someone looks. */}
+        {open && (
+          <>
+            <p className="help-lead">Daily puzzles, played as a friendly competition.</p>
 
-          <h3>The basics</h3>
-          <ol>
-            <li>
-              <strong>Make a crew</strong> and pick the games it plays. Your crew is your friend group, or anyone you want to invite!
-            </li>
-            <li>
-              <strong>Share the invite link.</strong> Opening it joins the crew.
-            </li>
-            <li>
-              <strong>Play</strong> each day&apos;s puzzle on the game&apos;s own site. Good luck!
-            </li>
-            <li>
-              <strong>Your score lands in the crew.</strong> At midnight in the crew&apos;s time zone, Scrim
-              declares the day&apos;s winner.
-            </li>
-            <li>
-              <strong>Don&apos;t wanna stay?</strong> Leave the crew from the crew page.
-            </li>
-          </ol>
+            <h3>How it works</h3>
+            <ol className="help-grid">
+              {STEPS.map((s, i) => (
+                <li key={s.title} className="help-card">
+                  <HelpMedia src={s.media} alt={s.alt} />
+                  <p className="help-card-title">
+                    <span className="help-num">{i + 1}.</span>
+                    {s.title}
+                  </p>
+                  <p className="help-card-text">{s.text}</p>
+                </li>
+              ))}
+            </ol>
 
-          <h3>Getting your score in</h3>
-          <ul>
-            <li>
-              Install the <strong>Scrim Chrome extension</strong> and connect it on your{" "}
+            <h3>Getting your score in</h3>
+            <ul className="help-grid">
+              {SUBMIT.map((s, i) => (
+                <li key={s.title} className="help-card">
+                  <HelpMedia src={s.media} alt={s.alt} />
+                  <p className="help-card-title">
+                    <span className="help-num">{i + 1}.</span>
+                    {s.title}
+                    {s.badge && <span className="help-badge">{s.badge}</span>}
+                  </p>
+                  <p className="help-card-text">{s.text}</p>
+                </li>
+              ))}
+            </ul>
+            <p className="muted small">
+              Set up the extension on your{" "}
               <Link href="/profile" onClick={close}>
                 profile
               </Link>
-              . Finish a game and your result goes into every crew that plays that game. *For NYT games, play while signed in to your NYT account: games played signed out
-              don&apos;t count.
-            </li>
-            <li>
-              Alternatively, you can manually enter your score by clicking Share in the game and paste the text into the crew page.
-            </li>
-          </ul>
-          <p className="muted small">One submission per puzzle. The crew owner can void an entry if something went wrong.</p>
+              . One submission per puzzle.
+            </p>
 
-          <h3>Winning</h3>
-          <ul>
-            <li>
-              The highest scoring player of the day earns a win on their Scrim ranking. Accumulate your wins and earn bragging rights!
-            </li>
-            <li>If a tie occurs, all players involved in the tie get a win.</li>
-            <li>
-              The day ends at midnight in the crew&apos;s time zone. Results
-              after that don&apos;t count.
-            </li>
-          </ul>
-
-          <h3>No spoilers</h3>
-          <p>
-            Enable &quot;hide scores until you submit&quot; to see who has played, but not how they did, until
-            you&apos;ve locked in your own result.
-          </p>
-
-          <h3>Rankings</h3>
-          <p>
-            Each crew tracks wins, games played, win rate, an average for the game (guesses, mistakes or score) and
-            current win streak.
-          </p>
-
-          <h3>Accounts</h3>
-          <p>
-            Play as a guest or sign in with Google. It&apos;s recommended to sign in with Google to keep your stats.
-          </p>
-
-          <h3>Which puzzles?</h3>
-          <p>
-            As of now, Scrim&apos;s games are integrated manually. Want another one? Use <strong>Suggest a game</strong> at the bottom of any page.
-          </p>
-        </div>
-      </dialog>
+            <h3>Good to know</h3>
+            <ul className="help-tips">
+              {TIPS.map((t) => (
+                <li key={t.text}>
+                  <span className="help-tip-icon" aria-hidden>
+                    {t.icon}
+                  </span>
+                  {t.text}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </Modal>
     </>
+  );
+}
+
+/** A picture from public/help/, or a placeholder until that file exists. */
+function HelpMedia({ src, alt }: { src: string; alt: string }) {
+  const [missing, setMissing] = useState(false);
+  if (missing) {
+    return (
+      <div className="help-media help-placeholder" role="img" aria-label={alt}>
+        <span className="help-placeholder-icon" aria-hidden>
+          ▣
+        </span>
+        <span>{alt}</span>
+        <code>public/help/{src}</code>
+      </div>
+    );
+  }
+  return (
+    // A plain <img>: these are small screenshots, served as they are.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img className="help-media" src={`/help/${src}`} alt={alt} loading="lazy" onError={() => setMissing(true)} />
   );
 }

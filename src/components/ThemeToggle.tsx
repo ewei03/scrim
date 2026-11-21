@@ -43,7 +43,7 @@ export function ThemeToggle() {
 
   const label = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
   return (
-    <button className="icon-btn" onClick={toggle} title={label} aria-label={label}>
+    <button className="icon-btn icon-btn-raised" onClick={toggle} title={label} aria-label={label}>
       {theme === "dark" ? "☀" : "☾"}
     </button>
   );

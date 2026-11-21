@@ -13,7 +13,7 @@ import { Welcome } from "@/components/Welcome";
 import { useAuth } from "@/lib/auth";
 import { useExtension } from "@/lib/extension";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
-import { crewDeadline, crewPuzzle, localTimeZone } from "@/lib/rounds";
+import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone } from "@/lib/rounds";
 import { timeLeft } from "@/lib/time";
 import type { Crew, Round } from "@/lib/types";
 
@@ -106,6 +106,8 @@ function Dashboard() {
             game,
             puzzleId,
             deadline: crewDeadline(game, crew, now).toISOString(),
+            // Shown on the row only when it differs from the crew's (shown once, by the crew's name).
+            ownClock: crewDeadline(game, crew, now).getTime() !== crewDayEnd(crew, now).getTime(),
             done: Boolean(round?.entries.some((e) => e.user_id === user?.id)),
           };
         }),
@@ -137,11 +139,14 @@ function Dashboard() {
           <h2>Today</h2>
           {todayByCrew.map(({ crew, rows }) => (
             <div key={crew.id} className="today-crew">
-              <h3 className="today-crew-name">
-                <Link href={`/crew/${crew.invite_code}`}>{crew.name}</Link>
-              </h3>
+              <div className="row between today-crew-head">
+                <h3 className="today-crew-name">
+                  <Link href={`/crew/${crew.invite_code}`}>{crew.name}</Link>
+                </h3>
+                <span className="time-left">{timeLeft(crewDayEnd(crew, now).toISOString())} left</span>
+              </div>
               <ul className="list list-live">
-                {rows.map(({ game, puzzleId, deadline, done }) => (
+                {rows.map(({ game, puzzleId, deadline, ownClock, done }) => (
                   <li key={game.id}>
                     <Link
                       href={`/crew/${crew.invite_code}`}
@@ -153,7 +158,7 @@ function Dashboard() {
                         <GameTag game={game} /> <strong>{game.puzzleLabel(puzzleId)}</strong>
                       </span>
                       <span className="row">
-                        <span className="time-left">{timeLeft(deadline)} left</span>
+                        {ownClock && <span className="time-left">{timeLeft(deadline)} left</span>}
                         {done ? (
                           <span className="pill pill-done">done</span>
                         ) : (

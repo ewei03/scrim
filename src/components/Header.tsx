@@ -16,9 +16,12 @@ export function Header() {
         <HelpButton />
         <ThemeToggle />
         {profile && (
-          <Link href="/profile" className="whoami">
+          <Link href="/profile" className="btn btn-small whoami" title="Your profile">
             {profile.display_name}
             {isGuest && <span className="tag">guest</span>}
+            <span className="whoami-arrow" aria-hidden>
+              →
+            </span>
           </Link>
         )}
       </div>
