@@ -31,11 +31,11 @@ export function Rankings({
         <tbody>
           {players.map((p) => (
             <tr key={p.userId}>
-              <td className="place">{p.played ? sharedRank(players, p) : "–"}</td>
-              <td className="name">
+              <td>{p.played ? sharedRank(players, p) : "–"}</td>
+              <td>
                 <PlayerName name={names.get(p.userId) ?? "?"} guest={guests.has(p.userId)} />
               </td>
-              <td className="right score">{p.wins}</td>
+              <td className="right">{p.wins}</td>
               <td className="right">{p.played}</td>
               <td className="right">{p.played ? `${Math.round(p.winRate * 100)}%` : "–"}</td>
               <td className="right">{p.average ?? "–"}</td>

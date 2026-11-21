@@ -343,6 +343,17 @@ function CrewPage() {
     [rounds, allGames],
   );
 
+  // Rankings count only days that end after the owner last reset them (the archive keeps them all).
+  const resetAt = crew?.rankings_reset_at ?? null;
+  const sinceReset = useMemo(
+    () => (resetAt ? rounds.filter((r) => Date.parse(r.closes_at) > Date.parse(resetAt)) : rounds),
+    [rounds, resetAt],
+  );
+  const finishedSinceReset = useMemo(
+    () => (resetAt ? finished.filter((r) => Date.parse(r.closes_at) > Date.parse(resetAt)) : finished),
+    [finished, resetAt],
+  );
+
   const ranked = useMemo(() => {
     const game = rankedGames.find((g) => g.id === rankingsGame) ?? rankedGames[0];
     if (!game || !crew) return null;
@@ -350,15 +361,15 @@ function CrewPage() {
     // Today is still being played; longer periods count finished days only.
     const pool =
       rankingsPeriod === "today"
-        ? rounds.filter((r) => r.entries.length > 0 && !isClosed(r, now))
-        : finished;
+        ? sinceReset.filter((r) => r.entries.length > 0 && !isClosed(r, now))
+        : finishedSinceReset;
     const played = pool.filter((r) => r.game === game.id && inPeriod(r, rankingsPeriod, zone, now));
     // Current members only: anyone who left or was removed (including guests
     // removed for being inactive) drops out of the rankings, though their
     // finished days stay in the archive. Matches the extension's rankings.
     const ids = members.map((m) => m.user_id);
     return { game, count: played.length, ...crewStats(game, played, ids, { byWinRate: crew.rank_by_win_rate }) };
-  }, [rankedGames, rankingsGame, rankingsPeriod, crew, rounds, finished, members, now]);
+  }, [rankedGames, rankingsGame, rankingsPeriod, crew, sinceReset, finishedSinceReset, members, now]);
 
   if (gone) {
     return (
@@ -425,6 +436,21 @@ function CrewPage() {
       await rpc("void_entry", { p_entry: entryId });
       setBoardsKey((k) => k + 1);
       load();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }
+
+  async function resetRankings() {
+    if (
+      !crew ||
+      !(await confirmDialog(
+        `Reset ALL rankings for ${crew.name}? This CANNOT be undone.`,
+      ))
+    )
+      return;
+    try {
+      setCrew(await rpc<Crew>("reset_rankings", { p_crew: crew.id }));
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -569,7 +595,7 @@ function CrewPage() {
       <MemberStats
         member={viewedMember}
         games={rankedGames}
-        rounds={finished}
+        rounds={finishedSinceReset}
         rankedIds={rankedIds}
         byWinRate={crew.rank_by_win_rate}
         onClose={() => setViewing(null)}
@@ -761,6 +787,13 @@ function CrewPage() {
             </>
           ) : (
             <p className="muted">Rankings show up once someone has played.</p>
+          )}
+          {isOwner && rankedGames.length > 0 && (
+            <p>
+              <button className="btn btn-small btn-danger" onClick={resetRankings}>
+                Reset rankings
+              </button>
+            </p>
           )}
         </section>
 

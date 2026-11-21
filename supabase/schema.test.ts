@@ -1192,6 +1192,7 @@ describe("function permissions", () => {
     "join_crew",
     "leave_crew",
     "remove_crew_member",
+    "reset_rankings",
     "revoke_extension_tokens",
     "set_crew_game",
     "submit_entry",
@@ -1366,6 +1367,33 @@ describe("crew rules", () => {
     await as(OWNER, "select update_crew_settings($1, p_rank_by_win_rate => true)", [c.id]);
     expect(await extensionOrder()).toEqual([OWNER, ASKER]);
     expect(siteOrder(true)).toEqual([OWNER, ASKER]);
+  });
+
+  it("lets only the owner reset the rankings, which keeps the days but stops counting them", async () => {
+    const c = await createCrew(OWNER, "Fresh Start", "wordle");
+    await as(ASKER, "select join_crew($1)", [c.invite_code]);
+    await insertRounds(c.id, [
+      {
+        id: "00000000-0000-0000-0000-000000000310",
+        closes_at: new Date(Date.UTC(2026, 1, 1)).toISOString(),
+        entries: [{ user_id: ASKER, result: manualWordle("1", 3, false) }],
+      },
+    ]);
+    const token = (await as<{ create_extension_token: string }>(OWNER, "select create_extension_token()"))[0]
+      .create_extension_token;
+    const ranked = async () =>
+      (await as<{ crew_name: string }>(null, "select * from extension_rankings($1)", [token])).filter(
+        (r) => r.crew_name === "Fresh Start",
+      ).length;
+    expect(await ranked()).toBe(1);
+
+    await expect(as(ASKER, "select reset_rankings($1)", [c.id])).rejects.toThrow(/Only the crew owner/);
+    const [reset] = await as<{ rankings_reset_at: string | null }>(OWNER, "select * from reset_rankings($1)", [c.id]);
+    expect(reset.rankings_reset_at).not.toBeNull();
+    expect(await ranked()).toBe(0);
+    // The day itself is still there, for the archive.
+    const kept = await db.query("select 1 from rounds where crew_id = $1", [c.id]);
+    expect(kept.rows).toHaveLength(1);
   });
 });
 

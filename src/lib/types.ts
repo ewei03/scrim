@@ -19,6 +19,8 @@ export type Crew = {
   require_approval: boolean;
   /** Rankings go by win rate, so skipped days don't push anyone down. */
   rank_by_win_rate: boolean;
+  /** When the owner last reset the rankings: they count only days that end after it. Null if never. */
+  rankings_reset_at: string | null;
 };
 
 /** One crew's scoreboard for one daily puzzle. Started by the first result. */
