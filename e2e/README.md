@@ -20,7 +20,7 @@ port 3000. Open the site as `localhost`, not `127.0.0.1`.
 
 1. `npx playwright install chromium`
 2. **Test accounts.** Many tests need two regular (non-guest) accounts: a
-   guest can only make one crew, for the day, and invites need a second person.
+   guest can't make crews, and invites need a second person.
    Google accounts can't be signed into by a test, so these are email +
    password accounts, which the site treats the same way.
    - Supabase → Authentication → Sign In / Providers: make sure **Email** is
@@ -49,9 +49,9 @@ above), so they create real rows there. All of it cleans itself up:
 
 - The test accounts' crews are deleted after each test, and at the start of
   each run in case one stopped part-way.
-- Each run makes about 20 guest accounts. Crews they own are deleted by the
-  test, or at the crew's midnight with the account (0018). Guest accounts with
-  nothing left are deleted by the cleanup a day after they were made (0020).
+- Each run makes about 20 guest accounts. They don't own crews, and once the
+  test accounts' crews are gone they have nothing left, so the cleanup deletes
+  them a day after they were made (0020).
 - Supabase limits anonymous sign-ins (30 an hour per IP by default; Supabase →
   Authentication → Rate Limits), so running the whole suite more than once in
   an hour can hit it: tests then fail with "Request rate limit reached".
@@ -71,7 +71,7 @@ NYT account or knowing today's answer.
 | File | |
 | --- | --- |
 | `guest.spec.ts` | Sign in as guest: blank name refused, a name works, signing out |
-| `guest-crew.spec.ts` | A guest's one crew: made from the home page, and the warning before and after its midnight (faked browser clock) |
+| `guest-crew.spec.ts` | Guests can't make crews; a guest joins one by pasting its invite link on the home page (a bad link is refused) |
 | `crew-full.spec.ts` | The 11th person to open an invite link is told the crew is full (10 players) |
 | `crew-rules.spec.ts` | Approving new members: the invite link asks, the owner approves or declines |
 | `google.spec.ts` | Google sign-in opens Google in a pop-up (up to Google's own page); guests can link Google |

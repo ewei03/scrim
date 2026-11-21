@@ -1,73 +1,57 @@
 import { expect, test } from "@playwright/test";
-import { createCrewApi, loginBrowser, newGuest, type Signed } from "./support/accounts";
+import {
+  createCrewApi,
+  deleteOwnedCrews,
+  hasAccounts,
+  NO_ACCOUNTS,
+  signIn,
+  type Signed,
+} from "./support/accounts";
 
-// A guest's crew lasts the day. At midnight (crew time) the server deletes it,
-// along with the guest account; until then the crew page warns about it.
-//
-// How midnight is faked: the server checks real time (and its deleting is
-// covered in supabase/schema.test.ts), but what the page shows depends on the
-// browser's clock, which Playwright sets. The crew's real deadline is hours
-// away, so the server leaves it alone while the browser goes past it.
+// Guests can't make crews: they join someone else's, by pasting the invite
+// link on the home page (or opening it). They stay in it like anyone else;
+// that the server doesn't remove them is covered in supabase/schema.test.ts.
 
-let guest: Signed;
-let crewId: string | null = null;
+test.skip(!hasAccounts, NO_ACCOUNTS);
+
+let owner: Signed;
+
+test.beforeEach(async () => {
+  owner = await signIn("owner");
+  await deleteOwnedCrews(owner);
+});
 
 test.afterEach(async () => {
-  if (crewId) await guest.client.rpc("delete_crew", { p_crew: crewId });
-  crewId = null;
+  await deleteOwnedCrews(owner);
 });
 
-const notice = (page: import("@playwright/test").Page) => page.locator(".guest-expiry");
+test("a guest can't make a crew, but joins one by pasting its invite link", async ({ page, baseURL }) => {
+  const crew = await createCrewApi(owner, "Paste Crew", ["wordle"]);
 
-test("at midnight, a guest is told their crew is being deleted and to sign in with Google", async ({
-  page,
-  context,
-}) => {
-  guest = await newGuest(`Night Guest ${Date.now() % 10000}`);
-  const crew = (await createCrewApi(guest, "Guest Night", ["wordle"])) as Awaited<ReturnType<typeof createCrewApi>> & {
-    guest_expires_at: string;
-  };
-  crewId = crew.id;
-  expect(crew.guest_expires_at).toBeTruthy();
-  const midnight = new Date(crew.guest_expires_at).getTime();
-
-  // 11:55pm on the crew's day.
-  await page.clock.install({ time: new Date(midnight - 5 * 60_000) });
-  await loginBrowser(context, guest);
-  await page.goto(`/crew/${crew.invite_code}`);
-
-  // Before midnight: how to keep the crew.
-  await expect(notice(page)).toHaveText("Sign in with Google to keep the crew and save your stats.");
-  await expect(notice(page).getByRole("link", { name: "Sign in with Google" })).toHaveAttribute("href", "/profile");
-
-  // Midnight. The page's clock ticks every 15s.
-  await page.clock.fastForward("06:00");
-
-  // After: it says the crew is being deleted, and to sign in now to save it.
-  await expect(notice(page)).toContainText("Today's over, so this crew is being deleted");
-  await expect(notice(page)).toContainText("Sign in with Google now to keep the crew and save your stats");
-});
-
-test("guests can make one crew, and are told it's deleted at midnight", async ({ page }) => {
   await page.goto("/");
-  await page.getByPlaceholder("Your name").fill(`One Crew ${Date.now() % 10000}`);
+  await page.getByPlaceholder("Your name").fill(`Paster ${Date.now() % 10000}`);
   await page.getByRole("button", { name: "Sign in as guest" }).click();
   await expect(page.getByRole("heading", { name: "Your crews" })).toBeVisible();
 
-  const add = page.getByRole("button", { name: "Add a new crew" });
-  await expect(page.getByRole("heading", { name: "Your crews (0/1)" })).toBeVisible();
-  await expect(page.getByText("As a guest, your crew will last until the end of the day.")).toBeVisible();
-  await add.click();
-  await page.getByRole("dialog").getByLabel("Crew name").fill("Guest Crew");
-  await page.getByRole("button", { name: "Create crew" }).click();
+  // No making crews.
+  await expect(page.getByRole("button", { name: "Add a new crew" })).toBeDisabled();
+  await expect(page.getByText("Guests can join crews with an invite link.")).toBeVisible();
+  await expect(page.getByText("No crews yet. Join one with an invite link below.")).toBeVisible();
 
-  // The crew page warns straight away.
-  await expect(page).toHaveURL(/\/crew\/[a-z0-9]+$/);
-  await expect(notice(page)).toContainText("Sign in with Google to keep the crew");
+  // Something that isn't an invite link is turned away on the spot.
+  const invite = page.getByLabel("Invite link");
+  await invite.fill("https://example.com/profile");
+  await page.getByRole("button", { name: "Join", exact: true }).click();
+  await expect(page.getByText("That doesn't look like an invite link.")).toBeVisible();
 
-  // Back home: no second crew.
+  // The real link joins.
+  await invite.fill(`  ${baseURL}/crew/${crew.invite_code}  `);
+  await page.getByRole("button", { name: "Join", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/crew/${crew.invite_code}$`));
+  await expect(page.getByRole("heading", { level: 1, name: "Paste Crew" })).toBeVisible();
+  await expect(page.locator(".member-chips li")).toHaveCount(2);
+
+  // And it's listed back home.
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Your crews (1/1)" })).toBeVisible();
-  await expect(add).toBeDisabled();
-  await expect(page.getByText("Guests can make one crew.")).toBeVisible();
+  await expect(page.locator(".crew-card", { hasText: "Paste Crew" })).toBeVisible();
 });

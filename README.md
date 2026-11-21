@@ -37,17 +37,17 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
   honour system. Scoring locks once anyone has entered a score. The owner
   edits or deletes one from its card under Today (✎); deleting also
   removes its scores and past days.
-- **Guests:** a guest account leaves a crew when the day it joined ends
-  (midnight in the crew's time zone; checked every 5 minutes via pg_cron). Its
-  scores stay, in past days and rankings. Linking Google makes it a regular
-  account that stays. Guests show as "(guest)" in the crew box, scoreboards and
-  rankings. They can't suggest games, and a crew owner can turn guest joins off.
-  A guest can make one crew, which lasts the day: at midnight (crew time) the
-  crew is deleted along with the guest account and its scores, unless the
-  guest links Google first. The crew page warns everyone in it. A guest
-  account with nothing left (no crews, no scores) is deleted a day after it
-  was made.
-- **Limits:** a crew holds 10 players; an account owns at most 4 crews;
+- **Guests:** a guest account exists only in the browser that made it, so
+  it's lost by signing out, switching devices or clearing site data. Until
+  then it stays in the crews it joins like anyone else. Guests can't make
+  crews: they join someone else's with an invite link (opened, or pasted on
+  the home page). Linking Google makes it a regular account. Guests show as
+  "(guest)" in the crew box, scoreboards and rankings. They can't suggest
+  games, and a crew owner can turn guest joins off. A guest account with
+  nothing left (no crews, no scores) is deleted a day after it was made
+  (checked every 5 minutes via pg_cron).
+- **Limits:** a crew holds 10 players; an account is in at most 4 crews, owned and
+  joined together (checked first when joining);
   display names and crew names are up to 16 characters.
 - **Function permissions:** only the RPCs the site and extension use can be
   called through the API (`0017`). A new function is private until its

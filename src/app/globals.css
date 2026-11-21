@@ -1171,6 +1171,37 @@ select.input {
   align-items: center;
 }
 
+.today-head-actions {
+  gap: 7px;
+  align-items: center;
+}
+
+/* Reorder / expand: brighten and sweep an underline in on hover. The reorder
+   toggle stays bright (but not underlined) while it's switched on. */
+.today-head-actions .link-btn {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0 1px;
+  background-origin: content-box;
+  transition:
+    color 0.15s ease,
+    background-size 0.2s ease;
+}
+.today-head-actions .link-btn:hover,
+.today-head-actions .link-btn:focus-visible {
+  color: var(--ink);
+  background-size: 100% 1px;
+}
+.today-head-actions .link-btn.active {
+  color: var(--ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .today-head-actions .link-btn {
+    transition: none;
+  }
+}
+
 /* A little more air between today's game cards than a plain stack. */
 .today-panel {
   gap: 16px;
@@ -1720,29 +1751,26 @@ body:has(.game-card.dragging) {
   fill: currentColor;
 }
 
-.guest-note {
-  border-style: dashed;
-  box-shadow: none;
-}
-
-/* A guest's crew that gets deleted at midnight. */
-.guest-expiry {
-  border: 2px solid var(--urgent);
-  border-style: solid;
-}
-
 /* The owner's heads-up that people are waiting to be let in. */
 .join-requests-note {
   border: 2px solid var(--accent-text);
   box-shadow: none;
 }
 
-.guest-expiry p {
+/* "Sam joined the crew since you were last here", and their chip, outlined. */
+.joined-note {
+  border: 2px solid var(--accent-text);
+  box-shadow: none;
+  align-items: center;
+  gap: 12px;
+}
+
+.joined-note p {
   margin: 0;
 }
 
-.guest-expiry strong {
-  color: var(--urgent);
+.member-chips li.new {
+  border-color: var(--accent-text);
 }
 
 .member-chips li.me {
@@ -1929,6 +1957,18 @@ body:has(.game-card.dragging) {
 
 .confirm-actions {
   justify-content: flex-end;
+}
+
+.confirm-option {
+  margin-top: 12px;
+}
+
+/* "Type [crew name] to confirm": the name shown as it's written. */
+.confirm-typed strong {
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.95rem;
 }
 
 /* "Rankings for [game] from [period]": a sentence with the pickers inline. */

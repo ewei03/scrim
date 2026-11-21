@@ -1,26 +1,35 @@
 import { expect, test } from "@playwright/test";
-import { createCrewApi, loginBrowser, newGuest, type Signed } from "./support/accounts";
+import {
+  createCrewApi,
+  deleteOwnedCrews,
+  hasAccounts,
+  loginBrowser,
+  newGuest,
+  NO_ACCOUNTS,
+  signIn,
+  type Signed,
+} from "./support/accounts";
 
 // A crew holds at most 10 players, owner included. The 11th person to open the
 // invite link is told it's full, and isn't added.
 //
-// Everyone here is a guest (made on the fly), so this runs without the
-// regular test accounts.
+// The owner is the regular test account (guests can't make crews); the other
+// players are guests, made on the fly.
+
+test.skip(!hasAccounts, NO_ACCOUNTS);
 
 let owner: Signed | null = null;
-let crewId: string | null = null;
 
 test.afterEach(async () => {
-  if (owner && crewId) await owner.client.rpc("delete_crew", { p_crew: crewId });
+  if (owner) await deleteOwnedCrews(owner);
   owner = null;
-  crewId = null;
 });
 
 test("the 11th player gets a 'crew is full' error from the invite link", async ({ page, context }) => {
   const tag = Date.now() % 10000;
-  owner = await newGuest(`Full Host ${tag}`);
+  owner = await signIn("owner");
+  await deleteOwnedCrews(owner);
   const crew = await createCrewApi(owner, "Full House");
-  crewId = crew.id;
 
   // Nine more: ten players.
   for (let i = 1; i <= 9; i++) {

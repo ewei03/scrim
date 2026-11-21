@@ -275,10 +275,21 @@ test("delete a crew", async ({ page, context, browser }) => {
   await page.reload();
   await expect(page.getByRole("heading", { level: 1, name: "E2E Doomed Crew" })).toBeVisible();
 
-  // Confirming deletes it and goes home.
+  // Confirming takes typing the crew's name: OK stays off until it matches.
   dialog = await openManage(page);
   await dialog.getByRole("button", { name: "Delete crew" }).click();
-  await answerConfirm(page, true);
+  const confirm = page.getByRole("dialog", { name: "Are you sure?" });
+  const ok = confirm.getByRole("button", { name: "OK" });
+  const typeName = confirm.getByLabel("Type E2E Doomed Crew to confirm");
+  await expect(ok).toBeDisabled();
+  await typeName.fill("E2E Doomed");
+  await typeName.press("Enter");
+  await expect(confirm).toBeVisible();
+  await expect(ok).toBeDisabled();
+  // Case doesn't matter.
+  await typeName.fill("e2e doomed crew");
+  await ok.click();
+  await expect(confirm).toBeHidden();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("heading", { name: "Your crews" })).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Manage crew" })).toHaveCount(0);

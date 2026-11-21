@@ -124,7 +124,7 @@ export default function PrivacyPage() {
           Don&apos;t fake or edit results, tamper with the extension or Scrim&apos;s servers, or try to see scores
           that are hidden from you.
         </li>
-        <li>Crew owners can void entries and remove members, and removed members cannot rejoin.</li>
+        <li>Crew owners can void entries and remove members. Removed members can rejoin with the invite link.</li>
       </ul>
 
       <h3>Names and other things you write</h3>

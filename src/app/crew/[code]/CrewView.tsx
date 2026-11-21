@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { confirmDialog } from "@/components/ConfirmDialog";
+import { confirmByTyping, confirmDialog, confirmWithOption } from "@/components/ConfirmDialog";
 import { CopyLink } from "@/components/CopyLink";
 import { CustomGameForm } from "@/components/CustomGameForm";
 import { GameTag, gameStyle } from "@/components/GameTag";
@@ -19,6 +19,7 @@ import type { GameAdapter } from "@/games/types";
 import { useAuth } from "@/lib/auth";
 import { askExtension, useExtension, type ExtensionState } from "@/lib/extension";
 import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone, roundZone } from "@/lib/rounds";
+import { joinedSince, lastCrewVisit, listNames, recordCrewVisit } from "@/lib/crewVisits";
 import { inSavedOrder, saveGameOrder, savedGameOrder } from "@/lib/gameOrder";
 import { crewStats } from "@/lib/stats";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
@@ -82,9 +83,10 @@ function rememberTab(code: string, tab: Tab) {
   }
 }
 
-type Member = { user_id: string; profiles: { display_name: string; is_guest: boolean } };
+type Person = { user_id: string; profiles: { display_name: string; is_guest: boolean } };
+type Member = Person & { joined_at: string };
 /** Someone asking to join a crew that needs the owner's approval (only the owner sees these). */
-type JoinRequest = Member & { created_at: string };
+type JoinRequest = Person & { created_at: string };
 type RoundWithEntries = Round & {
   entries: {
     id: string;
@@ -129,7 +131,7 @@ async function fetchCrew(code: string, join: boolean) {
     crew = data as Crew;
   }
   const [m, g, cg, r, jr] = await Promise.all([
-    sb.from("crew_members").select("user_id, profiles(display_name, is_guest)").eq("crew_id", crew.id).order("joined_at"),
+    sb.from("crew_members").select("user_id, joined_at, profiles(display_name, is_guest)").eq("crew_id", crew.id).order("joined_at"),
     sb.from("crew_games").select("game").eq("crew_id", crew.id),
     sb.from("custom_games").select("*").eq("crew_id", crew.id).order("created_at"),
     sb
@@ -197,6 +199,17 @@ function CrewPage() {
   const storedOrder = useMemo(() => (userId && crewId ? savedGameOrder(userId, crewId) : []), [userId, crewId]);
   const gameOrder = dragged?.key === orderKey ? dragged.ids : storedOrder;
   const [dragging, setDragging] = useState<string | null>(null);
+  // Who's joined since you last opened the crew (in this browser). The last
+  // visit is read once, before this one is recorded.
+  const lastVisit = useMemo(() => (userId && crewId ? lastCrewVisit(userId, crewId) : null), [userId, crewId]);
+  useEffect(() => {
+    if (userId && crewId) recordCrewVisit(userId, crewId);
+  }, [userId, crewId]);
+  const [dismissedJoins, setDismissedJoins] = useState<string[]>([]);
+  const newcomers = useMemo(() => joinedSince(members, userId, lastVisit), [members, userId, lastVisit]);
+  const unseenNewcomers = newcomers.filter((m) => !dismissedJoins.includes(m.user_id));
+  // Off by default, so the handles stay out of the way until you want to rearrange.
+  const [reordering, setReordering] = useState(false);
   const todayPanel = useRef<HTMLElement>(null);
   // Whether you've submitted each of today's games, as their boards report it.
   const [played, setPlayed] = useState<Record<string, boolean>>({});
@@ -502,7 +515,14 @@ function CrewPage() {
           </div>
           <ul className="member-chips">
             {members.map((m) => (
-              <li key={m.user_id} className={m.user_id === user?.id ? "me" : undefined}>
+              <li
+                key={m.user_id}
+                className={
+                  [m.user_id === user?.id && "me", newcomers.some((n) => n.user_id === m.user_id) && "new"]
+                    .filter(Boolean)
+                    .join(" ") || undefined
+                }
+              >
                 {m.user_id === crew.created_by && <OwnerCrown />}
                 {m.profiles.display_name}
                 {m.profiles.is_guest && <span className="guest-tag"> (guest)</span>}
@@ -587,7 +607,23 @@ function CrewPage() {
         </p>
       )}
 
-      {crew.guest_expires_at && <GuestCrewNotice expiresAt={crew.guest_expires_at} isOwner={isOwner} now={now} />}
+      {unseenNewcomers.length > 0 && (
+        <div className="card small row between joined-note" role="status">
+          <p>
+            <strong>{listNames(unseenNewcomers.map((m) => m.profiles.display_name))}</strong>{" "}
+            joined the crew since you were last here.
+          </p>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Dismiss"
+            onClick={() => setDismissedJoins(newcomers.map((m) => m.user_id))}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
 
       <div className="crew-tabs">
         <div className="crew-tabs-list" role="tablist" aria-label="Crew sections">
@@ -647,13 +683,25 @@ function CrewPage() {
                 </span>
                 {timeLeft(crewDayEnd(crew, new Date(now)).toISOString(), now)} left
               </span>
-              <button
-                type="button"
-                className="link-btn"
-                onClick={() => tracked.forEach((g) => setCardOpen(g.id, anyCollapsed))}
-              >
-                {anyCollapsed ? "Expand all" : "Collapse all"}
-              </button>
+              <div className="row today-head-actions">
+                {tracked.length > 1 && (
+                  <button
+                    type="button"
+                    className={`link-btn ${reordering ? "active" : ""}`}
+                    aria-pressed={reordering}
+                    onClick={() => setReordering((r) => !r)}
+                  >
+                    {reordering ? "lock in" : "reorder"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => tracked.forEach((g) => setCardOpen(g.id, anyCollapsed))}
+                >
+                  {anyCollapsed ? "expand" : "collapse"}
+                </button>
+              </div>
             </div>
           )}
           {tracked.length === 0 ? (
@@ -680,7 +728,7 @@ function CrewPage() {
                 onPlayed={onPlayed}
                 open={isOpen(game.id)}
                 onOpen={(open) => setCardOpen(game.id, open)}
-                onDragStart={tracked.length > 1 ? (e) => startDrag(e, game.id) : undefined}
+                onDragStart={reordering && tracked.length > 1 ? (e) => startDrag(e, game.id) : undefined}
                 onMove={(step) => moveCard(game.id, step)}
                 dragging={dragging === game.id}
               />
@@ -1211,15 +1259,25 @@ function ManageCrew({
 
   async function remove(m: Member) {
     const name = m.profiles.display_name;
-    if (!(await confirmDialog(`Remove ${name} from ${crew.name}? Their results for today are deleted, and they can't rejoin with the invite link.`))) return;
+    const wipe = await confirmWithOption(
+      `Remove ${name} from ${crew.name}? Their results for today are deleted. They can rejoin with the invite link.`,
+      `Delete ${name}'s past results and stats in this crew`,
+    );
+    if (wipe === null) return;
     await run(m.user_id, async () => {
-      await rpc("remove_crew_member", { p_crew: crew.id, p_user: m.user_id });
+      await rpc("remove_crew_member", { p_crew: crew.id, p_user: m.user_id, p_wipe: wipe });
       onRemoved();
     });
   }
 
   async function deleteCrew() {
-    if (!(await confirmDialog(`Delete ${crew.name} for everyone? All its results and rankings are deleted. This can't be undone.`))) return;
+    if (
+      !(await confirmByTyping(
+        `Delete ${crew.name} for everyone? All its results and rankings are deleted. This can't be undone.`,
+        crew.name,
+      ))
+    )
+      return;
     await run("crew", async () => {
       await rpc("delete_crew", { p_crew: crew.id });
       // Have the extension drop this crew from its saved results.
@@ -1368,43 +1426,6 @@ function ManageCrew({
       </div>
       {error && <p className="error small">{error}</p>}
     </>
-  );
-}
-
-/**
- * A guest's crew lasts the day: at midnight it's deleted, with the guest's
- * account, unless they link Google first. The server does the deleting (every
- * few minutes); this says what's coming, and that it's happening once the
- * time has passed.
- */
-function GuestCrewNotice({ expiresAt, isOwner, now }: { expiresAt: string; isOwner: boolean; now: number }) {
-  const over = new Date(expiresAt).getTime() <= now;
-  const when = over ? null : `at midnight (in ${timeLeft(expiresAt, now)})`;
-  return (
-    <div className="card small guest-note guest-expiry" role="status">
-      {isOwner ? (
-        <p>
-          {over && (
-            <>
-              <strong>Today&apos;s over, so this crew is being deleted</strong>, along with your guest account and its
-              scores.{" "}
-            </>
-          )}
-          <Link href="/profile">Sign in with Google</Link> {over ? "now " : ""}
-          to keep the crew and save your stats.
-        </p>
-      ) : (
-        <p>
-          {over ? (
-            <strong>This guest&apos;s crew is being deleted: its day is over.</strong>
-          ) : (
-            <>
-              <strong>This crew belongs to a guest and will be deleted {when}</strong>, unless they sign in with Google.
-            </>
-          )}
-        </p>
-      )}
-    </div>
   );
 }
 

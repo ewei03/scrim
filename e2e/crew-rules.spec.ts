@@ -1,17 +1,27 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { createCrewApi, loginBrowser, newGuest, type Signed } from "./support/accounts";
+import {
+  createCrewApi,
+  deleteOwnedCrews,
+  hasAccounts,
+  loginBrowser,
+  newGuest,
+  NO_ACCOUNTS,
+  signIn,
+  type Signed,
+} from "./support/accounts";
 
 // The owner's rules in Manage crew: approving new members. (Ranking by win
 // rate is covered in supabase/schema.test.ts, next to the extension's rankings
-// it has to match.) Everyone is a guest.
+// it has to match.) The owner is the regular test account (guests can't make
+// crews); the people asking to join are guests.
+
+test.skip(!hasAccounts, NO_ACCOUNTS);
 
 let owner: Signed | null = null;
-let crewId: string | null = null;
 
 test.afterEach(async () => {
-  if (owner && crewId) await owner.client.rpc("delete_crew", { p_crew: crewId });
+  if (owner) await deleteOwnedCrews(owner);
   owner = null;
-  crewId = null;
 });
 
 async function pageAs(browser: Browser, who: Signed): Promise<Page> {
@@ -22,9 +32,9 @@ async function pageAs(browser: Browser, who: Signed): Promise<Page> {
 
 test("with approval on, the invite link asks to join and the owner lets them in or not", async ({ page, context, browser }) => {
   const tag = Date.now() % 10000;
-  owner = await newGuest(`Gate ${tag}`);
+  owner = await signIn("owner");
+  await deleteOwnedCrews(owner);
   const crew = await createCrewApi(owner, "Gated", ["wordle"]);
-  crewId = crew.id;
   const { error } = await owner.client.rpc("update_crew_settings", { p_crew: crew.id, p_require_approval: true });
   expect(error).toBeNull();
 

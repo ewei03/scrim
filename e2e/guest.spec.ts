@@ -39,9 +39,9 @@ test.describe("Play as guest", () => {
     await expect(whoami.locator(".tag")).toHaveText("guest");
     await expect(page.getByRole("heading", { name: "Your crews" })).toBeVisible();
 
-    // Guests can make one crew, for the day (see guest-crew.spec.ts).
-    await expect(page.getByRole("button", { name: "Add a new crew" })).toBeEnabled();
-    await expect(page.getByText("As a guest, your crew will last until the end of the day.")).toBeVisible();
+    // Guests join crews rather than make them (see guest-crew.spec.ts).
+    await expect(page.getByRole("button", { name: "Add a new crew" })).toBeDisabled();
+    await expect(page.getByText("Guests can join crews with an invite link.")).toBeVisible();
 
     // Still signed in after a reload.
     await page.reload();

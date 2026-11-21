@@ -329,9 +329,10 @@ describe("extension", () => {
     await as(BOB, "select join_crew($1)", [weekend.invite_code]);
     await as(EVE, "select join_crew($1)", [weekend.invite_code]);
     await createCrew(ANN, "Work", "wordle");
-    // Eve's, so Ann stays within 4 crews of her own.
+    // A crew that doesn't play Wordle, which Wordle results skip. Bob joins
+    // (Ann's already in 4 crews, the most anyone can be in).
     const krillionOnly = await createCrew(EVE, "Krillion Only", "krillion");
-    await as(ANN, "select join_crew($1)", [krillionOnly.invite_code]);
+    await as(BOB, "select join_crew($1)", [krillionOnly.invite_code]);
   });
 
   it("only signed-in users can mint tokens, and tokens are stored hashed", async () => {
@@ -399,14 +400,16 @@ describe("crew owner controls", () => {
     await expect(as(ANN, "select remove_crew_member($1, $2)", [crew.id, ANN])).rejects.toThrow(/themselves/);
   });
 
-  it("removes the member and their open entries, and keeps them out", async () => {
+  it("removes the member and their open entries, and lets them rejoin", async () => {
     await as(ANN, "select remove_crew_member($1, $2)", [crew.id, EVE]);
     const members = await as<{ user_id: string }>(ANN, "select user_id from crew_members where crew_id = $1", [crew.id]);
     expect(members.map((m) => m.user_id).sort()).toEqual([ANN, BOB]);
     expect((await board(ANN, crew.id, T)).map((r) => r.user_id)).toEqual([BOB]);
     expect(await as(EVE, "select * from crews where id = $1", [crew.id])).toHaveLength(0);
-    await expect(as(EVE, "select join_crew($1)", [crew.invite_code])).rejects.toThrow(/removed/);
     await expect(as(ANN, "select remove_crew_member($1, $2)", [crew.id, EVE])).rejects.toThrow(/Not a member/);
+    await as(EVE, "select join_crew($1)", [crew.invite_code]);
+    expect(await as(EVE, "select * from crews where id = $1", [crew.id])).toHaveLength(1);
+    await as(ANN, "select remove_crew_member($1, $2)", [crew.id, EVE]);
   });
 
   it("lets members leave, taking their open entries with them", async () => {
@@ -840,22 +843,12 @@ describe("guests", () => {
     ]);
   });
 
-  it("removes guests once the day they joined ends in the crew's time zone, keeping their scores", async () => {
-    // Joined today: still in.
+  it("keeps guests in their crews from one day to the next", async () => {
+    await db.query("update crew_members set joined_at = now() - interval '3 days' where user_id in ($1, $2)", [GUEST, HOST]);
     expect(await db.query("select remove_expired_guests() as n").then((r) => r.rows[0])).toEqual({ n: 0 });
-    // Joined yesterday, crew time: gone, but not owners or regular players.
-    await db.query("update crew_members set joined_at = now() - interval '1 day' where user_id in ($1, $2, $3)", [
-      GUEST,
-      HOST,
-      BOB,
-    ]);
-    expect(await db.query("select remove_expired_guests() as n").then((r) => r.rows[0])).toEqual({ n: 1 });
-
     const members = await as<{ user_id: string }>(ANN, "select user_id from crew_members where crew_id = $1", [crew.id]);
-    expect(members.map((m) => m.user_id).sort()).toEqual([ANN, BOB]);
-    // Their score stays.
-    expect((await board(ANN, crew.id, T)).map((r) => r.user_id)).toEqual([GUEST, BOB]);
-    // The guest owner keeps their crew and their score.
+    expect(members.map((m) => m.user_id).sort()).toEqual([ANN, BOB, GUEST].sort());
+    // A crew a guest made back when they could stays, with their score.
     expect((await board(HOST, hosted.id, T)).map((r) => r.user_id)).toEqual([HOST]);
     // Nobody can trigger the cleanup through the API.
     await expect(as(ANN, "select remove_expired_guests()")).rejects.toThrow(/permission denied/);
@@ -870,84 +863,23 @@ describe("guests", () => {
 
 describe("guest crews", () => {
   const MAKER = "00000000-0000-0000-0000-0000000002a1";
-  const KEEPER = "00000000-0000-0000-0000-0000000002a2";
-  const cleanup = () => db.query("select remove_expired_guests()");
-  const exists = async (sql: string, id: string) => (await db.query(sql, [id])).rows.length > 0;
-  let guestCrew: CrewRow & { guest_expires_at: string | null };
-  let annCrew: CrewRow;
 
   beforeAll(async () => {
-    await db.query(
-      `insert into auth.users (id, raw_user_meta_data, is_anonymous) values
-       ($1, '{"display_name":"Maker"}', true), ($2, '{"display_name":"Keeper"}', true)`,
-      [MAKER, KEEPER],
-    );
-    guestCrew = (await as<typeof guestCrew>(MAKER, "select * from create_crew('Guest Night', 'Asia/Tokyo')"))[0];
-    await as(MAKER, "select set_crew_game($1, 'wordle', true)", [guestCrew.id]);
-    await as(BOB, "select join_crew($1)", [guestCrew.invite_code]);
-    // The guest also plays in someone else's crew.
-    annCrew = await createCrew(ANN, "Ann's Table", "wordle");
-    await as(MAKER, "select join_crew($1)", [annCrew.invite_code]);
-    await submitEntry(MAKER, annCrew.id, solve(T, 3));
-  });
-
-  it("lets a guest make one crew, deleted at the next midnight in its time zone", async () => {
-    const [{ midnight }] = await as<{ midnight: string }>(
-      ANN,
-      "select ((((now() at time zone 'Asia/Tokyo')::date + 1)::timestamp) at time zone 'Asia/Tokyo')::text as midnight",
-    );
-    const [{ expires }] = await as<{ expires: string }>(MAKER, "select guest_expires_at::text as expires from crews where id = $1", [
-      guestCrew.id,
-    ]);
-    expect(expires).toBe(midnight);
-    await expect(as(MAKER, "select create_crew('Another', 'UTC')")).rejects.toThrow(/Guests can make one crew/);
-    // Google accounts' crews never expire.
-    const [{ guest_expires_at }] = await as<{ guest_expires_at: string | null }>(
-      ANN,
-      "select guest_expires_at from crews where id = $1",
-      [annCrew.id],
-    );
-    expect(guest_expires_at).toBeNull();
-  });
-
-  it("keeps the deadline when the time zone changes", async () => {
-    const before = guestCrew.guest_expires_at;
-    const [after] = await as<{ guest_expires_at: string }>(
+    await db.query(`insert into auth.users (id, raw_user_meta_data, is_anonymous) values ($1, '{"display_name":"Maker"}', true)`, [
       MAKER,
-      "select * from update_crew_settings($1, p_timezone => 'Pacific/Pago_Pago')",
-      [guestCrew.id],
-    );
-    expect(after.guest_expires_at).toEqual(before);
-  });
-
-  it("leaves the crew alone until midnight", async () => {
-    await cleanup();
-    expect(await exists("select 1 from crews where id = $1", guestCrew.id)).toBe(true);
-    expect(await exists("select 1 from auth.users where id = $1", MAKER)).toBe(true);
-  });
-
-  it("at midnight, deletes the crew and the guest account, with its scores everywhere", async () => {
-    await db.query("update crews set guest_expires_at = now() - interval '1 minute' where id = $1", [guestCrew.id]);
-    await cleanup();
-    expect(await exists("select 1 from crews where id = $1", guestCrew.id)).toBe(false);
-    expect(await exists("select 1 from auth.users where id = $1", MAKER)).toBe(false);
-    expect(await exists("select 1 from profiles where id = $1", MAKER)).toBe(false);
-    // Bob only lost the guest's crew; Ann's crew is still there, minus the guest's score.
-    const crews = await as<{ name: string }>(BOB, "select name from crews where id = $1", [guestCrew.id]);
-    expect(crews).toEqual([]);
-    expect((await board(ANN, annCrew.id, T)).map((r) => r.user_id)).toEqual([]);
-  });
-
-  it("keeps the crew and account of a guest who links Google before midnight", async () => {
-    const [kept] = await as<CrewRow>(KEEPER, "select * from create_crew('Kept Crew', 'UTC')");
-    await db.query("update auth.users set is_anonymous = false where id = $1", [KEEPER]);
-    const [row] = await as<{ guest_expires_at: string | null }>(KEEPER, "select guest_expires_at from crews where id = $1", [
-      kept.id,
     ]);
-    expect(row.guest_expires_at).toBeNull();
-    await cleanup();
-    expect(await exists("select 1 from crews where id = $1", kept.id)).toBe(true);
-    expect(await exists("select 1 from auth.users where id = $1", KEEPER)).toBe(true);
+  });
+
+  it("doesn't let guests make a crew", async () => {
+    await expect(as(MAKER, "select create_crew('Guest Night', 'UTC')")).rejects.toThrow(/Sign in with Google to create a crew/);
+  });
+
+  it("lets them once they link Google", async () => {
+    await db.query("update auth.users set is_anonymous = false where id = $1", [MAKER]);
+    const [c] = await as<CrewRow>(MAKER, "select * from create_crew('Kept Crew', 'UTC')");
+    expect(c).not.toHaveProperty("guest_expires_at");
+    await db.query("select remove_expired_guests()");
+    expect((await db.query("select 1 from crews where id = $1", [c.id])).rows).toHaveLength(1);
   });
 });
 
@@ -1031,14 +963,43 @@ describe("crew limits", () => {
     await createCrew(id(3), "Sixteen Chars Ok");
   });
 
-  it("lets each account own at most 4 crews", async () => {
-    const owner = id(10);
-    for (let i = 0; i < 4; i++) await createCrew(owner, `Crew ${i}`);
-    await expect(createCrew(owner, "One Too Many")).rejects.toThrow(/4 crews/);
-    // Deleting one makes room.
-    const [c] = await as<{ id: string }>(owner, "select id from crews where created_by = $1 limit 1", [owner]);
-    await as(owner, "select delete_crew($1)", [c.id]);
-    await createCrew(owner, "Room Again");
+  it("keeps each account to 4 crews, owned and joined together, and checks that first when joining", async () => {
+    const [user, host] = [id(60), id(61)];
+    await db.query(
+      `insert into auth.users (id, raw_user_meta_data) values ($1, '{"display_name":"Four Max"}'), ($2, '{"display_name":"Host 4"}')`,
+      [user, host],
+    );
+    const mine = [];
+    for (let i = 0; i < 3; i++) mine.push(await createCrew(user, `Crew ${i}`));
+    const joined = await createCrew(host, "Joined One");
+    const another = await createCrew(host, "Another One");
+    await as(user, "select join_crew($1)", [joined.invite_code]);
+
+    // In 4: no making or joining another.
+    await expect(createCrew(user, "One Too Many")).rejects.toThrow(/in 4 crews/);
+    await expect(as(user, "select join_crew($1)", [another.invite_code])).rejects.toThrow(/in 4 crews.*Leave one/);
+    // The limit comes before anything about the crew itself.
+    await expect(as(user, "select join_crew('nosuchcrew')")).rejects.toThrow(/in 4 crews/);
+    // Opening a crew you're already in is fine.
+    await as(user, "select join_crew($1)", [mine[0].invite_code]);
+    await as(user, "select join_crew($1)", [joined.invite_code]);
+
+    // Approval checks it too: asking while in 4 is refused, and so is being let in after filling up.
+    await as(host, "select update_crew_settings($1, p_require_approval => true)", [another.id]);
+    await expect(as(user, "select join_crew($1)", [another.invite_code])).rejects.toThrow(/in 4 crews/);
+    await as(user, "select leave_crew($1)", [joined.id]);
+    await as(user, "select join_crew($1)", [another.invite_code]); // asks
+    await as(host, "select update_crew_settings($1, p_require_approval => false)", [joined.id]);
+    await as(user, "select join_crew($1)", [joined.invite_code]); // back to 4
+    await expect(as(host, "select answer_join_request($1, $2, true)", [another.id, user])).rejects.toThrow(
+      /already in 4 crews/,
+    );
+
+    // Leaving or deleting one makes room.
+    await as(user, "select delete_crew($1)", [mine[1].id]);
+    await as(host, "select answer_join_request($1, $2, true)", [another.id, user]);
+    await as(user, "select leave_crew($1)", [joined.id]);
+    await createCrew(user, "Room Again");
   });
 
   it("keeps display names to 16 characters, without breaking older long names", async () => {
@@ -1061,6 +1022,46 @@ describe("crew limits", () => {
 
   it("doesn't let guests suggest games", async () => {
     await expect(as(GUEST, "select suggest_game('Strands')")).rejects.toThrow(/Sign in with Google/);
+  });
+});
+
+describe("removing a member's stats", () => {
+  // Their own player: the shared ones are in plenty of crews by now.
+  const SAM = "00000000-0000-0000-0000-0000000005a1";
+  beforeAll(async () => {
+    await clearCrewsOf(ANN);
+    await db.query(`insert into auth.users (id, raw_user_meta_data) values ($1, '{"display_name":"Sam"}')`, [SAM]);
+  });
+  const past = (id: string, user: string) => ({
+    id,
+    closes_at: "2020-01-02T00:00:00Z",
+    entries: [{ user_id: user, result: JSON.parse(solve(OLD, 3)) }],
+  });
+  const pastEntries = (crew: string, user: string) =>
+    db.query<{ n: number }>(
+      "select count(*)::int as n from entries e join rounds r on r.id = e.round_id where r.crew_id = $1 and e.user_id = $2",
+      [crew, user],
+    ).then((r) => r.rows[0].n);
+
+  it("keeps finished results by default", async () => {
+    const crew = await createCrew(ANN, "Keep Stats", "wordle");
+    await as(SAM, "select join_crew($1)", [crew.invite_code]);
+    await insertRounds(crew.id, [past("00000000-0000-0000-0000-0000000000f1", SAM)]);
+    await submitEntry(SAM, crew.id, solve(T, 4));
+    await as(ANN, "select remove_crew_member($1, $2)", [crew.id, SAM]);
+    expect(await pastEntries(crew.id, SAM)).toBe(1);
+  });
+
+  it("deletes every result in the crew with p_wipe, and none elsewhere", async () => {
+    const crew = await createCrew(ANN, "Wipe Stats", "wordle");
+    const other = await createCrew(ANN, "Other Crew", "wordle");
+    for (const c of [crew, other]) await as(SAM, "select join_crew($1)", [c.invite_code]);
+    await insertRounds(crew.id, [past("00000000-0000-0000-0000-0000000000f2", SAM)]);
+    await insertRounds(other.id, [past("00000000-0000-0000-0000-0000000000f3", SAM)]);
+    await submitEntry(SAM, crew.id, solve(T, 4));
+    await as(ANN, "select remove_crew_member($1, $2, true)", [crew.id, SAM]);
+    expect(await pastEntries(crew.id, SAM)).toBe(0);
+    expect(await pastEntries(other.id, SAM)).toBe(1);
   });
 });
 

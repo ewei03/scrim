@@ -13,6 +13,7 @@ import { SignIn } from "@/components/SignIn";
 import { Welcome } from "@/components/Welcome";
 import { useAuth } from "@/lib/auth";
 import { useExtension } from "@/lib/extension";
+import { inviteCode } from "@/lib/invite";
 import { inSavedOrder, savedGameOrder } from "@/lib/gameOrder";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
 import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone } from "@/lib/rounds";
@@ -57,8 +58,11 @@ function Landing() {
 }
 
 const MAX_CREW_NAME = 16;
-/** Crews one account can own at once (create_crew enforces it; guests get 1). */
-const MAX_OWNED_CREWS = 4;
+/**
+ * Crews one account can be in at once, owned and joined together (join_crew
+ * and create_crew enforce it). Guests can't make any.
+ */
+const MAX_CREWS = 4;
 
 /**
  * "Sam's Crew", or "Sam's Crew 2", "Sam's Crew 3"… if the user already has a
@@ -87,6 +91,8 @@ function Dashboard() {
   const [creating, setCreating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [invite, setInvite] = useState("");
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const nameInput = useRef<HTMLInputElement>(null);
 
   // Runs after the Modal's own effect has opened the dialog, so focus sticks
@@ -128,14 +134,27 @@ function Dashboard() {
     }
   }
 
+  // Opening the invite link is what joins (or asks to join), so this just goes there.
+  function joinCrew(e: React.FormEvent) {
+    e.preventDefault();
+    // The crew limit comes first, as on the server.
+    if (crews && crews.length >= MAX_CREWS) return;
+    const code = inviteCode(invite);
+    if (!code) {
+      setInviteError("That doesn't look like an invite link. It ends in /crew/ and a code.");
+      return;
+    }
+    setInviteError(null);
+    // This page is kept (hidden) after navigating, so reset it for next time.
+    setInvite("");
+    router.push(`/crew/${code}`);
+  }
+
   if (!crews) return <Loading />;
 
-  // Crews you own, out of the most you can (the database enforces it):
-  // 4, or 1 for guests, whose crew lasts the day. Crews you've joined don't count.
-  const crewLimit = isGuest ? 1 : MAX_OWNED_CREWS;
-  const owned = crews.filter((c) => c.created_by === user?.id).length;
-  const atLimit = owned >= crewLimit;
-  const guestHasCrew = isGuest && atLimit;
+  // Every crew you're in counts toward the limit, owned or joined (the
+  // database enforces it). Guests can't make crews: they join with a link.
+  const atLimit = crews.length >= MAX_CREWS;
 
   // Every game each crew plays, on the crew's own day.
   const now = new Date();
@@ -175,7 +194,7 @@ function Dashboard() {
 
   return (
     <div className="stack-lg page-enter">
-      {/* A guest's crew only lasts the day, so the setup guide isn't for them. */}
+      {/* The setup guide starts with making a crew, which guests can't. */}
       {user && !isGuest && (
         <Welcome
           userId={user.id}
@@ -227,10 +246,10 @@ function Dashboard() {
 
       <section className="stack">
         <h2>
-          Your crews ({owned}/{crewLimit})
+          Your crews ({crews.length}/{MAX_CREWS})
         </h2>
         {crews.length === 0 ? (
-          <p className="muted">No crews yet. Start one!</p>
+          <p className="muted">{isGuest ? "No crews yet. Join one with an invite link below." : "No crews yet. Start one!"}</p>
         ) : (
           <ul className="crew-grid">
             {crews.map((c) => {
@@ -255,7 +274,7 @@ function Dashboard() {
           <button
             className="btn btn-primary"
             aria-haspopup="dialog"
-            disabled={atLimit}
+            disabled={isGuest || atLimit}
             aria-describedby={isGuest || atLimit ? "create-note" : undefined}
             onClick={() => {
               setCreateError(null);
@@ -289,20 +308,39 @@ function Dashboard() {
         </Modal>
         {!isGuest && atLimit && (
           <p className="muted small" id="create-note">
-            You own {MAX_OWNED_CREWS} crews, the most you can. Delete one to make another.
+            Max number of crews reached.
           </p>
         )}
         {isGuest && (
           <p className="muted small" id="create-note">
-            {guestHasCrew ? (
-              <>
-                Guests can make one crew. <Link href="/profile">Sign in with Google</Link> to make more.
-              </>
-            ) : (
-              <>
-                As a guest, your crew will last until the end of the day. <Link href="/profile">Sign in with Google</Link> to keep it.
-              </>
-            )}
+            <Link href="/profile">Sign in with Google</Link> to create a crew. Guests can join crews with an invite link.
+          </p>
+        )}
+      </section>
+
+      <section className="stack">
+        <h2>Join a crew</h2>
+        <form className="row" onSubmit={joinCrew}>
+          <input
+            className="input grow"
+            aria-label="Invite link"
+            placeholder="Paste an invite link"
+            disabled={atLimit}
+            value={invite}
+            onChange={(e) => {
+              setInvite(e.target.value);
+              setInviteError(null);
+            }}
+            aria-invalid={inviteError !== null}
+            aria-describedby={inviteError ? "invite-error" : atLimit ? "join-note" : undefined}
+          />
+          <button className="btn" disabled={atLimit || !invite.trim()}>
+            Join
+          </button>
+        </form>
+        {inviteError && (
+          <p className="error" id="invite-error">
+            {inviteError}
           </p>
         )}
       </section>

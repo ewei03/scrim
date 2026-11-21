@@ -15,11 +15,6 @@ export type Crew = {
   hide_until_submitted: boolean;
   /** Guests (no Google account) can join with the invite link. */
   allow_guests: boolean;
-  /**
-   * A guest's crew: when it's deleted (midnight after it was made), along
-   * with the guest's account. Null for Google accounts' crews.
-   */
-  guest_expires_at: string | null;
   /** The invite link asks to join; the owner approves in Manage crew. */
   require_approval: boolean;
   /** Rankings go by win rate, so skipped days don't push anyone down. */
