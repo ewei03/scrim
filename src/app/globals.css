@@ -1468,7 +1468,11 @@ select.input {
 /* --game is set per game (GameTag.tsx). Text on it is always dark. */
 .game-tag {
   display: inline-block;
-  padding: 0 6px;
+  /* Capitals sit high in Fira Code's line (it leaves room below for
+     descenders), so a tighter line with a little more room on top centres
+     them. Measured: 3px above and below the letters. */
+  padding: 2px 6px 0;
+  line-height: 1.17;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -1531,8 +1535,13 @@ select.input {
   color: inherit;
 }
 
+/* Game names on the Today cards: Fira Code (the body font), not the display
+   font the other headings use. Sized for Fira Code, so no display scaling. */
 .today-title {
-  font-size: calc(1.8rem * var(--display-scale));
+  font-family: var(--font-body), var(--emoji);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -1684,6 +1693,12 @@ select.input {
 .guest-expiry {
   border: 2px solid var(--urgent);
   border-style: solid;
+}
+
+/* The owner's heads-up that people are waiting to be let in. */
+.join-requests-note {
+  border: 2px solid var(--accent-text);
+  box-shadow: none;
 }
 
 .guest-expiry p {
@@ -1897,17 +1912,28 @@ select.input {
 
 /* ---------- crew page: owner controls ---------- */
 
-.manage-members {
+/* Full width, in line with the rest of the dialog (beats .dialog-body ul's indent). */
+.dialog-body .manage-members {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+.dialog-body .manage-members li + li {
+  margin-top: 0;
+}
+
+/* The dashed line under the last member: as close as the dividers between
+   members (the row's own padding), not the dialog's usual 12px gap on top. */
+.manage-members + .danger-zone {
+  margin-top: -12px;
 }
 
 .manage-members li {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 0;
+  padding: 8px 0;
 }
 
 .manage-members li + li {

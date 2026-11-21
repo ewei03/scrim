@@ -27,7 +27,7 @@ test.describe("signed out of Scrim", () => {
     await expect(page.locator("#status")).toContainText("WIN");
 
     await expect(toast(page)).toContainText("Not connected", { timeout: 20_000 });
-    await expect(toast(page)).toContainText("Open Scrim, go to Profile, and click Connect extension.");
+    await expect(toast(page)).toContainText("Open Scrim and sign in to connect.");
     // Only one notice at a time, even as the page keeps checking.
     await page.waitForTimeout(3_000);
     await expect(page.locator("[data-scrim-toast]")).toHaveCount(1);

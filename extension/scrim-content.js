@@ -116,7 +116,7 @@
     let body;
     if (!reply.ok && reply.error === "not-connected") {
       title = "Not connected";
-      body = "Open Scrim, go to Profile, and click Connect extension.";
+      body = "Open Scrim and sign in to connect.";
     } else if (!reply.ok) {
       title = "Couldn’t submit";
       body = reply.error;

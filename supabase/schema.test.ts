@@ -106,6 +106,31 @@ const board = (user: string, crew: string, puzzle: string, game = "wordle") =>
     [crew, game, puzzle],
   );
 
+/**
+ * Writes finished rounds straight into the database (past days can't be
+ * submitted through the API), with each player's Wordle result.
+ */
+async function insertRounds(
+  crewId: string,
+  rounds: { id: string; closes_at: string; entries: { user_id: string; result: { puzzle: string } }[] }[],
+) {
+  for (const r of rounds) {
+    await db.query("insert into rounds (id, crew_id, game, puzzle_id, closes_at) values ($1, $2, 'wordle', $3, $4)", [
+      r.id,
+      crewId,
+      r.entries[0].result.puzzle,
+      r.closes_at,
+    ]);
+    for (const e of r.entries) {
+      await db.query("insert into entries (round_id, user_id, result, source) values ($1, $2, $3, 'paste')", [
+        r.id,
+        e.user_id,
+        JSON.stringify(e.result),
+      ]);
+    }
+  }
+}
+
 describe("schema", () => {
   let crew: CrewRow;
 
@@ -540,21 +565,7 @@ describe("extension rankings", () => {
       closes_at: new Date(Date.UTC(2026, 0, i + 1)).toISOString(),
       entries: Object.entries(scores).map(([user_id, g]) => ({ user_id, result: manualWordle(String(i + 1), g, false) })),
     }));
-    for (const r of rounds) {
-      await db.query("insert into rounds (id, crew_id, game, puzzle_id, closes_at) values ($1, $2, 'wordle', $3, $4)", [
-        r.id,
-        crew.id,
-        r.entries[0].result.puzzle,
-        r.closes_at,
-      ]);
-      for (const e of r.entries) {
-        await db.query("insert into entries (round_id, user_id, result, source) values ($1, $2, $3, 'paste')", [
-          r.id,
-          e.user_id,
-          JSON.stringify(e.result),
-        ]);
-      }
-    }
+    await insertRounds(crew.id, rounds);
     // Today's open round doesn't count yet.
     await submitEntry(EVE, crew.id, solve(T, 1));
 
@@ -940,6 +951,51 @@ describe("guest crews", () => {
   });
 });
 
+describe("idle guests", () => {
+  const id = (n: number) => `00000000-0000-0000-0000-0000000004${String(n).padStart(2, "0")}`;
+  const [IDLE_OLD, IDLE_NEW, MEMBER, SCORED] = [id(1), id(2), id(3), id(4)];
+  const exists = async (user: string) =>
+    (await db.query("select 1 from auth.users where id = $1", [user])).rows.length > 0;
+
+  beforeAll(async () => {
+    await db.query(
+      `insert into auth.users (id, raw_user_meta_data, is_anonymous) values
+       ($1, '{"display_name":"Idle Old"}', true), ($2, '{"display_name":"Idle New"}', true),
+       ($3, '{"display_name":"Still In"}', true), ($4, '{"display_name":"Scored"}', true)`,
+      [IDLE_OLD, IDLE_NEW, MEMBER, SCORED],
+    );
+    const c = await createCrew(BOB, "Idle Check", "wordle");
+    await as(MEMBER, "select join_crew($1)", [c.invite_code]);
+    await as(SCORED, "select join_crew($1)", [c.invite_code]);
+    // A score on a finished day, then they left: the score stays, and so must they.
+    await insertRounds(c.id, [
+      {
+        id: "00000000-0000-0000-0000-000000000410",
+        closes_at: new Date(Date.UTC(2026, 2, 1)).toISOString(),
+        entries: [{ user_id: SCORED, result: manualWordle("1", 4, false) }],
+      },
+    ]);
+    await as(SCORED, "select leave_crew($1)", [c.id]);
+    // All but one were made over a day ago.
+    await db.query("update profiles set created_at = now() - interval '2 days' where id in ($1, $2, $3)", [
+      IDLE_OLD,
+      MEMBER,
+      SCORED,
+    ]);
+  });
+
+  it("deletes guest accounts over a day old with nothing attached, and keeps the rest", async () => {
+    await db.query("select remove_expired_guests()");
+    expect(await exists(IDLE_OLD)).toBe(false);
+    // Made today: kept for now.
+    expect(await exists(IDLE_NEW)).toBe(true);
+    // In a crew: kept.
+    expect(await exists(MEMBER)).toBe(true);
+    // Has a score in a crew's history: kept, so the score stays.
+    expect(await exists(SCORED)).toBe(true);
+  });
+});
+
 describe("crew limits", () => {
   const id = (n: number) => `00000000-0000-0000-0000-0000000001${String(n).padStart(2, "0")}`;
   const GUEST = id(99);
@@ -1013,6 +1069,7 @@ describe("function permissions", () => {
   // Everything the site, the extension and RLS call. Every other function is
   // internal: callable only from these, never through the API.
   const SITE = [
+    "answer_join_request",
     "can_see_entry",
     "create_crew",
     "create_custom_game",
@@ -1121,10 +1178,91 @@ describe("game suggestions", () => {
   });
 });
 
+describe("crew rules", () => {
+  const id = (n: number) => `00000000-0000-0000-0000-0000000003${String(n).padStart(2, "0")}`;
+  const [OWNER, ASKER, OTHER] = [id(1), id(2), id(3)];
+
+  beforeAll(async () => {
+    await db.query(
+      `insert into auth.users (id, raw_user_meta_data) values
+       ($1, '{"display_name":"Rule Owner"}'), ($2, '{"display_name":"Asker"}'), ($3, '{"display_name":"Other"}')`,
+      [OWNER, ASKER, OTHER],
+    );
+  });
+
+  it("with approval on, the invite link asks to join, and the owner decides", async () => {
+    const c = await createCrew(OWNER, "Ask First", "wordle");
+    await as(OWNER, "select update_crew_settings($1, p_require_approval => true)", [c.id]);
+
+    // Asking: not a member yet, and can't see the crew.
+    const [asked] = await as<{ name: string }>(ASKER, "select * from join_crew($1)", [c.invite_code]);
+    expect(asked.name).toBe("Ask First");
+    expect(await as(ASKER, "select 1 from crew_members where crew_id = $1", [c.id])).toEqual([]);
+    expect(await as(ASKER, "select 1 from crews where id = $1", [c.id])).toEqual([]);
+    // Asking again is fine.
+    await as(ASKER, "select join_crew($1)", [c.invite_code]);
+
+    // The owner sees the request; others don't.
+    const requests = await as<{ user_id: string }>(OWNER, "select user_id from crew_join_requests where crew_id = $1", [
+      c.id,
+    ]);
+    expect(requests.map((r) => r.user_id)).toEqual([ASKER]);
+    expect(await as(OTHER, "select 1 from crew_join_requests where crew_id = $1", [c.id])).toEqual([]);
+    await expect(as(OTHER, "select answer_join_request($1, $2, true)", [c.id, ASKER])).rejects.toThrow(
+      /Only the crew owner/,
+    );
+
+    // Approved: in, and the request is gone.
+    await as(OWNER, "select answer_join_request($1, $2, true)", [c.id, ASKER]);
+    expect(
+      await as(ASKER, "select 1 from crew_members where crew_id = $1 and user_id = $2", [c.id, ASKER]),
+    ).toHaveLength(1);
+    expect(await as(OWNER, "select 1 from crew_join_requests where crew_id = $1", [c.id])).toEqual([]);
+
+    // Declined: told so when opening the link again, and not asked twice.
+    await as(OTHER, "select join_crew($1)", [c.invite_code]);
+    await as(OWNER, "select answer_join_request($1, $2, false)", [c.id, OTHER]);
+    await expect(as(OTHER, "select join_crew($1)", [c.invite_code])).rejects.toThrow(/approve your request/);
+    await expect(as(OWNER, "select answer_join_request($1, $2, true)", [c.id, OTHER])).rejects.toThrow(/No request/);
+  });
+
+  it("ranks by win rate when the crew says so, in the extension too", async () => {
+    const c = await createCrew(OWNER, "By Rate", "wordle");
+    await as(ASKER, "select join_crew($1)", [c.invite_code]);
+    // The owner plays once and wins; Asker plays every day and wins twice.
+    const days: Record<string, number>[] = [{ [OWNER]: 2, [ASKER]: 3 }, { [ASKER]: 3 }, { [ASKER]: 2 }];
+    const rounds = days.map((scores, i) => ({
+      id: `00000000-0000-0000-0000-00000000030${i}`,
+      closes_at: new Date(Date.UTC(2026, 1, i + 1)).toISOString(),
+      entries: Object.entries(scores).map(([user_id, g]) => ({
+        user_id,
+        result: manualWordle(String(i + 1), g, false),
+      })),
+    }));
+    await insertRounds(c.id, rounds);
+    const token = (await as<{ create_extension_token: string }>(OWNER, "select create_extension_token()"))[0]
+      .create_extension_token;
+    const extensionOrder = async () =>
+      (await as<{ crew_name: string; user_id: string }>(null, "select * from extension_rankings($1)", [token]))
+        .filter((r) => r.crew_name === "By Rate")
+        .map((r) => r.user_id);
+    const siteOrder = (byWinRate: boolean) =>
+      crewStats(GAMES.wordle, rounds, [OWNER, ASKER], { byWinRate }).players.map((p) => p.userId);
+
+    // Default: most wins first.
+    expect(await extensionOrder()).toEqual([ASKER, OWNER]);
+    expect(siteOrder(false)).toEqual([ASKER, OWNER]);
+    // By win rate: the owner's 1 from 1 beats 2 from 3.
+    await as(OWNER, "select update_crew_settings($1, p_rank_by_win_rate => true)", [c.id]);
+    expect(await extensionOrder()).toEqual([OWNER, ASKER]);
+    expect(siteOrder(true)).toEqual([OWNER, ASKER]);
+  });
+});
+
 describe("re-running migrations", () => {
-  it("can run 0018 again on a database that already has it", async () => {
-    const crewLimits = MIGRATIONS.find((sql) => sql.includes("Limits that keep crews small"))!;
-    await db.exec(crewLimits);
+  it("can run 0018 and 0019 again on a database that already has them", async () => {
+    await db.exec(MIGRATIONS.find((sql) => sql.includes("Limits that keep crews small"))!);
+    await db.exec(MIGRATIONS.find((sql) => sql.includes("More rules for crew owners"))!);
     // Still working afterwards.
     const c = await createCrew(BOB, "Rerun Check");
     await as(BOB, "select update_crew_settings($1, p_allow_guests => false)", [c.id]);

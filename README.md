@@ -44,7 +44,9 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
   rankings. They can't suggest games, and a crew owner can turn guest joins off.
   A guest can make one crew, which lasts the day: at midnight (crew time) the
   crew is deleted along with the guest account and its scores, unless the
-  guest links Google first. The crew page warns everyone in it.
+  guest links Google first. The crew page warns everyone in it. A guest
+  account with nothing left (no crews, no scores) is deleted a day after it
+  was made.
 - **Limits:** a crew holds 10 players; an account owns at most 4 crews;
   display names and crew names are up to 16 characters.
 - **Function permissions:** only the RPCs the site and extension use can be
@@ -57,6 +59,10 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
   row-level security).
 - **Owner controls:** rename the crew, void entries, remove members, change
   settings, delete the crew.
+- **Crew rules** (Manage crew): hide scores until you submit; allow guests;
+  approve new members (the invite link then sends a request); rank by win
+  rate (so skipped days don't push anyone down; win rate, streak
+  and average only ever count days played).
 
 ### Around the site
 
@@ -147,7 +153,7 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run each file in `supabase/migrations/` in order
-   (`0001_init.sql` through `0018_crew_limits.sql`). Before `0012`, enable the
+   (`0001_init.sql` through `0020_idle_guests.sql`). Before `0012`, enable the
    **pg_cron** extension (Database → Extensions) so guests are cleaned up after each day. `0009` replaces the old
    lobbies and **erases any lobby results**; afterwards each crew owner picks
    their crew's games on the crew page.

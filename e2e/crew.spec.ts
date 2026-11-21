@@ -87,11 +87,11 @@ test("create a crew and invite a friend and a guest", async ({ page, context, br
   const guestPage = await openAs(guestContext, await newGuest("E2E Guest"));
   await guestPage.goto(invite);
   await expect(memberChips(guestPage)).toHaveCount(3);
-  await expect(guestPage.getByText("You're playing as a guest", { exact: false })).toBeVisible();
+  await expect(memberChips(guestPage).nth(2)).toHaveText("E2E Guest (guest)");
 
   // The owner sees them arrive without reloading (the page refreshes itself), or on Refresh.
   await page.getByRole("button", { name: "↻ Refresh" }).click();
-  await expect(page.getByText("3 members", { exact: true })).toBeVisible();
+  await expect(page.getByText("3/10 members", { exact: true })).toBeVisible();
   await expect(memberChips(page).filter({ hasText: "E2E Guest" })).toContainText("(guest)");
 
   // The crew is on everyone's home page.
@@ -201,7 +201,7 @@ test("pick the crew's games, including a custom one", async ({ page, context, br
   const wordleHeader = todayCard("Wordle").locator(".game-card-toggle");
   await wordleHeader.click();
   await expect(wordleHeader).toHaveAttribute("aria-expanded", "false");
-  await expect(todayCard("Wordle")).toContainText("Your turn · 0 played");
+  await expect(todayCard("Wordle")).toContainText("Your turn · 0/2 played");
   await wordleHeader.click();
   await expect(wordleHeader).toHaveAttribute("aria-expanded", "true");
 

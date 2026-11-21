@@ -56,6 +56,8 @@ function Landing() {
 }
 
 const MAX_CREW_NAME = 16;
+/** Crews one account can own at once (create_crew enforces it; guests get 1). */
+const MAX_OWNED_CREWS = 4;
 
 /**
  * "Sam's Crew", or "Sam's Crew 2", "Sam's Crew 3"… if the user already has a
@@ -127,8 +129,12 @@ function Dashboard() {
 
   if (!crews) return <Loading />;
 
-  // Guests get one crew, for the day.
-  const guestHasCrew = isGuest && crews.some((c) => c.created_by === user?.id);
+  // Crews you own, out of the most you can (the database enforces it):
+  // 4, or 1 for guests, whose crew lasts the day. Crews you've joined don't count.
+  const crewLimit = isGuest ? 1 : MAX_OWNED_CREWS;
+  const owned = crews.filter((c) => c.created_by === user?.id).length;
+  const atLimit = owned >= crewLimit;
+  const guestHasCrew = isGuest && atLimit;
 
   // Every game each crew plays, on the crew's own day.
   const now = new Date();
@@ -214,7 +220,9 @@ function Dashboard() {
       )}
 
       <section className="stack">
-        <h2>Your crews</h2>
+        <h2>
+          Your crews ({owned}/{crewLimit})
+        </h2>
         {crews.length === 0 ? (
           <p className="muted">No crews yet. Start one!</p>
         ) : (
@@ -241,8 +249,8 @@ function Dashboard() {
           <button
             className="btn btn-primary"
             aria-haspopup="dialog"
-            disabled={guestHasCrew}
-            aria-describedby={isGuest ? "guest-create-note" : undefined}
+            disabled={atLimit}
+            aria-describedby={isGuest || atLimit ? "create-note" : undefined}
             onClick={() => {
               setCreateError(null);
               // Suggest a name; it's selected on open, so typing replaces it.
@@ -273,16 +281,20 @@ function Dashboard() {
             </div>
           </form>
         </Modal>
+        {!isGuest && atLimit && (
+          <p className="muted small" id="create-note">
+            You own {MAX_OWNED_CREWS} crews, the most you can. Delete one to make another.
+          </p>
+        )}
         {isGuest && (
-          <p className="muted small" id="guest-create-note">
+          <p className="muted small" id="create-note">
             {guestHasCrew ? (
               <>
                 Guests can make one crew. <Link href="/profile">Sign in with Google</Link> to make more.
               </>
             ) : (
               <>
-                As a guest you can make one crew. It lasts for today: at midnight it&apos;s deleted, along with your
-                guest account. <Link href="/profile">Sign in with Google</Link> to keep it.
+                As a guest, your crew will last until the end of the day. <Link href="/profile">Sign in with Google</Link> to keep it.
               </>
             )}
           </p>

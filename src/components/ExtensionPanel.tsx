@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { askExtension, useExtension } from "@/lib/extension";
-import { errorMessage, rpc, supabaseConfig } from "@/lib/supabase";
+import { pairExtension, useExtension } from "@/lib/extension";
+import { errorMessage } from "@/lib/supabase";
 
 export function ExtensionPanel() {
   const { user, profile } = useAuth();
@@ -17,29 +17,8 @@ export function ExtensionPanel() {
     setError(null);
     setNote(null);
     try {
-      const token = await rpc<string>("create_extension_token");
-      const reply = await askExtension<{ ok: boolean; error?: string; submitted?: number }>("pair", {
-        token,
-        ...supabaseConfig(),
-        userId: user?.id,
-        displayName: profile?.display_name,
-      });
-      if (!reply?.ok) throw new Error(reply?.error ?? "The extension didn't respond. Reload the page and try again.");
+      const reply = await pairExtension(user!.id, profile?.display_name);
       if (reply.submitted) setNote(`Submitted ${reply.submitted} saved result${reply.submitted === 1 ? "" : "s"}.`);
-      await refresh();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function disconnect() {
-    setBusy(true);
-    setError(null);
-    try {
-      await rpc("revoke_extension_tokens");
-      await askExtension("unpair");
       await refresh();
     } catch (e) {
       setError(errorMessage(e));
@@ -75,7 +54,7 @@ export function ExtensionPanel() {
           <p>
             {state === "other-account"
               ? "The extension is connected to a different Scrim account in this browser."
-              : "The extension is installed. Connect it to your account to turn on automatic scores."}
+              : "The extension isn't connected yet. Connect it to your account to turn on automatic scores."}
           </p>
           <button className="btn btn-primary" disabled={busy} onClick={connect}>
             {busy ? "Connecting…" : state === "other-account" ? "Connect to this account" : "Connect extension"}
@@ -88,9 +67,6 @@ export function ExtensionPanel() {
           <p>
             <strong>⚡ Extension connected successfully.</strong> Your scores will now submit to your crews automatically.
           </p>
-          <button className="btn" disabled={busy} onClick={disconnect}>
-            Disconnect
-          </button>
         </>
       )}
 

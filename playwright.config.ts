@@ -6,6 +6,15 @@ for (const file of [".env.local", ".env.test.local"]) {
   if (existsSync(file)) process.loadEnvFile(file);
 }
 
+// A separate Supabase project for the tests, so they don't make rows in the
+// live one. Set both in .env.test.local; the tests and the site they start
+// then use it (the test workers inherit this environment).
+const testProject = Boolean(process.env.E2E_SUPABASE_URL && process.env.E2E_SUPABASE_PUBLISHABLE_KEY);
+if (testProject) {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.E2E_SUPABASE_URL;
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = process.env.E2E_SUPABASE_PUBLISHABLE_KEY;
+}
+
 const PORT = Number(process.env.E2E_PORT ?? 3000);
 
 export default defineConfig({
@@ -33,7 +42,16 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: true,
+    // A dev server you already have running talks to the project in
+    // .env.local. With a test project, start a fresh one (pointed at it);
+    // stop yours first, or this fails with "port in use" rather than quietly
+    // testing against the live project.
+    reuseExistingServer: !testProject,
+    // Values already in the environment win over .env.local in Next.js.
+    env: {
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
+    },
     timeout: 180_000,
   },
 });

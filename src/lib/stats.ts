@@ -19,8 +19,22 @@ export type PlayerStats = {
   streak: number;
 };
 
+export type RankOptions = {
+  /**
+   * Rank by win rate rather than total wins (the crew's rule), so a skipped
+   * day doesn't push anyone down. Win rate, streak and average only count
+   * days played either way. Mirrored in extension_rankings (SQL).
+   */
+  byWinRate?: boolean;
+};
+
 /** Only pass closed rounds of a single game. */
-export function crewStats<R>(game: GameAdapter<R>, rounds: StatRound<R>[], memberIds: string[]) {
+export function crewStats<R>(
+  game: GameAdapter<R>,
+  rounds: StatRound<R>[],
+  memberIds: string[],
+  { byWinRate = false }: RankOptions = {},
+) {
   const byRecent = [...rounds].sort((a, b) => b.closes_at.localeCompare(a.closes_at));
   // Newest first: whether they won each round they played.
   const wonRounds = new Map<string, boolean[]>(memberIds.map((id) => [id, []]));
@@ -49,6 +63,10 @@ export function crewStats<R>(game: GameAdapter<R>, rounds: StatRound<R>[], membe
     };
   });
 
-  players.sort((a, b) => b.wins - a.wins || b.winRate - a.winRate || b.played - a.played);
+  players.sort((a, b) =>
+    byWinRate
+      ? b.winRate - a.winRate || b.wins - a.wins || b.played - a.played
+      : b.wins - a.wins || b.winRate - a.winRate || b.played - a.played,
+  );
   return { players };
 }

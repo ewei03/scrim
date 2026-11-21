@@ -6,6 +6,7 @@ import { Header } from "@/components/Header";
 import { SuggestGameLink } from "@/components/SuggestGame";
 import { THEME_INIT_SCRIPT } from "@/components/ThemeToggle";
 import { AuthProvider } from "@/lib/auth";
+import { ExtensionAutoConnect } from "@/lib/extension";
 import "./globals.css";
 
 const display = Share_Tech_Mono({ weight: "400", subsets: ["latin"], variable: "--font-display" });
@@ -52,6 +53,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </nav>
           </footer>
           <ConfirmDialogHost />
+          <ExtensionAutoConnect />
         </AuthProvider>
       </body>
     </html>

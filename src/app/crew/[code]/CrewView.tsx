@@ -82,6 +82,8 @@ function rememberTab(code: string, tab: Tab) {
 }
 
 type Member = { user_id: string; profiles: { display_name: string; is_guest: boolean } };
+/** Someone asking to join a crew that needs the owner's approval (only the owner sees these). */
+type JoinRequest = Member & { created_at: string };
 type RoundWithEntries = Round & {
   entries: {
     id: string;
@@ -116,13 +118,16 @@ async function fetchCrew(code: string, join: boolean) {
   let crew: Crew;
   if (join) {
     crew = await rpc<Crew>("join_crew", { p_code: code });
+    // A crew that needs approval files a request instead: you can't see it yet.
+    const { data: visible } = await sb.from("crews").select("id").eq("id", crew.id).maybeSingle();
+    if (!visible) return { pending: crew } as const;
   } else {
     const { data, error } = await sb.from("crews").select("*").eq("invite_code", code.toLowerCase()).maybeSingle();
     if (error) throw error;
     if (!data) throw new CrewGoneError();
     crew = data as Crew;
   }
-  const [m, g, cg, r] = await Promise.all([
+  const [m, g, cg, r, jr] = await Promise.all([
     sb.from("crew_members").select("user_id, profiles(display_name, is_guest)").eq("crew_id", crew.id).order("joined_at"),
     sb.from("crew_games").select("game").eq("crew_id", crew.id),
     sb.from("custom_games").select("*").eq("crew_id", crew.id).order("created_at"),
@@ -131,9 +136,18 @@ async function fetchCrew(code: string, join: boolean) {
       .select("*, entries(id, user_id, result, source, submitted_at, profiles(display_name, is_guest))")
       .eq("crew_id", crew.id)
       .order("closes_at", { ascending: false }),
+    // Only the owner can see these (and nobody else has any: they're members).
+    sb
+      .from("crew_join_requests")
+      .select("user_id, created_at, profiles(display_name, is_guest)")
+      .eq("crew_id", crew.id)
+      .eq("declined", false)
+      .order("created_at"),
   ]);
-  if (m.error || g.error || cg.error || r.error) throw m.error ?? g.error ?? cg.error ?? r.error;
+  if (m.error || g.error || cg.error || r.error || jr.error) throw m.error ?? g.error ?? cg.error ?? r.error ?? jr.error;
   return {
+    pending: null,
+    requests: jr.data as unknown as JoinRequest[],
     crew,
     members: m.data as unknown as Member[],
     games: (g.data as { game: string }[]).map((x) => x.game),
@@ -144,10 +158,13 @@ async function fetchCrew(code: string, join: boolean) {
 
 function CrewPage() {
   const { code } = useParams<{ code: string }>();
-  const { user, isGuest } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const extension = useExtension();
   const [crew, setCrew] = useState<Crew | null>(null);
+  // Asked to join a crew that needs approval; waiting for the owner.
+  const [pending, setPending] = useState<Crew | null>(null);
+  const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [games, setGames] = useState<string[]>([]);
   const [customGames, setCustomGames] = useState<CustomGame[]>([]);
@@ -208,7 +225,10 @@ function CrewPage() {
     (join = false) =>
       fetchCrew(code, join).then(
         (d) => {
+          if (d.pending) return setPending(d.pending);
+          setPending(null);
           setCrew(d.crew);
+          setRequests(d.requests);
           setMembers(d.members);
           for (const g of newGamesSinceLastVisit(d.crew.id, d.games)) setCardOpen(g, true);
           setGames(d.games);
@@ -230,7 +250,7 @@ function CrewPage() {
   // poll on their own, more often.)
   useEffect(() => {
     const refresh = () => {
-      if (document.visibilityState === "visible") load();
+      if (document.visibilityState === "visible") load(pending !== null);
     };
     const timer = setInterval(refresh, REFRESH_MS);
     document.addEventListener("visibilitychange", refresh);
@@ -238,7 +258,7 @@ function CrewPage() {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [load]);
+  }, [load, pending]);
 
   async function refreshNow() {
     setRefreshing(true);
@@ -324,7 +344,7 @@ function CrewPage() {
     // players who left drop out of the rankings.)
     const ids = new Set(members.map((m) => m.user_id));
     for (const r of played) for (const e of r.entries) if (guests.has(e.user_id)) ids.add(e.user_id);
-    return { game, count: played.length, ...crewStats(game, played, [...ids]) };
+    return { game, count: played.length, ...crewStats(game, played, [...ids], { byWinRate: crew.rank_by_win_rate }) };
   }, [rankedGames, rankingsGame, rankingsPeriod, crew, rounds, finished, members, guests, now]);
 
   if (gone) {
@@ -334,6 +354,19 @@ function CrewPage() {
         <p>This crew was deleted, or you&apos;re no longer a member.</p>
         <Link href="/" className="btn btn-primary back-home-btn">
           ← Back to Scrim
+        </Link>
+      </div>
+    );
+  }
+  if (pending && !crew) {
+    return (
+      <div className="card stack">
+        <h1>Request sent</h1>
+        <p>
+          You&apos;ve asked to join <strong>{pending.name}</strong>. Please wait for the owner&apos;s approval.
+        </p>
+        <Link href="/" className="btn back-home-btn">
+          Back to your crews
         </Link>
       </div>
     );
@@ -379,9 +412,7 @@ function CrewPage() {
       <section className="crew-plate">
         <p className="crew-plate-bar">
           <span>Crew</span>
-          <span>
-            {members.length} {members.length === 1 ? "member" : "members"}
-          </span>
+          <span>{members.length}/10 members</span>
         </p>
         <div className="crew-plate-body">
           <div className="row between wrap">
@@ -469,6 +500,7 @@ function CrewPage() {
             <ManageCrew
               crew={crew}
               members={members}
+              requests={requests}
               onCrew={setCrew}
               onRemoved={() => {
                 setBoardsKey((k) => k + 1);
@@ -480,14 +512,18 @@ function CrewPage() {
         )}
       </section>
 
-      {crew.guest_expires_at && <GuestCrewNotice expiresAt={crew.guest_expires_at} isOwner={isOwner} now={now} />}
-
-      {isGuest && !isOwner && (
-        <p className="card small guest-note">
-          You&apos;re playing as a guest: you&apos;ll leave this crew when today&apos;s round ends (your scores stay).{" "}
-          <Link href="/profile">Link a Google account</Link> to stay.
+      {isOwner && requests.length > 0 && (
+        <p className="card small join-requests-note" role="status">
+          {requests.length === 1
+            ? `${requests[0].profiles.display_name} wants to join.`
+            : `${requests.length} people want to join.`}{" "}
+          <button type="button" className="link-btn" onClick={() => setShowManage(true)}>
+            Review in Manage crew
+          </button>
         </p>
       )}
+
+      {crew.guest_expires_at && <GuestCrewNotice expiresAt={crew.guest_expires_at} isOwner={isOwner} now={now} />}
 
       <div className="crew-tabs">
         <div className="crew-tabs-list" role="tablist" aria-label="Crew sections">
@@ -571,6 +607,7 @@ function CrewPage() {
                 game={game}
                 now={now}
                 isOwner={isOwner}
+                memberCount={members.length}
                 extension={extension.state}
                 refreshKey={boardsKey}
                 onEdit={isOwner && customOf(game) ? () => setEditing(customOf(game)) : undefined}
@@ -667,6 +704,7 @@ function TodayRound({
   game,
   now,
   isOwner,
+  memberCount,
   extension,
   refreshKey,
   onEdit,
@@ -682,6 +720,8 @@ function TodayRound({
   game: GameAdapter<unknown>;
   now: number;
   isOwner: boolean;
+  /** People in the crew: "2/5 played". */
+  memberCount: number;
   extension: ExtensionState;
   refreshKey: number;
   /** Set for the owner on a custom game: opens its settings. */
@@ -747,7 +787,7 @@ function TodayRound({
         </h3>
         <div className="game-card-right">
           <span className="game-card-summary">
-            {submitted ? "✓ Completed" : "Your turn"} · {board.length} played
+            {submitted ? "✓ Completed" : "Your turn"} · {board.length}/{memberCount} played
           </span>
           {ownClock && (
             <span className="time-left" title={`${game.name} runs on ${roundZone(game, crew).replaceAll("_", " ")} time`}>
@@ -1022,13 +1062,16 @@ function CrewGames({
 function ManageCrew({
   crew,
   members,
+  requests,
   onCrew,
   onRemoved,
   onDeleted,
 }: {
   crew: Crew;
   members: Member[];
+  requests: JoinRequest[];
   onCrew: (crew: Crew) => void;
+  /** Members changed (removed, or let in): reload. */
   onRemoved: () => void;
   /** The crew is gone: close the dialog before leaving the page. */
   onDeleted: () => void;
@@ -1060,6 +1103,14 @@ function ManageCrew({
     run("settings", async () => {
       onCrew(await rpc<Crew>("update_crew_settings", { p_crew: crew.id, ...settings }));
     });
+
+  // Let someone in, or turn them down (they're told when they next open the link).
+  async function answer(r: JoinRequest, approve: boolean) {
+    await run(`${approve ? "approve" : "decline"}:${r.user_id}`, async () => {
+      await rpc("answer_join_request", { p_crew: crew.id, p_user: r.user_id, p_approve: approve });
+      onRemoved();
+    });
+  }
 
   async function remove(m: Member) {
     const name = m.profiles.display_name;
@@ -1123,6 +1174,24 @@ function ManageCrew({
         />{" "}
         Allow guests to join crew
       </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={crew.require_approval}
+          disabled={busy !== null}
+          onChange={(e) => updateSettings({ p_require_approval: e.target.checked })}
+        />{" "}
+        Approve new members before they join
+      </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={crew.rank_by_win_rate}
+          disabled={busy !== null}
+          onChange={(e) => updateSettings({ p_rank_by_win_rate: e.target.checked })}
+        />{" "}
+        Omit skipped days from rankings stats
+      </label>
       <label className="field">
         <span>Time Zone</span>
         <select
@@ -1146,21 +1215,55 @@ function ManageCrew({
       </label>
       <p className="muted small">The day ends at midnight in the selected time zone.</p>
 
-      <h3>Members</h3>
-      {others.length === 0 ? (
-        <p className="muted small">No other members yet.</p>
-      ) : (
-        <ul className="manage-members">
-          {others.map((m) => (
+      {requests.length > 0 && (
+        <>
+          <h3>Join requests</h3>
+          <ul className="manage-members">
+            {requests.map((r) => (
+              <li key={r.user_id}>
+                <span>
+                  {r.profiles.display_name}
+                  {r.profiles.is_guest && <span className="guest-tag"> (guest)</span>}
+                </span>
+                <span className="row">
+                  <button className="link-btn" disabled={busy !== null} onClick={() => answer(r, true)}>
+                    {busy === `approve:${r.user_id}` ? "Approving…" : "Approve"}
+                  </button>
+                  <button className="link-btn danger" disabled={busy !== null} onClick={() => answer(r, false)}>
+                    {busy === `decline:${r.user_id}` ? "Declining…" : "Decline"}
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      <h3>Members (10 max)</h3>
+      <ul className="manage-members">
+        {members.map((m) =>
+          m.user_id === crew.created_by ? (
+            // The owner (you): listed, but can't be removed.
             <li key={m.user_id}>
-              <span>{m.profiles.display_name}</span>
+              <span>
+                <OwnerCrown />
+                {m.profiles.display_name} <span className="muted">(you)</span>
+              </span>
+            </li>
+          ) : (
+            <li key={m.user_id}>
+              <span>
+                {m.profiles.display_name}
+                {m.profiles.is_guest && <span className="guest-tag"> (guest)</span>}
+              </span>
               <button className="link-btn danger" disabled={busy !== null} onClick={() => remove(m)}>
                 {busy === m.user_id ? "Removing…" : "Remove"}
               </button>
             </li>
-          ))}
-        </ul>
-      )}
+          ),
+        )}
+        {others.length === 0 && <li className="muted small">No other members yet.</li>}
+      </ul>
       <div className="row between wrap danger-zone">
         <button className="btn btn-small btn-danger" disabled={busy !== null} onClick={deleteCrew}>
           {busy === "crew" ? "Deleting…" : "Delete crew"}
@@ -1184,16 +1287,12 @@ function GuestCrewNotice({ expiresAt, isOwner, now }: { expiresAt: string; isOwn
     <div className="card small guest-note guest-expiry" role="status">
       {isOwner ? (
         <p>
-          {over ? (
+          {over && (
             <>
               <strong>Today&apos;s over, so this crew is being deleted</strong>, along with your guest account and its
-              scores.
+              scores.{" "}
             </>
-          ) : (
-            <>
-              <strong>This crew will be deleted {when}</strong>, along with your guest account and its scores.
-            </>
-          )}{" "}
+          )}
           <Link href="/profile">Sign in with Google</Link> {over ? "now " : ""}
           to keep the crew and save your stats.
         </p>
@@ -1215,10 +1314,12 @@ function GuestCrewNotice({ expiresAt, isOwner, now }: { expiresAt: string; isOwn
 /** A filled crown before the owner's name. Drawn in the text colour (gold, via CSS). */
 function OwnerCrown() {
   return (
-    <svg className="owner-crown" viewBox="0 0 24 20" role="img" aria-label="Owner">
-      <title>Crew owner</title>
-      <path d="M2 5l5.5 5L12 2l4.5 8L22 5l-2 10H4z" />
-      <rect x="4" y="16.5" width="16" height="3" />
-    </svg>
+    // The tooltip sits on a wrapper: an SVG <title> would count as the chip's text.
+    <span title="Crew owner">
+      <svg className="owner-crown" viewBox="0 0 24 20" role="img" aria-label="Owner">
+        <path d="M2 5l5.5 5L12 2l4.5 8L22 5l-2 10H4z" />
+        <rect x="4" y="16.5" width="16" height="3" />
+      </svg>
+    </span>
   );
 }

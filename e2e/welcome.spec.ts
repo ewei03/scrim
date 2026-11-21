@@ -75,7 +75,7 @@ test("an older account never sees it, even in a new browser", async ({ page, con
 test("guests never see it", async ({ page }) => {
   await page.goto("/");
   await page.getByPlaceholder("Your name").fill("Welcome Guest");
-  await page.getByRole("button", { name: "Play as guest" }).click();
+  await page.getByRole("button", { name: "Sign in as guest" }).click();
   await expect(page.getByRole("heading", { name: "Your crews" })).toBeVisible();
   await page.waitForTimeout(1_500);
   await expect(welcome(page)).toBeHidden();

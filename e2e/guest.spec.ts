@@ -10,7 +10,7 @@ test.describe("Play as guest", () => {
 
   test("a blank name can't start a guest game", async ({ page }) => {
     const name = page.getByPlaceholder("Your name");
-    const play = page.getByRole("button", { name: "Play as guest" });
+    const play = page.getByRole("button", { name: "Sign in as guest" });
 
     await expect(name).toHaveValue("");
     await expect(play).toBeDisabled();
@@ -31,7 +31,7 @@ test.describe("Play as guest", () => {
   test("a name starts a guest game", async ({ page }) => {
     const name = `Guest ${Date.now() % 100000}`;
     await page.getByPlaceholder("Your name").fill(name);
-    await page.getByRole("button", { name: "Play as guest" }).click();
+    await page.getByRole("button", { name: "Sign in as guest" }).click();
 
     // Signed in: the header shows the name with a guest tag, and the dashboard loads.
     const whoami = page.locator(".whoami");
@@ -41,7 +41,7 @@ test.describe("Play as guest", () => {
 
     // Guests can make one crew, for the day (see guest-crew.spec.ts).
     await expect(page.getByRole("button", { name: "Add a new crew" })).toBeEnabled();
-    await expect(page.getByText("As a guest you can make one crew.")).toBeVisible();
+    await expect(page.getByText("As a guest, your crew will last until the end of the day.")).toBeVisible();
 
     // Still signed in after a reload.
     await page.reload();
@@ -50,7 +50,7 @@ test.describe("Play as guest", () => {
 
   test("a guest can sign out from their profile", async ({ page }) => {
     await page.getByPlaceholder("Your name").fill("Leaving Guest");
-    await page.getByRole("button", { name: "Play as guest" }).click();
+    await page.getByRole("button", { name: "Sign in as guest" }).click();
     await page.locator(".whoami").click();
     await expect(page).toHaveURL(/\/profile$/);
 

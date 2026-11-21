@@ -5,7 +5,7 @@
     status.textContent = `⚡ Connected as ${c.displayName ?? "you"}`;
     status.classList.remove("muted");
   } else {
-    status.textContent = "Not connected. Open Scrim, go to Profile, and click Connect extension.";
+    status.textContent = "Not connected. Open Scrim and sign in to connect.";
   }
 
   // Results and rankings belong to a connected account; signed out, there's nothing to show.
@@ -98,7 +98,7 @@ async function loadRankings(view, scrimOrigin) {
   if (!reply?.ok) {
     status.textContent =
       reply?.error === "not-connected"
-        ? "Not connected. Open Scrim, go to Profile, and click Connect extension."
+        ? "Not connected. Open Scrim and sign in to connect."
         : `Couldn't load rankings${reply?.error ? `: ${reply.error}` : "."}`;
     return;
   }

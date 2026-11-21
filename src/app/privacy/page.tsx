@@ -77,7 +77,8 @@ export default function PrivacyPage() {
         </li>
         <li>
           It keeps your recent results, its connection details and which rankings you last viewed in the
-          extension&apos;s own storage on your computer. Disconnecting it from your profile revokes its access key.
+          extension&apos;s own storage on your computer. It connects to your account when you sign in to Scrim in the
+          same browser; signing out, or removing the extension, deletes its access key from your computer.
         </li>
       </ul>
 

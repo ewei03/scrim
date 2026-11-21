@@ -78,7 +78,7 @@ export function HelpButton() {
           <p className="help-lead">Follow these steps to activate Scrim - it&apos;s super quick and easy!</p>
 
           <section className="help-section">
-            <h3>HOW IT WORKS</h3>
+            <h3>How it works</h3>
             <ol className="help-grid">
               {STEPS.map((s, i) => (
                 <li key={s.title} className="help-card">
@@ -93,7 +93,7 @@ export function HelpButton() {
           </section>
 
           <section className="help-section">
-            <h3>GETTING YOUR SCORE IN (2 WAYS)</h3>
+            <h3>Submitting your score (2 ways)</h3>
             <ul className="help-grid">
               {SUBMIT.map((s, i) => (
                 <li key={s.title} className="help-card">
@@ -106,17 +106,10 @@ export function HelpButton() {
                 </li>
               ))}
             </ul>
-            <p className="muted small">
-              Set up the extension on your{" "}
-              <Link href="/profile" onClick={close}>
-                profile
-              </Link>
-              . One submission per puzzle.
-            </p>
           </section>
 
           <section className="help-section">
-            <h3>TIPS</h3>
+            <h3>Tips</h3>
             <ul className="help-tips">
               {tips.map((t) => (
                 <li key={t.icon}>

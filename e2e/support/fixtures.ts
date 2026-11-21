@@ -1,10 +1,28 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test as base, chromium, expect, type BrowserContext, type Page } from "@playwright/test";
 import { FakeGames } from "./games";
 
-const EXTENSION = path.resolve(__dirname, "../../extension");
+const SOURCE = path.resolve(__dirname, "../../extension");
+
+/**
+ * The extension to load. It only sends results to Supabase projects its
+ * manifest allows, so when the tests use a separate project (E2E_SUPABASE_URL,
+ * see playwright.config.ts) they load a copy that allows that one too. The
+ * real extension/ folder is never changed.
+ */
+const EXTENSION = (() => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const manifest = JSON.parse(readFileSync(path.join(SOURCE, "manifest.json"), "utf8"));
+  const permission = url ? `${new URL(url).origin}/*` : null;
+  if (!permission || manifest.host_permissions.includes(permission)) return SOURCE;
+  const copy = mkdtempSync(path.join(tmpdir(), "scrim-e2e-extension-"));
+  cpSync(SOURCE, copy, { recursive: true });
+  manifest.host_permissions.push(permission);
+  writeFileSync(path.join(copy, "manifest.json"), JSON.stringify(manifest, null, 2));
+  return copy;
+})();
 
 /**
  * `extContext`: a fresh Chromium profile with the Scrim extension loaded
@@ -44,9 +62,16 @@ export function toast(page: Page) {
   return page.locator("[data-scrim-toast]").last();
 }
 
-/** Connects the extension to the signed-in account from the profile page, like a player would. */
+/**
+ * Makes sure the extension is connected to the signed-in account. Signing in
+ * connects it by itself; one connected to another account (an earlier test's)
+ * is switched over with the button, like a player would.
+ */
 export async function connectExtension(page: Page) {
   await page.goto("/profile");
-  await page.getByRole("button", { name: /Connect extension|Connect to this account/ }).click();
-  await expect(page.getByText("Auto-submit is on.")).toBeVisible();
+  const connected = page.getByText("Extension connected successfully.");
+  const switchAccount = page.getByRole("button", { name: "Connect to this account" });
+  await expect(connected.or(switchAccount)).toBeVisible();
+  if (await switchAccount.isVisible()) await switchAccount.click();
+  await expect(connected).toBeVisible();
 }

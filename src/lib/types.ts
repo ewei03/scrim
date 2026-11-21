@@ -20,6 +20,10 @@ export type Crew = {
    * with the guest's account. Null for Google accounts' crews.
    */
   guest_expires_at: string | null;
+  /** The invite link asks to join; the owner approves in Manage crew. */
+  require_approval: boolean;
+  /** Rankings go by win rate, so skipped days don't push anyone down. */
+  rank_by_win_rate: boolean;
 };
 
 /** One crew's scoreboard for one daily puzzle. Started by the first result. */

@@ -39,7 +39,7 @@ export function SignIn({ title = "Pick a name to get started" }: { title?: strin
           autoFocus
         />
         <button className="btn btn-primary" disabled={busy || !name.trim()}>
-          Play as guest
+          Sign in as guest
         </button>
       </form>
       <div className="divider">or</div>
