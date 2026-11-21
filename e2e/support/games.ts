@@ -31,6 +31,8 @@ export type WordlePlay = {
   /** Signed in to NYT (counted) or not (the extension says it doesn't count). */
   signedIn: boolean;
   status: "WIN" | "FAIL" | "IN_PROGRESS";
+  /** Played on an earlier day (default: today). */
+  daysAgo?: number;
 };
 
 /** What the stand-in Wordle page shows; change it, then (re)load the page. */
@@ -58,7 +60,7 @@ export class FakeGames {
       states: [
         {
           puzzleId: "1555",
-          printDate: localDate(),
+          printDate: localDate(new Date(Date.now() - (play.daysAgo ?? 0) * 86_400_000)),
           data: {
             boardState: [...guesses, ...Array(6 - guesses.length).fill("")],
             currentRowIndex: guesses.length,

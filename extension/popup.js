@@ -8,8 +8,10 @@
     status.textContent = "Not connected. Open Scrim, go to Profile, and click Connect extension.";
   }
 
-  renderResults(c.results);
+  // Results and rankings belong to a connected account; signed out, there's nothing to show.
+  document.getElementById("panel-results").hidden = !c.token;
   if (c.token) {
+    renderResults(c.results);
     setUpTabs(c.popupView ?? {}, c.scrimOrigin);
     // Re-send saved results: the server's reply lists only crews you're still
     // in, so crews you've left or that were deleted drop off each result.
@@ -22,8 +24,29 @@
   }
 })();
 
+/** Today's puzzle number per game, as the games number them (see background.js). */
+function todaysPuzzles() {
+  const now = new Date();
+  const local = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const [y, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(now).split("-").map(Number);
+  const newYork = Date.UTC(y, m - 1, d);
+  const days = (from, start) => String(Math.round((from - start) / 86400000));
+  return {
+    wordle: days(local, Date.UTC(2021, 5, 19)),
+    connections: days(local, Date.UTC(2023, 5, 11)),
+    krillion: days(newYork, Date.UTC(2026, 6, 15)),
+  };
+}
+
+/** Today's results only: earlier days' are kept (for syncing) but not listed. */
 function renderResults(stored) {
-  const results = Object.values(stored ?? {}).sort((a, b) => b.seenAt - a.seenAt);
+  // e.g. "Results for Friday, November 20."
+  const date = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  document.getElementById("results-date").textContent = `Results for ${date}.`;
+  const today = todaysPuzzles();
+  const results = Object.values(stored ?? {})
+    .filter((r) => String(r.result?.puzzle) === today[r.game])
+    .sort((a, b) => b.seenAt - a.seenAt);
   const list = document.getElementById("results");
   list.replaceChildren();
   for (const r of results.slice(0, 7)) {
@@ -39,6 +62,7 @@ function renderResults(stored) {
     list.append(li);
   }
   list.hidden = results.length === 0;
+  document.getElementById("results-empty").hidden = results.length > 0;
 }
 
 const GAME_NAMES = { wordle: "Wordle", connections: "Connections", krillion: "Krillion" };
@@ -79,7 +103,7 @@ async function loadRankings(view, scrimOrigin) {
     return;
   }
   if (reply.rows.length === 0) {
-    status.textContent = "No rankings yet. They appear once your crews finish a day.";
+    status.textContent = "No rankings yet.";
     return;
   }
 

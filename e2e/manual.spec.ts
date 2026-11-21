@@ -154,7 +154,7 @@ test("custom game scores are typed in and checked", async ({ page, context }) =>
   const sprint = card(page, "E2E Sprint");
   await expect(sprint).toContainText("Enter your time from the results screen");
   const input = sprint.getByLabel("Your E2E Sprint score");
-  const lock = sprint.getByRole("button", { name: "Lock it in" });
+  const lock = sprint.getByRole("button", { name: "Submit" });
 
   for (const bad of ["abc", "4:75", "0"]) {
     await input.fill(bad);

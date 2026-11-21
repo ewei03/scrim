@@ -21,6 +21,7 @@ import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone, roundZone } from "
 import { crewStats } from "@/lib/stats";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
 import { formatDay, timeLeft } from "@/lib/time";
+import { zoneGroups } from "@/lib/timezones";
 import { isClosed, type BoardRow, type Crew, type EntrySource, type Round } from "@/lib/types";
 
 const POLL_MS = 10_000;
@@ -520,24 +521,32 @@ function TodayRound({
             {game.name} <span className="game-card-puzzle">{game.puzzleLabel(puzzleId)}</span>
           </button>
         </h3>
-        {onEdit && (
-          <button type="button" className="game-card-edit" onClick={onEdit} title={`Edit ${game.name}`}>
-            ✎ Edit
-          </button>
-        )}
-        {!open && (
-          <span className="game-card-summary">
-            {submitted ? "✓ You're in" : "Your turn"} · {board.length} played
-          </span>
-        )}
-        {ownClock && (
-          <span className="time-left" title={`${game.name} runs on ${roundZone(game, crew).replaceAll("_", " ")} time`}>
-            <span className="live-dot" aria-hidden>
-              ●
+        <div className="game-card-right">
+          {!open && (
+            <span className="game-card-summary">
+              {submitted ? "✓ You're in" : "Your turn"} · {board.length} played
             </span>
-            {timeLeft(deadline, now)} left
-          </span>
-        )}
+          )}
+          {ownClock && (
+            <span className="time-left" title={`${game.name} runs on ${roundZone(game, crew).replaceAll("_", " ")} time`}>
+              <span className="live-dot" aria-hidden>
+                ●
+              </span>
+              {timeLeft(deadline, now)} left
+            </span>
+          )}
+          {onEdit && (
+            <button
+              type="button"
+              className="game-card-edit"
+              onClick={onEdit}
+              title={`Edit ${game.name}`}
+              aria-label={`Edit ${game.name}`}
+            >
+              ✎
+            </button>
+          )}
+        </div>
       </header>
       <div className="game-card-body stack" id={bodyId} hidden={!open}>
         {!submitted && (
@@ -618,15 +627,6 @@ function PastRound({
   );
 }
 
-function timeZones(current: string): string[] {
-  let zones: string[] = [];
-  try {
-    zones = Intl.supportedValuesOf("timeZone");
-  } catch {
-    // Older browsers: just offer the current one and UTC.
-  }
-  return [...new Set([current, "UTC", ...zones])].sort();
-}
 
 /**
  * The games a crew plays, in its identity plate. The owner turns them on and
@@ -733,7 +733,9 @@ function ManageCrew({
   const [error, setError] = useState<string | null>(null);
   const others = members.filter((m) => m.user_id !== crew.created_by);
   const timezone = crew.timezone ?? "UTC";
-  const zones = useMemo(() => timeZones(timezone), [timezone]);
+  // The times shown are refreshed whenever the list is opened.
+  const [zonesAt, setZonesAt] = useState(() => Date.now());
+  const zones = useMemo(() => zoneGroups(timezone, new Date(zonesAt)), [timezone, zonesAt]);
   const [name, setName] = useState(crew.name);
   const nameChanged = name.trim() !== "" && name.trim() !== crew.name;
 
@@ -813,11 +815,17 @@ function ManageCrew({
           value={timezone}
           disabled={busy !== null}
           onChange={(e) => updateSettings({ p_timezone: e.target.value })}
+          onFocus={() => setZonesAt(Date.now())}
+          onMouseDown={() => setZonesAt(Date.now())}
         >
-          {zones.map((z) => (
-            <option key={z} value={z}>
-              {z.replaceAll("_", " ")}
-            </option>
+          {zones.map((group) => (
+            <optgroup key={group.region} label={group.region}>
+              {group.zones.map((z) => (
+                <option key={z.id} value={z.id}>
+                  {z.label}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </label>

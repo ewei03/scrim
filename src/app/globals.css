@@ -1336,10 +1336,11 @@ select.input {
 
 .game-card-edit {
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 700;
+  line-height: 1;
   color: inherit;
-  padding: 1px 8px;
+  padding: 3px 6px;
   background: rgb(255 255 255 / 0.35);
   border: 1.5px solid currentColor;
   border-radius: var(--radius);
@@ -1350,13 +1351,22 @@ select.input {
   background: rgb(255 255 255 / 0.6);
 }
 
-.game-card-summary {
+.game-card-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px 12px;
   margin-left: auto;
+}
+
+.game-card-summary {
   font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
 
 /* ---------- crew page: identity plate ---------- */
 
@@ -1646,6 +1656,55 @@ select.input {
 
 .dialog:has(.help-grid) {
   width: min(700px, calc(100vw - 32px));
+}
+
+.help-body {
+  gap: 14px;
+}
+
+/* Hovering a part of the guide brings it forward: everything else dims and blurs. */
+.help-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.help-body > * {
+  transition: opacity 320ms ease, filter 320ms ease;
+}
+
+.help-body:has(.help-section:hover) > :not(:hover) {
+  opacity: 0.3;
+  filter: blur(1.5px);
+}
+
+.help-section h3 {
+  margin: 0;
+  transition: letter-spacing 150ms;
+}
+
+.help-section:hover h3 {
+  letter-spacing: 0.04em;
+}
+
+.help-section > p {
+  margin: 0;
+}
+
+.help-card {
+  transition: transform 120ms, box-shadow 120ms;
+}
+
+.help-card:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .help-body > *,
+  .help-card {
+    transition: none;
+  }
 }
 
 .help-lead {

@@ -42,6 +42,20 @@ test("Help opens the guide and closes with × or a click outside", async ({ page
   await expect(help).toBeVisible();
 });
 
+test("Help's tips link to Suggest a game and to signing in", async ({ page }) => {
+  const help = page.getByRole("dialog", { name: "How Scrim works" });
+  await page.getByRole("button", { name: "How Scrim works" }).click();
+  await help.getByRole("button", { name: "here!" }).click();
+  await expect(help).toBeHidden();
+  await expect(page.getByRole("dialog", { name: "Suggest a game" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "How Scrim works" }).click();
+  await help.getByRole("link", { name: "Sign in" }).click();
+  await expect(help).toBeHidden();
+  await expect(page).toHaveURL(/\/profile$/);
+});
+
 test("the theme toggle switches dark and light mode, and remembers it", async ({ page }) => {
   const html = page.locator("html");
   const bodyBackground = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
@@ -118,6 +132,23 @@ test("Privacy & Terms opens, and its button goes back home", async ({ page }) =>
   await page.getByRole("link", { name: "← Back to Scrim" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("heading", { name: "Start scrimming" })).toBeVisible();
+});
+
+test("Games lists every game, crediting and linking each one", async ({ page }) => {
+  await page.getByRole("link", { name: "Games", exact: true }).click();
+  await expect(page).toHaveURL(/\/games$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Games" })).toBeVisible();
+  const items = page.locator("article ul li");
+  await expect(items).toHaveCount(3);
+  await expect(items.filter({ hasText: "Wordle" })).toHaveText("Wordle by The New York Times");
+  await expect(items.filter({ hasText: "Krillion" })).toHaveText("Krillion by krillion.io");
+  await expect(page.getByRole("link", { name: "Wordle", exact: true })).toHaveAttribute(
+    "href",
+    "https://www.nytimes.com/games/wordle/index.html",
+  );
+
+  await page.getByRole("link", { name: "← Back to Scrim" }).click();
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test("the SCRIM logo goes home, and old addresses redirect", async ({ page }) => {

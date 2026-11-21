@@ -237,7 +237,7 @@ function CustomSubmit({
             onChange={(e) => setText(e.target.value)}
           />
           <button className="btn btn-primary" disabled={!result || busy}>
-            {busy ? "Submitting…" : "Lock it in"}
+            {busy ? "Submitting…" : "Submit"}
           </button>
         </div>
         {custom.allow_fail && (

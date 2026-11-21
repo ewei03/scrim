@@ -86,8 +86,7 @@ export function ExtensionPanel() {
       {state === "connected" && (
         <>
           <p>
-            <strong>⚡ Auto-submit is on.</strong> Finish a game and your result goes into every crew that plays
-            that game.
+            <strong>⚡ Extension connected successfully.</strong> Your scores will now submit to your crews automatically.
           </p>
           <button className="btn" disabled={busy} onClick={disconnect}>
             Disconnect

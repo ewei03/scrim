@@ -4,7 +4,7 @@ import { useState } from "react";
 import { GoogleButton } from "@/components/GoogleButton";
 import { errorMessage, supabase } from "@/lib/supabase";
 
-export function SignIn({ title = "Pick a name to play" }: { title?: string }) {
+export function SignIn({ title = "Pick a name to get started" }: { title?: string }) {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

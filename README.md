@@ -35,7 +35,7 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
   score type (points, time or attempts) and its format, which way wins, and
   whether "didn't finish" is allowed. Scores are typed in by hand, on the
   honour system. Scoring locks once anyone has entered a score. The owner
-  edits or deletes one from its card under Today (✎ Edit); deleting also
+  edits or deletes one from its card under Today (✎); deleting also
   removes its scores and past days.
 - **Guests:** a guest account is removed from a crew, with its scores there,
   a day after joining (hourly, via pg_cron). Linking Google makes it a regular

@@ -138,9 +138,10 @@
         <button role="tab" id="tab-results" aria-selected="true" aria-controls="panel-results">Results</button>
         <button role="tab" id="tab-rankings" aria-selected="false" aria-controls="panel-rankings">Rankings</button>
       </div>
-      <section id="panel-results" role="tabpanel" aria-labelledby="tab-results">
+      <section id="panel-results" role="tabpanel" aria-labelledby="tab-results" hidden>
         <ul id="results" hidden></ul>
-        <div class="muted">Finished games go into every Scrim crew that plays them.</div>
+        <div id="results-empty" class="muted" hidden>No games finished today yet.</div>
+        <div class="muted" id="results-date">Results for today.</div>
       </section>
       <section id="panel-rankings" role="tabpanel" aria-labelledby="tab-rankings" hidden>
         <div id="rankings-status" class="muted">Loading…</div>

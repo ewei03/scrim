@@ -17,5 +17,6 @@
     score: (r) => `${r.solved ? r.guesses : "X"}/6`,
     delayMs: 2500, // let the tile flip animation finish
     signInTo: "NYT",
+    today: () => String(ScrimWordle.numberFromPrintDate(ScrimContent.localDate())),
   });
 })();

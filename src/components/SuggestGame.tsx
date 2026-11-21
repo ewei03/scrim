@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { errorMessage, rpc } from "@/lib/supabase";
 import { Modal } from "./Modal";
@@ -114,15 +114,36 @@ export function SuggestGame() {
 }
 
 /** Footer link that opens the suggestion form in a small dialog. */
+const OPEN_EVENT = "scrim-suggest-game";
+
+/** Opens the Suggest a game window from anywhere (it lives in the footer). */
+export function openSuggestGame() {
+  window.dispatchEvent(new Event(OPEN_EVENT));
+}
+
+/** Inline text that opens the Suggest a game window, e.g. "here!". */
+export function SuggestGameButton({ children }: { children: React.ReactNode }) {
+  return (
+    <button type="button" className="footer-link" onClick={openSuggestGame}>
+      {children}
+    </button>
+  );
+}
+
 export function SuggestGameLink() {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener(OPEN_EVENT, show);
+    return () => window.removeEventListener(OPEN_EVENT, show);
+  }, []);
   return (
     <>
       <button type="button" className="footer-link" onClick={() => setOpen(true)}>
         Suggest a game
       </button>
       <Modal open={open} onClose={() => setOpen(false)} title="Suggest a game">
-        <p>Want another daily puzzle on Scrim? Tell us which one!</p>
+        <p>Want another daily puzzle on Scrim? Let us know!</p>
         <SuggestGame />
       </Modal>
     </>

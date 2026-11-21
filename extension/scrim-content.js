@@ -15,6 +15,9 @@
    * @param {number} [opts.delayMs]  wait before reading, e.g. for animations
    * @param {string} [opts.signInTo]  only count games with `signedIn: true`; games
    *   finished while signed out get a notice naming this site instead
+   * @param {() => string} [opts.today]  today's puzzle id. Older puzzles are still
+   *   sent (a crew whose day hasn't ended yet may count them), but quietly: the
+   *   notices are only for today's game.
    */
   function watch(opts) {
     // The background worker may inject this into a tab that already has it.
@@ -32,7 +35,7 @@
       if (opts.signInTo) {
         const counted = new Set(games.filter((g) => g.signedIn).map((g) => g.puzzle));
         for (const game of games) {
-          if (game.signedIn || counted.has(game.puzzle)) continue;
+          if (game.signedIn || counted.has(game.puzzle) || !isToday(opts, game.puzzle)) continue;
           noticeSignedOut(opts, game);
         }
         games = games.filter((g) => g.signedIn);
@@ -50,14 +53,31 @@
             result,
             raw: opts.shareText(result),
           });
-          showToast(reply, opts.label(result), opts.score(result));
+          if (isToday(opts, result.puzzle)) showToast(reply, opts.label(result), opts.score(result));
         } catch (e) {
-          showToast({ ok: false, error: String(e?.message ?? e) }, opts.label(result), opts.score(result));
+          if (isToday(opts, result.puzzle)) {
+            showToast({ ok: false, error: String(e?.message ?? e) }, opts.label(result), opts.score(result));
+          }
         }
       }
     }
     setInterval(tick, POLL_MS);
     tick();
+  }
+
+  function isToday(opts, puzzle) {
+    return !opts.today || String(puzzle) === opts.today();
+  }
+
+  /** "2026-11-20" where the player is. */
+  function localDate(now = new Date()) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  }
+
+  /** "2026-11-20" in New York (games whose day runs on New York time). */
+  function newYorkDate(now = new Date()) {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(now);
   }
 
   /** Once per puzzle per browser session, so it doesn't nag on every visit. */
@@ -107,6 +127,9 @@
   }
 
   function show(title, body) {
+    // One notice at a time: a new one replaces any still showing (from this
+    // game's script or another's, so this looks at the page, not a variable).
+    for (const old of document.querySelectorAll("[data-scrim-toast]")) old.remove();
     const host = document.createElement("div");
     host.dataset.scrimToast = "";
     host.style.cssText = "position:fixed;right:20px;bottom:20px;z-index:2147483647";
@@ -126,5 +149,5 @@
     setTimeout(() => host.remove(), 9000);
   }
 
-  root.ScrimContent = { watch };
+  root.ScrimContent = { watch, localDate, newYorkDate };
 })(globalThis);

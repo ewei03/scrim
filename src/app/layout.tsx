@@ -38,6 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               Scrim is an independent fan project, not affiliated with any game it supports.
             </span>
             <nav>
+              <Link href="/games">Games</Link>
               <SuggestGameLink />
               <a href="https://github.com/ewei03/scrim" target="_blank" rel="noreferrer">
                 GitHub

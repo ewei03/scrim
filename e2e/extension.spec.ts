@@ -28,11 +28,33 @@ test.describe("signed out of Scrim", () => {
 
     await expect(toast(page)).toContainText("Not connected", { timeout: 20_000 });
     await expect(toast(page)).toContainText("Open Scrim, go to Profile, and click Connect extension.");
+    // Only one notice at a time, even as the page keeps checking.
+    await page.waitForTimeout(3_000);
+    await expect(page.locator("[data-scrim-toast]")).toHaveCount(1);
+
+    // The popup says it isn't connected, and shows no results or rankings.
+    const [worker] = extContext.serviceWorkers();
+    const popup = await extContext.newPage();
+    await popup.goto(`chrome-extension://${new URL(worker.url()).host}/popup.html`);
+    await expect(popup.getByText("Not connected.", { exact: false })).toBeVisible();
+    await expect(popup.locator("#panel-results")).toBeHidden();
+    await expect(popup.locator("#tabs")).toBeHidden();
+    await expect(popup.locator("#panel-rankings")).toBeHidden();
+    await popup.close();
 
     // On Scrim, signed out: nothing to connect to yet. The extension is found, though.
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("data-scrim-extension", /\d+\.\d+/);
   });
+});
+
+test("signed out, an earlier day's game stays quiet too", async ({ extContext, games }) => {
+  const page = await firstPage(extContext);
+  games.wordle = { signedIn: true, status: "WIN", daysAgo: 1 };
+  await page.goto(WORDLE_URL);
+  await expect(page.locator("#status")).toContainText("WIN");
+  await page.waitForTimeout(6_000);
+  await expect(page.locator("[data-scrim-toast]")).toHaveCount(0);
 });
 
 test.describe("signed in to Scrim", () => {
@@ -103,6 +125,17 @@ test.describe("signed in to Scrim", () => {
 
     await scrim.goto(`/crew/${crew.invite_code}`);
     await expect(board(scrim, "Wordle")).toContainText("Nobody has submitted yet");
+  });
+
+  test("an earlier day's game doesn't pop up a notice", async ({ extContext, games }) => {
+    await createCrewApi(owner, "E2E Yesterday Crew", ["wordle"]);
+    const { wordle } = await setUp(extContext);
+
+    games.wordle = { signedIn: true, status: "WIN", daysAgo: 1 };
+    await wordle.bringToFront();
+    await wordle.reload();
+    await wordle.waitForTimeout(6_000);
+    await expect(wordle.locator("[data-scrim-toast]")).toHaveCount(0);
   });
 
   test("an unfinished game isn't submitted", async ({ extContext, games }) => {

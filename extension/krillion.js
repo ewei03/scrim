@@ -9,5 +9,6 @@
     shareText: ScrimKrillion.shareText,
     label: (r) => `Krillion #${r.puzzle}`,
     score: ScrimKrillion.formatScore,
+    today: () => String(ScrimKrillion.numberFromDate(ScrimContent.newYorkDate())),
   });
 })();

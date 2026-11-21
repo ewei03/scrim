@@ -229,7 +229,7 @@ test("pick the crew's games, including a custom one", async ({ page, context, br
   await expect(todayCard("E2E Mini")).toBeVisible();
 
   // Custom games are edited from their card under Today.
-  await todayCard("E2E Mini").getByRole("button", { name: "✎ Edit" }).click();
+  await todayCard("E2E Mini").getByRole("button", { name: "Edit E2E Mini" }).click();
   const edit = page.getByRole("dialog", { name: "Edit E2E Mini" });
   await edit.getByLabel("Name", { exact: true }).fill("E2E Mini Crossword");
   await edit.getByRole("button", { name: "Save changes" }).click();
@@ -246,7 +246,7 @@ test("pick the crew's games, including a custom one", async ({ page, context, br
   await friendContext.close();
 
   // Delete the custom game (after confirming): it's gone from the games and from Today.
-  await todayCard("E2E Mini Crossword").getByRole("button", { name: "✎ Edit" }).click();
+  await todayCard("E2E Mini Crossword").getByRole("button", { name: "Edit E2E Mini Crossword" }).click();
   const editAgain = page.getByRole("dialog", { name: "Edit E2E Mini Crossword" });
   page.once("dialog", (d) => d.accept());
   await editAgain.getByRole("button", { name: "Delete game" }).click();
