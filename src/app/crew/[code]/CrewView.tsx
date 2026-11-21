@@ -665,6 +665,7 @@ function CrewGames({
           <Modal
             open={editing !== null}
             onClose={() => setEditing(null)}
+            dismissOnBackdrop={false}
             title={editing && editing !== "new" ? `Edit ${editing.name}` : "Add a custom game"}
           >
             {editing !== null && (

@@ -2,18 +2,24 @@
 
 import { useEffect, useId, useRef } from "react";
 
-/** A native <dialog> modal: Escape, the × button and a backdrop click all close it. */
+/**
+ * A native <dialog> modal: Escape, the × button and (unless `dismissOnBackdrop`
+ * is false) a backdrop click all close it.
+ */
 export function Modal({
   open,
   onClose,
   title,
   size = "small",
+  dismissOnBackdrop = true,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   size?: "small" | "large";
+  /** False for forms, so a stray click outside doesn't lose what was typed. */
+  dismissOnBackdrop?: boolean;
   children: React.ReactNode;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -33,7 +39,7 @@ export function Modal({
       aria-labelledby={titleId}
       // Fires on Escape and on close(); keeps the parent's state in sync.
       onClose={onClose}
-      onClick={(e) => e.target === dialog.current && onClose()}
+      onClick={(e) => dismissOnBackdrop && e.target === dialog.current && onClose()}
     >
       <div className="dialog-head">
         <h2 id={titleId}>{title}</h2>
