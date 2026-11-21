@@ -13,7 +13,14 @@
     try {
       reply = await chrome.runtime.sendMessage({ ...(msg.payload ?? {}), type: msg.type, scrimOrigin: location.origin });
     } catch (e) {
-      reply = { ok: false, error: String(e?.message ?? e) };
+      const message = String(e?.message ?? e);
+      // The extension was reloaded or updated since this page loaded.
+      reply = {
+        ok: false,
+        error: /context invalidated|receiving end does not exist/i.test(message)
+          ? "The Scrim extension was updated. Reload this page to reconnect."
+          : message,
+      };
     }
     window.postMessage({ source: "scrim-ext", id: msg.id, reply }, location.origin);
   });

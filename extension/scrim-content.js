@@ -25,7 +25,12 @@
     if (root.__scrimWatching[opts.game]) return;
     root.__scrimWatching[opts.game] = true;
     const handled = new Set();
+    let timer;
     async function tick() {
+      // The extension was reloaded or updated since this page loaded: this copy
+      // of the script can't reach it any more ("Extension context invalidated").
+      // Stop quietly; reloading the page brings in the new one.
+      if (!alive()) return clearInterval(timer);
       let games;
       try {
         games = opts.find();
@@ -55,14 +60,24 @@
           });
           if (isToday(opts, result.puzzle)) showToast(reply, opts.label(result), opts.score(result));
         } catch (e) {
+          if (!alive()) return clearInterval(timer);
           if (isToday(opts, result.puzzle)) {
             showToast({ ok: false, error: String(e?.message ?? e) }, opts.label(result), opts.score(result));
           }
         }
       }
     }
-    setInterval(tick, POLL_MS);
+    timer = setInterval(tick, POLL_MS);
     tick();
+  }
+
+  /** False once the extension has been reloaded or updated under this page. */
+  function alive() {
+    try {
+      return Boolean(chrome.runtime?.id);
+    } catch {
+      return false;
+    }
   }
 
   function isToday(opts, puzzle) {
