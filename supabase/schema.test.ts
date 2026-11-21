@@ -740,6 +740,28 @@ describe("custom games", () => {
       [BOB, 0],
     ]);
   });
+
+  it("lets only the owner delete one, taking its scores and days with it", async () => {
+    const [golf] = await as<{ id: string }>(ANN, "select id from custom_games where crew_id = $1 and name = 'Mini Golf'", [crew.id]);
+    const game = `custom:${golf.id}`;
+    const count = async (sql: string) => (await db.query<{ n: number }>(sql, [crew.id, game])).rows[0].n;
+    expect(await count("select count(*)::int as n from rounds where crew_id = $1 and game = $2")).toBeGreaterThan(0);
+
+    await expect(as(BOB, "select delete_custom_game($1)", [golf.id])).rejects.toThrow(/Only the crew owner/);
+    await as(ANN, "select delete_custom_game($1)", [golf.id]);
+
+    expect(await as(ANN, "select id from custom_games where id = $1", [golf.id])).toEqual([]);
+    expect(await count("select count(*)::int as n from crew_games where crew_id = $1 and game = $2")).toBe(0);
+    expect(await count("select count(*)::int as n from rounds where crew_id = $1 and game = $2")).toBe(0);
+    expect(
+      await count(
+        "select count(*)::int as n from entries e join rounds r on r.id = e.round_id where r.crew_id = $1 and r.game = $2",
+      ),
+    ).toBe(0);
+    // A deleted game can't be played any more, and there's room for a new one.
+    await expect(enter(ANN, game, { puzzle: D, value: 1 })).rejects.toThrow();
+    await create(ANN, { name: "Replacement", color: "#aaaaaa", score_type: "points" });
+  });
 });
 
 describe("guests", () => {

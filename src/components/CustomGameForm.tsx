@@ -35,6 +35,7 @@ export function CustomGameForm({
   takenColors,
   scoringLocked,
   onSaved,
+  onDeleted,
   onCancel,
 }: {
   crewId: string;
@@ -44,6 +45,8 @@ export function CustomGameForm({
   takenColors: string[];
   scoringLocked: boolean;
   onSaved: (game: CustomGame) => void;
+  /** After the game (being edited) is deleted. */
+  onDeleted?: (game: CustomGame) => void;
   onCancel: () => void;
 }) {
   const [s, setS] = useState<CustomSettings>(() =>
@@ -70,6 +73,25 @@ export function CustomGameForm({
   function pickType(type: ScoreType) {
     // Each type starts with the usual direction: most points wins, fastest time and fewest tries win.
     set({ score_type: type, higher_is_better: SCORE_TYPES.find((t) => t.id === type)!.higherIsBetter });
+  }
+
+  async function remove() {
+    if (!game) return;
+    if (
+      !confirm(
+        `Delete ${game.name}? Its scores, past days and rankings in this crew are deleted too. This can't be undone.`,
+      )
+    )
+      return;
+    setBusy(true);
+    setError(null);
+    try {
+      await rpc("delete_custom_game", { p_game: game.id });
+      onDeleted?.(game);
+    } catch (err) {
+      setError(errorMessage(err));
+      setBusy(false);
+    }
   }
 
   async function save(e: React.FormEvent) {
@@ -264,6 +286,11 @@ export function CustomGameForm({
         <button type="button" className="btn" disabled={busy} onClick={onCancel}>
           Cancel
         </button>
+        {game && (
+          <button type="button" className="btn btn-danger custom-delete" disabled={busy} onClick={remove}>
+            Delete game
+          </button>
+        )}
       </div>
       {error && <p className="error small">{error}</p>}
     </form>

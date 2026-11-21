@@ -252,9 +252,6 @@ function CustomSubmit({
           </p>
         )}
       </form>
-      <p className="muted small">
-        Scores for custom games are entered by hand, on the honour system. You get one submission per day.
-      </p>
       {error && <p className="error">{error}</p>}
     </section>
   );

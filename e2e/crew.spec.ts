@@ -244,6 +244,17 @@ test("pick the crew's games, including a custom one", async ({ page, context, br
   await expect(friendPage.locator(".crew-games .game-tag")).toHaveText(["Wordle", "E2E Mini Crossword"]);
   await expect(friendPage.locator(".game-toggles button")).toHaveCount(0);
   await friendContext.close();
+
+  // Delete the custom game (after confirming): it's gone from the games and from Today.
+  await todayCard("E2E Mini Crossword").getByRole("button", { name: "✎ Edit" }).click();
+  const editAgain = page.getByRole("dialog", { name: "Edit E2E Mini Crossword" });
+  page.once("dialog", (d) => d.accept());
+  await editAgain.getByRole("button", { name: "Delete game" }).click();
+  await expect(editAgain).toBeHidden();
+  await expect(toggle("E2E Mini Crossword")).toHaveCount(0);
+  await expect(todayCard("E2E Mini Crossword")).toHaveCount(0);
+  await page.reload();
+  await expect(toggle("E2E Mini Crossword")).toHaveCount(0);
 });
 
 test("delete a crew", async ({ page, context, browser }) => {

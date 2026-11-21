@@ -327,6 +327,12 @@ function CrewPage() {
                   }
                   setEditing(null);
                 }}
+                onDeleted={(gone) => {
+                  setCustomGames((list) => list.filter((g) => g.id !== gone.id));
+                  setGames((list) => list.filter((g) => g !== customGameId(gone.id)));
+                  setEditing(null);
+                  load(); // its past days and rankings are gone too
+                }}
                 onCancel={() => setEditing(null)}
               />
             )}

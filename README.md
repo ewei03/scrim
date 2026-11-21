@@ -34,7 +34,9 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
   a custom game (crew box → "+ Custom"): name, link, instructions, colour,
   score type (points, time or attempts) and its format, which way wins, and
   whether "didn't finish" is allowed. Scores are typed in by hand, on the
-  honour system. Scoring locks once anyone has entered a score.
+  honour system. Scoring locks once anyone has entered a score. The owner
+  edits or deletes one from its card under Today (✎ Edit); deleting also
+  removes its scores and past days.
 - **Guests:** a guest account is removed from a crew, with its scores there,
   a day after joining (hourly, via pg_cron). Linking Google makes it a regular
   account that stays. Guests show as "(guest)" in the crew box, and can't
@@ -136,7 +138,7 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run each file in `supabase/migrations/` in order
-   (`0001_init.sql` through `0013_guests_cant_create_crews.sql`). Before `0012`, enable the
+   (`0001_init.sql` through `0014_delete_custom_game.sql`). Before `0012`, enable the
    **pg_cron** extension (Database → Extensions) so guests are cleaned up hourly. `0009` replaces the old
    lobbies and **erases any lobby results**; afterwards each crew owner picks
    their crew's games on the crew page.
