@@ -13,6 +13,7 @@ import { SignIn } from "@/components/SignIn";
 import { Welcome } from "@/components/Welcome";
 import { useAuth } from "@/lib/auth";
 import { useExtension } from "@/lib/extension";
+import { inSavedOrder, savedGameOrder } from "@/lib/gameOrder";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
 import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone } from "@/lib/rounds";
 import { timeLeft } from "@/lib/time";
@@ -140,10 +141,15 @@ function Dashboard() {
   const now = new Date();
   const today = crews
     .flatMap((crew) =>
-      // Built-in games, then the crew's own custom games.
-      [...gameList(), ...crew.custom_games.map(customAdapter)]
-        .filter((game) => crew.crew_games.some((g) => g.game === game.id))
-        .map((game) => {
+      // Built-in games, then the crew's own custom games, in the order you've
+      // dragged them into on the crew's page.
+      inSavedOrder(
+        [...gameList(), ...crew.custom_games.map(customAdapter)].filter((game) =>
+          crew.crew_games.some((g) => g.game === game.id),
+        ),
+        (game) => game.id,
+        user ? savedGameOrder(user.id, crew.id) : [],
+      ).map((game) => {
           const puzzleId = crewPuzzle(game, crew, now);
           const round = open.find((r) => r.crew_id === crew.id && r.game === game.id && r.puzzle_id === puzzleId);
           return {

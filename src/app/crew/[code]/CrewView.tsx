@@ -19,6 +19,7 @@ import type { GameAdapter } from "@/games/types";
 import { useAuth } from "@/lib/auth";
 import { askExtension, useExtension, type ExtensionState } from "@/lib/extension";
 import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone, roundZone } from "@/lib/rounds";
+import { inSavedOrder, saveGameOrder, savedGameOrder } from "@/lib/gameOrder";
 import { crewStats } from "@/lib/stats";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
 import { dateIn, formatDay, timeLeft } from "@/lib/time";
@@ -188,6 +189,15 @@ function CrewPage() {
   const setCardOpen = useCallback((gameId: string, open: boolean) => {
     setOpenCards((p) => (p[gameId] === open ? p : { ...p, [gameId]: open }));
   }, []);
+  // Your own order for today's cards (dragged by their handles), kept in this browser.
+  const userId = user?.id;
+  const crewId = crew?.id;
+  const orderKey = userId && crewId ? `${userId}:${crewId}` : "";
+  const [dragged, setDragged] = useState<{ key: string; ids: string[] } | null>(null);
+  const storedOrder = useMemo(() => (userId && crewId ? savedGameOrder(userId, crewId) : []), [userId, crewId]);
+  const gameOrder = dragged?.key === orderKey ? dragged.ids : storedOrder;
+  const [dragging, setDragging] = useState<string | null>(null);
+  const todayPanel = useRef<HTMLElement>(null);
   // Whether you've submitted each of today's games, as their boards report it.
   const [played, setPlayed] = useState<Record<string, boolean>>({});
   const onPlayed = useCallback(
@@ -375,12 +385,66 @@ function CrewPage() {
   if (!crew) return <Loading />;
 
   const isOwner = crew.created_by === user?.id;
-  const tracked = allGames.filter((g) => games.includes(g.id));
+  const tracked = inSavedOrder(
+    allGames.filter((g) => games.includes(g.id)),
+    (g) => g.id,
+    gameOrder,
+  );
   const isOpen = (gameId: string) => openCards[gameId] ?? false;
   const anyCollapsed = tracked.some((g) => !isOpen(g.id));
   const toPlay = tracked.filter((g) => played[g.id] === false).length;
   // Custom games with scores in them have their scoring locked.
   const playedGames = new Set(rounds.filter((rd) => rd.entries.length > 0).map((rd) => rd.game));
+
+  function reorder(ids: string[]) {
+    if (!userId || !crewId) return;
+    setDragged({ key: orderKey, ids });
+    saveGameOrder(userId, crewId, ids);
+  }
+
+  /** Moves a card one place up or down (the handle's arrow keys). */
+  function moveCard(gameId: string, step: -1 | 1) {
+    const ids = tracked.map((g) => g.id);
+    const from = ids.indexOf(gameId);
+    const to = from + step;
+    if (from < 0 || to < 0 || to >= ids.length) return;
+    ids.splice(from, 1);
+    ids.splice(to, 0, gameId);
+    reorder(ids);
+  }
+
+  /**
+   * Drags a card by its handle: as the pointer passes another card's middle,
+   * the cards swap places. Listens on the window, since the card moves around
+   * the page under the pointer.
+   */
+  function startDrag(e: React.PointerEvent, gameId: string) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    setDragging(gameId);
+    const onMove = (ev: PointerEvent) => {
+      const panel = todayPanel.current;
+      if (!panel) return;
+      const cards = [...panel.querySelectorAll<HTMLElement>("[data-game-card]")];
+      const others = cards.filter((c) => c.dataset.gameCard !== gameId);
+      const to = others.filter((c) => {
+        const r = c.getBoundingClientRect();
+        return r.top + r.height / 2 < ev.clientY;
+      }).length;
+      const ids = others.map((c) => c.dataset.gameCard!);
+      ids.splice(to, 0, gameId);
+      if (ids.join() !== cards.map((c) => c.dataset.gameCard).join()) reorder(ids);
+    };
+    const stop = () => {
+      setDragging(null);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+  }
 
   async function voidEntry(name: string, entryId: string) {
     if (!(await confirmDialog(`Void ${name}'s entry? They'll be able to submit again while the day is still on.`)))
@@ -566,6 +630,7 @@ function CrewPage() {
       {/* One wrapper, so the page's entrance animation runs once and not on every tab switch. */}
       <div className="crew-panels">
         <section
+          ref={todayPanel}
           className="stack today-panel"
           role="tabpanel"
           id={`${tabsId}-today`}
@@ -615,6 +680,9 @@ function CrewPage() {
                 onPlayed={onPlayed}
                 open={isOpen(game.id)}
                 onOpen={(open) => setCardOpen(game.id, open)}
+                onDragStart={tracked.length > 1 ? (e) => startDrag(e, game.id) : undefined}
+                onMove={(step) => moveCard(game.id, step)}
+                dragging={dragging === game.id}
               />
             ))
           )}
@@ -712,7 +780,15 @@ function TodayRound({
   onPlayed,
   open,
   onOpen,
+  onDragStart,
+  onMove,
+  dragging,
 }: {
+  /** Set when there's more than one card: shows the handle that drags this one. */
+  onDragStart?: (e: React.PointerEvent) => void;
+  /** Moves the card a place up (-1) or down (1). */
+  onMove: (step: -1 | 1) => void;
+  dragging: boolean;
   /** Expanded or collapsed: kept by the page, so it can open or close them all. */
   open: boolean;
   onOpen: (open: boolean) => void;
@@ -769,7 +845,11 @@ function TodayRound({
   }, [loaded, submitted, game.id, onPlayed]);
 
   return (
-    <article className={`game-card ${open ? "" : "collapsed"}`} style={gameStyle(game)}>
+    <article
+      className={`game-card ${open ? "" : "collapsed"} ${dragging ? "dragging" : ""}`}
+      style={gameStyle(game)}
+      data-game-card={game.id}
+    >
       {/* The whole bar toggles too; the name stays the keyboard-reachable button. */}
       <header
         className="game-card-bar"
@@ -777,6 +857,23 @@ function TodayRound({
           if (!(e.target as Element).closest("button, a, input, select")) toggle();
         }}
       >
+        {onDragStart && (
+          <button
+            type="button"
+            className="game-card-handle"
+            aria-label={`Move ${game.name} (arrow keys up or down)`}
+            title="Drag to reorder (or use the arrow keys)"
+            onPointerDown={onDragStart}
+            onKeyDown={(e) => {
+              const step = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
+              if (!step) return;
+              e.preventDefault();
+              onMove(step);
+            }}
+          >
+            <span aria-hidden>⠿</span>
+          </button>
+        )}
         <h3 className="today-title">
           <button type="button" className="game-card-toggle" aria-expanded={open} aria-controls={bodyId} onClick={toggle}>
             <span className="game-card-chevron" aria-hidden>

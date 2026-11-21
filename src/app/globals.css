@@ -1603,6 +1603,42 @@ select.input {
   background: rgb(255 255 255 / 0.6);
 }
 
+/* The grip that drags a card into your own order. */
+.game-card-handle {
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: inherit;
+  padding: 2px 4px;
+  margin-left: -8px;
+  background: none;
+  border: 0;
+  cursor: grab;
+  touch-action: none;
+  opacity: 0.7;
+}
+
+.game-card-handle:hover,
+.game-card-handle:focus-visible {
+  opacity: 1;
+}
+
+.game-card-handle:focus-visible {
+  outline: 2px dashed #1c1b19;
+  outline-offset: 2px;
+}
+
+/* The card being dragged stays lifted, and the page doesn't select text. */
+.game-card.dragging {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--game);
+}
+
+body:has(.game-card.dragging) {
+  cursor: grabbing;
+  user-select: none;
+}
+
 .game-card-right {
   display: flex;
   flex-wrap: wrap;
