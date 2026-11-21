@@ -149,7 +149,7 @@ test.describe("signed in to Scrim", () => {
     await expect(wordle.locator("[data-scrim-toast]")).toHaveCount(0);
 
     await scrim.goto(`/crew/${crew.invite_code}`);
-    await expect(scrim.getByText("Your turn")).toBeVisible();
+    await expect(scrim.locator(".game-card-summary")).toContainText("Your turn");
   });
 
   // 8.

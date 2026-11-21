@@ -90,6 +90,16 @@ export async function createCrewApi(signed: Signed, name: string, games: string[
   return crew as { id: string; name: string; invite_code: string };
 }
 
+/**
+ * Opens every game card under Today. Cards start collapsed on a first visit
+ * (only games added since your last visit open by themselves).
+ */
+export async function expandGameCards(page: Page) {
+  await page.locator(".game-card").first().waitFor();
+  const collapsed = page.locator(".game-card-toggle[aria-expanded='false']");
+  while ((await collapsed.count()) > 0) await collapsed.first().click();
+}
+
 /** Waits for the page to show it's signed in (the header has a profile link). */
 export async function expectSignedIn(page: Page, name: string) {
   await page.getByRole("link", { name: new RegExp(name) }).first().waitFor();

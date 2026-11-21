@@ -6,6 +6,7 @@ import {
   deleteOwnedCrews,
   hasAccounts,
   loginBrowser,
+  expandGameCards,
   signIn,
   type Signed,
 } from "./support/accounts";
@@ -76,6 +77,7 @@ const rankings = (page: Page) => page.locator("section", { has: page.getByRole("
 const rankingRow = (page: Page, name: string) => rankings(page).locator("tbody tr", { hasText: name });
 const archived = (page: Page) => page.locator(".list-archive > *");
 const wordleCard = (page: Page) => page.locator(".game-card", { hasText: "Wordle" });
+const openTab = (page: Page, name: string) => page.getByRole("tab", { name: new RegExp(`^${name}`) }).click();
 
 test("at midnight, today's results move to the archive and the rankings update", async ({ page, context }) => {
   const crew = await createCrewApi(owner, "E2E Midnight Crew", ["wordle"]);
@@ -97,11 +99,13 @@ test("at midnight, today's results move to the archive and the rankings update",
   await page.clock.install({ time: new Date(midnight - 60_000) }); // 11:59pm
   await loginBrowser(context, owner);
   await page.goto(`/crew/${crew.invite_code}`);
+  await expandGameCards(page);
 
   // 11:59pm: day 1 is history, day 2 is still today.
   await expect(wordleCard(page)).toContainText(`#${day2.toLocaleString("en-US")}`);
   await expect(wordleCard(page).locator("tbody tr", { hasText: accounts.owner.name })).toContainText("2/6");
-  await expect(rankings(page).getByRole("heading")).toContainText("1 played");
+  await openTab(page, "Rankings");
+  await expect(rankingRow(page, accounts.owner.name).locator("td").nth(3)).toHaveText("1"); // played
   await expect(rankingRow(page, accounts.owner.name).locator("td").nth(2)).toHaveText("1"); // wins
   await expect(rankingRow(page, accounts.friend.name).locator("td").nth(2)).toHaveText("0");
   await expect(archived(page)).toHaveCount(1);
@@ -111,7 +115,6 @@ test("at midnight, today's results move to the archive and the rankings update",
 
   // Day 2 has moved to the archive and counts in the rankings.
   await expect(archived(page)).toHaveCount(2);
-  await expect(rankings(page).getByRole("heading")).toContainText("2 played");
   const ownerRow = rankingRow(page, accounts.owner.name);
   await expect(ownerRow.locator("td").nth(0)).toHaveText("1"); // place
   await expect(ownerRow.locator("td").nth(2)).toHaveText("2"); // wins
@@ -120,6 +123,7 @@ test("at midnight, today's results move to the archive and the rankings update",
   await expect(rankingRow(page, accounts.friend.name).locator("td").nth(2)).toHaveText("0");
 
   // And a new day has started, with nobody in it yet.
+  await openTab(page, "Today");
   const day3 = day2 + 1;
   await expect(wordleCard(page)).toContainText(`#${day3.toLocaleString("en-US")}`);
   await expect(wordleCard(page).getByText(/Nobody has submitted yet/)).toBeVisible();

@@ -20,11 +20,65 @@ import { askExtension, useExtension, type ExtensionState } from "@/lib/extension
 import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone, roundZone } from "@/lib/rounds";
 import { crewStats } from "@/lib/stats";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
-import { formatDay, timeLeft } from "@/lib/time";
+import { dateIn, formatDay, timeLeft } from "@/lib/time";
 import { zoneGroups } from "@/lib/timezones";
 import { isClosed, type BoardRow, type Crew, type EntrySource, type Round } from "@/lib/types";
 
 const POLL_MS = 10_000;
+
+const TABS = [
+  { id: "today", label: "Today" },
+  { id: "rankings", label: "Rankings" },
+  { id: "archive", label: "Archive" },
+] as const;
+type Tab = (typeof TABS)[number]["id"];
+const isTab = (s: string): s is Tab => TABS.some((t) => t.id === s);
+
+const PERIODS = [
+  { id: "all", label: "All time" },
+  { id: "year", label: "This year" },
+  { id: "month", label: "This month" },
+  { id: "week", label: "This week" },
+  { id: "today", label: "Today" },
+] as const;
+type Period = (typeof PERIODS)[number]["id"];
+
+/** Days since the epoch for a calendar date, so dates can be compared and stepped. */
+const dayNumber = ([y, m, d]: [number, number, number]) => Date.UTC(y, m - 1, d) / 86_400_000;
+
+/** Whether a round's day falls in the period, on the crew's calendar (weeks start Monday). */
+function inPeriod(round: Round, period: Period, zone: string, now: number): boolean {
+  if (period === "all") return true;
+  const [y, m, d] = dateIn(zone, roundDay(round));
+  const today = dateIn(zone, new Date(now));
+  if (period === "year") return y === today[0];
+  if (period === "month") return y === today[0] && m === today[1];
+  const day = dayNumber([y, m, d]);
+  const todayNum = dayNumber(today);
+  if (period === "today") return day === todayNum;
+  const sinceMonday = (new Date(todayNum * 86_400_000).getUTCDay() + 6) % 7;
+  return day >= todayNum - sinceMonday && day <= todayNum;
+}
+
+/** The tab you last had open, per crew, in this browser. */
+const tabKey = (code: string) => `scrim-tab:${code.toLowerCase()}`;
+
+function rememberedTab(code: string): Tab {
+  try {
+    const saved = localStorage.getItem(tabKey(code)) ?? "";
+    return isTab(saved) ? saved : "today";
+  } catch {
+    return "today";
+  }
+}
+
+function rememberTab(code: string, tab: Tab) {
+  try {
+    localStorage.setItem(tabKey(code), tab);
+  } catch {
+    // Storage blocked: it just won't be remembered.
+  }
+}
 
 type Member = { user_id: string; profiles: { display_name: string; is_guest: boolean } };
 type RoundWithEntries = Round & {
@@ -101,12 +155,53 @@ function CrewPage() {
   // The custom game form: null when closed, "new" when adding one, or the game being edited.
   const [editing, setEditing] = useState<CustomGame | "new" | null>(null);
   const [rankingsGame, setRankingsGame] = useState<string | null>(null);
+  const [rankingsPeriod, setRankingsPeriod] = useState<Period>("all");
   // Bumped to make today's boards refetch.
   const [boardsKey, setBoardsKey] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
   const [gone, setGone] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [tab, setTab] = useState<Tab>("today");
+  const tabsId = useId();
+  // Which of today's cards are open. Every visit starts with them all
+  // collapsed; a game new to the crew opens once, when it appears.
+  const [openCards, setOpenCards] = useState<Record<string, boolean>>({});
+  const setCardOpen = useCallback((gameId: string, open: boolean) => {
+    setOpenCards((p) => (p[gameId] === open ? p : { ...p, [gameId]: open }));
+  }, []);
+  // Whether you've submitted each of today's games, as their boards report it.
+  const [played, setPlayed] = useState<Record<string, boolean>>({});
+  const onPlayed = useCallback(
+    (gameId: string, done: boolean) => setPlayed((p) => (p[gameId] === done ? p : { ...p, [gameId]: done })),
+    [],
+  );
+
+  // The tab comes from the link (#rankings), else the last one you had open in this crew.
+  useEffect(() => {
+    const fromHash = (first: boolean) => {
+      const hash = location.hash.slice(1);
+      if (isTab(hash)) setTab(hash);
+      else if (!hash) setTab(first ? rememberedTab(code) : "today"); // Back to the plain link: Today
+    };
+    fromHash(true);
+    const onHash = () => fromHash(false);
+    // Back/Forward over our pushState entries fires popstate; an edited or followed #link fires hashchange.
+    window.addEventListener("hashchange", onHash);
+    window.addEventListener("popstate", onHash);
+    return () => {
+      window.removeEventListener("hashchange", onHash);
+      window.removeEventListener("popstate", onHash);
+    };
+  }, [code]);
+
+  function selectTab(next: Tab) {
+    if (next === tab) return;
+    setTab(next);
+    rememberTab(code, next);
+    // A history entry, so Back returns to the previous tab.
+    history.pushState(null, "", next === "today" ? location.pathname + location.search : `#${next}`);
+  }
 
   const load = useCallback(
     (join = false) =>
@@ -114,6 +209,7 @@ function CrewPage() {
         (d) => {
           setCrew(d.crew);
           setMembers(d.members);
+          for (const g of newGamesSinceLastVisit(d.crew.id, d.games)) setCardOpen(g, true);
           setGames(d.games);
           setCustomGames(d.customGames);
           setRounds(d.rounds);
@@ -121,7 +217,7 @@ function CrewPage() {
         },
         (e) => (e instanceof CrewGoneError ? setGone(true) : setError(errorMessage(e))),
       ),
-    [code],
+    [code, setCardOpen],
   );
 
   useEffect(() => {
@@ -199,15 +295,24 @@ function CrewPage() {
   // Rounds nobody finished aren't worth showing.
   const finished = useMemo(() => rounds.filter((r) => isClosed(r, now) && r.entries.length > 0), [rounds, now]);
 
-  const statsByGame = useMemo(() => {
-    const memberIds = members.map((m) => m.user_id);
-    return allGames
-      .map((game) => {
-        const played = finished.filter((r) => r.game === game.id);
-        return { game, count: played.length, ...crewStats(game, played, memberIds) };
-      })
-      .filter((s) => s.count > 0);
-  }, [finished, members, allGames]);
+  // Games anyone has played in this crew, finished or today: the choices in Rankings.
+  const rankedGames = useMemo(
+    () => allGames.filter((g) => rounds.some((r) => r.game === g.id && r.entries.length > 0)),
+    [rounds, allGames],
+  );
+
+  const ranked = useMemo(() => {
+    const game = rankedGames.find((g) => g.id === rankingsGame) ?? rankedGames[0];
+    if (!game || !crew) return null;
+    const zone = crew.timezone ?? "UTC";
+    // Today is still being played; longer periods count finished days only.
+    const pool =
+      rankingsPeriod === "today"
+        ? rounds.filter((r) => r.entries.length > 0 && !isClosed(r, now))
+        : finished;
+    const played = pool.filter((r) => r.game === game.id && inPeriod(r, rankingsPeriod, zone, now));
+    return { game, count: played.length, ...crewStats(game, played, members.map((m) => m.user_id)) };
+  }, [rankedGames, rankingsGame, rankingsPeriod, crew, rounds, finished, members, now]);
 
   if (gone) {
     return (
@@ -224,9 +329,10 @@ function CrewPage() {
   if (!crew) return <Loading />;
 
   const isOwner = crew.created_by === user?.id;
-  // Games with finished rounds; defaults to the first until one is picked.
-  const ranked = statsByGame.find((s) => s.game.id === rankingsGame) ?? statsByGame[0];
   const tracked = allGames.filter((g) => games.includes(g.id));
+  const isOpen = (gameId: string) => openCards[gameId] ?? false;
+  const anyCollapsed = tracked.some((g) => !isOpen(g.id));
+  const toPlay = tracked.filter((g) => played[g.id] === false).length;
   // Custom games with scores in them have their scoring locked.
   const playedGames = new Set(rounds.filter((rd) => rd.entries.length > 0).map((rd) => rd.game));
 
@@ -298,7 +404,11 @@ function CrewPage() {
             games={games}
             allGames={allGames}
             isOwner={isOwner}
-            onGames={setGames}
+            onGames={(next) => {
+              // A game you just turned on opens expanded, even if you'd collapsed it before.
+              for (const g of next) if (!games.includes(g)) setCardOpen(g, true);
+              setGames(next);
+            }}
             onAddCustom={() => setEditing("new")}
           />
         </div>
@@ -323,7 +433,7 @@ function CrewPage() {
                   );
                   // A new custom game is played straight away (the server adds it).
                   if (isNew) {
-                    rememberCollapsed(crew.id, customGameId(saved.id), false);
+                    setCardOpen(customGameId(saved.id), true);
                     setGames((list) => [...list, customGameId(saved.id)]);
                   }
                   setEditing(null);
@@ -362,91 +472,173 @@ function CrewPage() {
         </p>
       )}
 
-      <section className="stack">
-        <div className="row between">
-          <div className="row today-head">
-            <h2>Today</h2>
-            {/* Every game's day ends together, at the crew's midnight (games on another clock say so on their card). */}
-            {tracked.length > 0 && (
+      <div className="crew-tabs">
+        <div className="crew-tabs-list" role="tablist" aria-label="Crew sections">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              id={`${tabsId}-${t.id}-tab`}
+              aria-selected={tab === t.id}
+              aria-controls={`${tabsId}-${t.id}`}
+              tabIndex={tab === t.id ? 0 : -1}
+              className="crew-tab"
+              onClick={() => selectTab(t.id)}
+              onKeyDown={(e) => {
+                const i = TABS.findIndex((x) => x.id === tab);
+                const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+                if (!step) return;
+                e.preventDefault();
+                const next = TABS[(i + step + TABS.length) % TABS.length].id;
+                selectTab(next);
+                document.getElementById(`${tabsId}-${next}-tab`)?.focus();
+              }}
+            >
+              {t.label}
+              {t.id === "today" && toPlay > 0 && (
+                <span className="crew-tab-badge" title={`${toPlay} left to play today`}>
+                  <span className="crew-tab-badge-num">{toPlay}</span>
+                  <span className="sr-only"> left to play</span>
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <button className="btn btn-small" disabled={refreshing} onClick={refreshNow}>
+          {refreshing ? "Refreshing…" : "↻ Refresh"}
+        </button>
+      </div>
+
+      {/* One wrapper, so the page's entrance animation runs once and not on every tab switch. */}
+      <div className="crew-panels">
+        <section
+          className="stack today-panel"
+          role="tabpanel"
+          id={`${tabsId}-today`}
+          aria-labelledby={`${tabsId}-today-tab`}
+          hidden={tab !== "today"}
+        >
+          <h2 className="sr-only">Today</h2>
+          {/* Every game's day ends together, at the crew's midnight (games on another clock say so on their card). */}
+          {tracked.length > 0 && (
+            <div className="row between today-head">
               <span className="time-left">
                 <span className="live-dot" aria-hidden>
                   ●
                 </span>
                 {timeLeft(crewDayEnd(crew, new Date(now)).toISOString(), now)} left
               </span>
-            )}
-          </div>
-          <button className="btn btn-small" disabled={refreshing} onClick={refreshNow}>
-            {refreshing ? "Refreshing…" : "↻ Refresh"}
-          </button>
-        </div>
-        {tracked.length === 0 ? (
-          isOwner ? (
-            <p className="card">
-              Click on a game in the Crew tab to get started.
-            </p>
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => tracked.forEach((g) => setCardOpen(g.id, anyCollapsed))}
+              >
+                {anyCollapsed ? "Expand all" : "Collapse all"}
+              </button>
+            </div>
+          )}
+          {tracked.length === 0 ? (
+            isOwner ? (
+              <p className="card">
+                Click on a game in the Crew tab to get started.
+              </p>
+            ) : (
+              <p className="muted">The crew owner hasn&apos;t picked any games yet.</p>
+            )
           ) : (
-            <p className="muted">The crew owner hasn&apos;t picked any games yet.</p>
-          )
-        ) : (
-          tracked.map((game) => (
-            <TodayRound
-              key={game.id}
-              crew={crew}
-              game={game}
-              now={now}
+            tracked.map((game) => (
+              <TodayRound
+                key={game.id}
+                crew={crew}
+                game={game}
+                now={now}
+                isOwner={isOwner}
+                extension={extension.state}
+                refreshKey={boardsKey}
+                onEdit={isOwner && customOf(game) ? () => setEditing(customOf(game)) : undefined}
+                onVoid={(row) => voidEntry(row.display_name, row.entry_id)}
+                onPlayed={onPlayed}
+                open={isOpen(game.id)}
+                onOpen={(open) => setCardOpen(game.id, open)}
+              />
+            ))
+          )}
+        </section>
+
+        <section
+          className="stack"
+          role="tabpanel"
+          id={`${tabsId}-rankings`}
+          aria-labelledby={`${tabsId}-rankings-tab`}
+          hidden={tab !== "rankings"}
+        >
+          {ranked ? (
+            <>
+              <h2 className="sr-only">Rankings</h2>
+              <p className="rankings-head">
+                <span>Rankings for</span>
+                <select
+                  className="input rankings-select"
+                  aria-label="Game"
+                  value={ranked.game.id}
+                  onChange={(e) => setRankingsGame(e.target.value)}
+                >
+                  {rankedGames.map((game) => (
+                    <option key={game.id} value={game.id}>
+                      {game.name}
+                    </option>
+                  ))}
+                </select>
+                <span>from</span>
+                <select
+                  className="input rankings-select"
+                  aria-label="Period"
+                  value={rankingsPeriod}
+                  onChange={(e) => setRankingsPeriod(e.target.value as Period)}
+                >
+                  {PERIODS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </p>
+              {ranked.count > 0 ? (
+                <Rankings game={ranked.game} players={ranked.players} names={names} />
+              ) : (
+                <p className="muted">
+                  {rankingsPeriod === "today"
+                    ? `Nobody has played ${ranked.game.name} today yet.`
+                    : `No finished days of ${ranked.game.name} ${PERIODS.find((p) => p.id === rankingsPeriod)!.label.toLowerCase()}.`}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="muted">Rankings show up once someone has played.</p>
+          )}
+        </section>
+
+        <section
+          className="stack"
+          role="tabpanel"
+          id={`${tabsId}-archive`}
+          aria-labelledby={`${tabsId}-archive-tab`}
+          hidden={tab !== "archive"}
+        >
+          <h2 className="sr-only">Archive</h2>
+          <p className="muted">Results from previous days will show up here.</p>
+          {finished.length > 0 && (
+            <Archive
+              rounds={finished}
+              findGame={findGame}
+              names={names}
               isOwner={isOwner}
-              extension={extension.state}
-              refreshKey={boardsKey}
-              onEdit={isOwner && customOf(game) ? () => setEditing(customOf(game)) : undefined}
               onVoid={(row) => voidEntry(row.display_name, row.entry_id)}
             />
-          ))
-        )}
-      </section>
-
-      {ranked && (
-        <section className="stack">
-          <div className="row between wrap">
-            <h2>
-              Rankings <span className="muted small">· {ranked.count} played</span>
-            </h2>
-            <select
-              className="input rankings-game"
-              aria-label="Game"
-              value={ranked.game.id}
-              onChange={(e) => setRankingsGame(e.target.value)}
-            >
-              {statsByGame.map(({ game }) => (
-                <option key={game.id} value={game.id}>
-                  {game.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Rankings game={ranked.game} players={ranked.players} names={names} />
+          )}
         </section>
-      )}
-
-      <section className="stack">
-        <h2>Archive</h2>
-        {finished.length === 0 ? (
-          <p className="muted">Results from previous days will show up here.</p>
-        ) : (
-          <ul className="list list-archive">
-            {finished.map((r) => (
-              <PastRound
-                game={findGame(r.game)}
-                key={r.id}
-                round={r}
-                names={names}
-                isOwner={isOwner}
-                onVoid={(row) => voidEntry(row.display_name, row.entry_id)}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
+      </div>
       {error && <p className="error">{error}</p>}
     </div>
   );
@@ -462,7 +654,13 @@ function TodayRound({
   refreshKey,
   onEdit,
   onVoid,
+  onPlayed,
+  open,
+  onOpen,
 }: {
+  /** Expanded or collapsed: kept by the page, so it can open or close them all. */
+  open: boolean;
+  onOpen: (open: boolean) => void;
   crew: Crew;
   game: GameAdapter<unknown>;
   now: number;
@@ -472,6 +670,8 @@ function TodayRound({
   /** Set for the owner on a custom game: opens its settings. */
   onEdit?: () => void;
   onVoid: (row: BoardRow) => void;
+  /** Reports whether you've submitted, once the board has loaded. */
+  onPlayed: (gameId: string, played: boolean) => void;
 }) {
   const { user } = useAuth();
   const puzzleId = crewPuzzle(game, crew, new Date(now));
@@ -480,20 +680,17 @@ function TodayRound({
   // Shown on the card only when this game's day doesn't end with the crew's (e.g. Krillion, on New York time).
   const ownClock = ends.getTime() !== crewDayEnd(crew, new Date(now)).getTime();
   const [board, setBoard] = useState<BoardRow[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState(() => !isCollapsed(crew.id, game.id));
   const bodyId = useId();
-
-  function toggle() {
-    rememberCollapsed(crew.id, game.id, open);
-    setOpen(!open);
-  }
+  const toggle = () => onOpen(!open);
 
   const loadBoard = useCallback(
     () =>
       rpc<BoardRow[]>("get_round_board", { p_crew: crew.id, p_game: game.id, p_puzzle: puzzleId }).then(
         (rows) => {
           setBoard(rows);
+          setLoaded(true);
           setError(null);
         },
         (e) => setError(errorMessage(e)),
@@ -510,10 +707,19 @@ function TodayRound({
   }, [loadBoard, refreshKey]);
 
   const submitted = board.some((r) => r.user_id === user?.id);
+  useEffect(() => {
+    if (loaded) onPlayed(game.id, submitted);
+  }, [loaded, submitted, game.id, onPlayed]);
 
   return (
     <article className={`game-card ${open ? "" : "collapsed"}`} style={gameStyle(game)}>
-      <header className="game-card-bar">
+      {/* The whole bar toggles too; the name stays the keyboard-reachable button. */}
+      <header
+        className="game-card-bar"
+        onClick={(e) => {
+          if (!(e.target as Element).closest("button, a, input, select")) toggle();
+        }}
+      >
         <h3 className="today-title">
           <button type="button" className="game-card-toggle" aria-expanded={open} aria-controls={bodyId} onClick={toggle}>
             <span className="game-card-chevron" aria-hidden>
@@ -523,11 +729,9 @@ function TodayRound({
           </button>
         </h3>
         <div className="game-card-right">
-          {!open && (
-            <span className="game-card-summary">
-              {submitted ? "✓ You're in" : "Your turn"} · {board.length} played
-            </span>
-          )}
+          <span className="game-card-summary">
+            {submitted ? "✓ Completed" : "Your turn"} · {board.length} played
+          </span>
           {ownClock && (
             <span className="time-left" title={`${game.name} runs on ${roundZone(game, crew).replaceAll("_", " ")} time`}>
               <span className="live-dot" aria-hidden>
@@ -560,24 +764,108 @@ function TodayRound({
   );
 }
 
-/** Which of today's games you've collapsed, per crew, in this browser. */
-const collapsedKey = (crewId: string, gameId: string) => `scrim-collapsed:${crewId}:${gameId}`;
+/** The crew's games as of your last visit, in this browser. */
+const seenKey = (crewId: string) => `scrim-seen-games:${crewId}`;
 
-function isCollapsed(crewId: string, gameId: string): boolean {
+/**
+ * The games the crew has added since you last looked, so they can be opened
+ * and not missed. On your first visit nothing counts as new.
+ */
+function newGamesSinceLastVisit(crewId: string, games: string[]): string[] {
   try {
-    return localStorage.getItem(collapsedKey(crewId, gameId)) !== null;
+    const saved = localStorage.getItem(seenKey(crewId));
+    localStorage.setItem(seenKey(crewId), JSON.stringify(games));
+    if (saved === null) return [];
+    const seen = new Set(JSON.parse(saved) as string[]);
+    return games.filter((g) => !seen.has(g));
   } catch {
-    return false;
+    return []; // Storage blocked or garbled: everything just starts collapsed.
   }
 }
 
-function rememberCollapsed(crewId: string, gameId: string, collapsed: boolean) {
-  try {
-    if (collapsed) localStorage.setItem(collapsedKey(crewId, gameId), "1");
-    else localStorage.removeItem(collapsedKey(crewId, gameId));
-  } catch {
-    // Storage blocked: it just won't be remembered.
-  }
+const DAYS_PER_PAGE = 10;
+
+/** closes_at is the midnight that ended the day; this is a moment in the day itself. */
+const roundDay = (round: Round) => new Date(new Date(round.closes_at).getTime() - 60_000);
+
+/** Past rounds grouped by day, newest first, a page of days at a time. */
+function Archive({
+  rounds,
+  findGame,
+  names,
+  isOwner,
+  onVoid,
+}: {
+  rounds: RoundWithEntries[];
+  findGame: (id: string) => GameAdapter<unknown>;
+  names: Map<string, string>;
+  isOwner: boolean;
+  onVoid: (row: BoardRow) => void;
+}) {
+  const days = useMemo(() => {
+    const byDay = new Map<string, { day: Date; rounds: RoundWithEntries[] }>();
+    for (const r of rounds) {
+      const day = roundDay(r);
+      const key = day.toDateString();
+      const group = byDay.get(key);
+      if (group) group.rounds.push(r);
+      else byDay.set(key, { day, rounds: [r] });
+    }
+    return [...byDay.entries()]
+      .map(([key, g]) => ({ key, ...g }))
+      .sort((a, b) => b.day.getTime() - a.day.getTime());
+  }, [rounds]);
+
+  const pages = Math.max(1, Math.ceil(days.length / DAYS_PER_PAGE));
+  const [page, setPage] = useState(0);
+  const current = Math.min(page, pages - 1);
+  const shown = days.slice(current * DAYS_PER_PAGE, (current + 1) * DAYS_PER_PAGE);
+
+  return (
+    <>
+      <ul className="list list-archive">
+        {shown.map(({ key, day, rounds: dayRounds }) => (
+          <li key={key}>
+            <details className="archive-day">
+              <summary className="list-row">
+                <span className="archive-date">{formatDay(day.toISOString())}</span>
+                <span className="archive-day-games">
+                  {dayRounds.map((r) => (
+                    <GameTag key={r.id} game={findGame(r.game)} />
+                  ))}
+                </span>
+              </summary>
+              <ul className="archive-day-rounds">
+                {dayRounds.map((r) => (
+                  <PastRound
+                    key={r.id}
+                    game={findGame(r.game)}
+                    round={r}
+                    names={names}
+                    isOwner={isOwner}
+                    onVoid={onVoid}
+                  />
+                ))}
+              </ul>
+            </details>
+          </li>
+        ))}
+      </ul>
+      {pages > 1 && (
+        <nav className="row between archive-pager" aria-label="Archive pages">
+          <button className="btn btn-small" disabled={current === 0} onClick={() => setPage(current - 1)}>
+            ← Newer
+          </button>
+          <span className="muted small">
+            Page {current + 1} of {pages}
+          </span>
+          <button className="btn btn-small" disabled={current >= pages - 1} onClick={() => setPage(current + 1)}>
+            Older →
+          </button>
+        </nav>
+      )}
+    </>
+  );
 }
 
 function PastRound({
@@ -603,14 +891,10 @@ function PastRound({
     result: e.result,
     hidden: false,
   }));
-  // closes_at is the midnight that ended the day; show the day itself.
-  const day = new Date(new Date(round.closes_at).getTime() - 60_000).toISOString();
-
   return (
     <li>
       <details className="past-round">
         <summary className="list-row">
-          <span className="archive-date">{formatDay(day)}</span>
           <span>
             <GameTag game={game} /> {game.puzzleLabel(round.puzzle_id)}
           </span>
@@ -661,8 +945,6 @@ function CrewGames({
     setError(null);
     try {
       await rpc("set_crew_game", { p_crew: crew.id, p_game: game.id, p_tracked: on });
-      // A game you just added opens expanded, even if you'd collapsed it before.
-      if (on) rememberCollapsed(crew.id, game.id, false);
       onGames(on ? [...games, game.id] : games.filter((g) => g !== game.id));
     } catch (e) {
       setError(errorMessage(e));

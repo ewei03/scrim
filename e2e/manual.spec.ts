@@ -7,6 +7,7 @@ import {
   hasAccounts,
   signIn,
   loginBrowser,
+  expandGameCards,
   type Signed,
 } from "./support/accounts";
 import { todaysWordle, wordleShareText } from "./support/games";
@@ -39,6 +40,7 @@ test("pasted results are checked, and a good one is locked in", async ({ page, c
   const crew = await createCrewApi(owner, "E2E Paste Crew", ["wordle"]);
   await loginBrowser(context, owner);
   await page.goto(`/crew/${crew.invite_code}`);
+  await expandGameCards(page);
 
   // No extension in this browser: it says so, and offers pasting instead.
   await expect(card(page, "Wordle")).toContainText("Enable the Scrim extension");
@@ -90,6 +92,7 @@ test("hidden scores stay hidden until you submit yours", async ({ page, context,
   // The owner pastes a result.
   await loginBrowser(context, owner);
   await page.goto(`/crew/${crew.invite_code}`);
+  await expandGameCards(page);
   const { box, lock } = await openPasteBox(page);
   await box.fill(wordleShareText());
   await lock.click();
@@ -100,6 +103,7 @@ test("hidden scores stay hidden until you submit yours", async ({ page, context,
   await loginBrowser(friendContext, friend);
   const friendPage = await friendContext.newPage();
   await friendPage.goto(`/crew/${crew.invite_code}`);
+  await expandGameCards(friendPage);
   const ownerRow = card(friendPage, "Wordle").locator("tbody tr", { hasText: accounts.owner.name });
   await expect(ownerRow.getByText("Hidden")).toBeVisible();
   await expect(ownerRow).toContainText("Submit yours to see");
@@ -117,6 +121,7 @@ test("the crew owner can void an entry so it can be submitted again", async ({ p
   const crew = await createCrewApi(owner, "E2E Void Crew", ["wordle"]);
   await loginBrowser(context, owner);
   await page.goto(`/crew/${crew.invite_code}`);
+  await expandGameCards(page);
   const { box, lock, wordle } = await openPasteBox(page);
   await box.fill(wordleShareText());
   await lock.click();
@@ -151,6 +156,7 @@ test("custom game scores are typed in and checked", async ({ page, context }) =>
 
   await loginBrowser(context, owner);
   await page.goto(`/crew/${crew.invite_code}`);
+  await expandGameCards(page);
   const sprint = card(page, "E2E Sprint");
   await expect(sprint).toContainText("Enter your time from the results screen");
   const input = sprint.getByLabel("Your E2E Sprint score");
