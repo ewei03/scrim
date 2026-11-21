@@ -86,7 +86,8 @@ export default function PrivacyPage() {
       <p>
         Scrim&apos;s data is stored with Supabase. Your browser keeps your login session,
         your light/dark mode preference and whether you&apos;ve seen the welcome guide in local storage. Guest
-        accounts exist only in that browser.
+        accounts exist only in that browser. A guest who doesn&apos;t play for 48 hours is taken out of their
+        crews, but their results for finished days stay in those crews&apos; history.
       </p>
 
       <h3>What Scrim doesn&apos;t do</h3>
@@ -130,7 +131,7 @@ export default function PrivacyPage() {
       <h3>Names and other things you write</h3>
       <p>
         Display names, crew names and game suggestions must not be abusive, hateful, sexually explicit or illegal,
-        and must not impersonate someone else. You own what you write.
+        and must not impersonate someone else with malicious intent. You own what you write.
       </p>
 
       <h3>The games</h3>

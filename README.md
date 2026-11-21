@@ -51,11 +51,14 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
   edits or deletes one from its card under Today (✎); deleting also
   removes its scores and past days.
 - **Guests:** a guest account exists only in the browser that made it, so
-  it's lost by signing out, switching devices or clearing site data. Until
-  then it stays in the crews it joins like anyone else. Guests can't make
+  it's lost by signing out, switching devices or clearing site data. It
+  stays in the crews it joins until it's been inactive for 48 hours (no
+  score, no crew joined): then it's taken out of them, keeping its finished
+  days in the archive but dropping out of the rankings (0025). Guests can't make
   crews: they join someone else's with an invite link (opened, or pasted on
   the home page). Linking Google makes it a regular account. Guests show as
-  "(guest)" in the crew box, scoreboards and rankings. They can't suggest
+  "(guest)" in the crew box, scoreboards, rankings and archive. Rankings count
+  current members only, so anyone who leaves or is removed drops out of them. They can't suggest
   games, and a crew owner can turn guest joins off. A guest account with
   nothing left (no crews, no scores) is deleted a day after it was made
   (checked every 5 minutes via pg_cron).

@@ -326,7 +326,7 @@ function CrewPage() {
     return map;
   }, [rounds, members]);
 
-  // Guests, current and past: marked "(guest)" in the rankings.
+  // Guests, current and past: marked "(guest)" in the rankings and the archive.
   const guests = useMemo(() => {
     const set = new Set<string>();
     for (const r of rounds) for (const e of r.entries) if (e.profiles?.is_guest) set.add(e.user_id);
@@ -353,12 +353,12 @@ function CrewPage() {
         ? rounds.filter((r) => r.entries.length > 0 && !isClosed(r, now))
         : finished;
     const played = pool.filter((r) => r.game === game.id && inPeriod(r, rankingsPeriod, zone, now));
-    // Members, plus guests who have left: their scores still count. (Regular
-    // players who left drop out of the rankings.)
-    const ids = new Set(members.map((m) => m.user_id));
-    for (const r of played) for (const e of r.entries) if (guests.has(e.user_id)) ids.add(e.user_id);
-    return { game, count: played.length, ...crewStats(game, played, [...ids], { byWinRate: crew.rank_by_win_rate }) };
-  }, [rankedGames, rankingsGame, rankingsPeriod, crew, rounds, finished, members, guests, now]);
+    // Current members only: anyone who left or was removed (including guests
+    // removed for being inactive) drops out of the rankings, though their
+    // finished days stay in the archive. Matches the extension's rankings.
+    const ids = members.map((m) => m.user_id);
+    return { game, count: played.length, ...crewStats(game, played, ids, { byWinRate: crew.rank_by_win_rate }) };
+  }, [rankedGames, rankingsGame, rankingsPeriod, crew, rounds, finished, members, now]);
 
   if (gone) {
     return (
@@ -399,13 +399,8 @@ function CrewPage() {
         joinedAt: viewedRow.joined_at,
       }
     : null;
-  // Everyone the all-time rankings include: members, plus guests who left.
-  const rankedIds = [
-    ...new Set([
-      ...members.map((m) => m.user_id),
-      ...finished.flatMap((r) => r.entries.filter((e) => guests.has(e.user_id)).map((e) => e.user_id)),
-    ]),
-  ];
+  // Everyone the rankings include: current members.
+  const rankedIds = members.map((m) => m.user_id);
   const tracked = inSavedOrder(
     allGames.filter((g) => games.includes(g.id)),
     (g) => g.id,

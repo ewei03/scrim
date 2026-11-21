@@ -928,6 +928,69 @@ describe("idle guests", () => {
   });
 });
 
+describe("inactive guests", () => {
+  const id = (n: number) => `00000000-0000-0000-0000-0000000007${String(n).padStart(2, "0")}`;
+  const [QUIET, ACTIVE, FRESH, OWNS, REGULAR] = [id(1), id(2), id(3), id(4), id(5)];
+  let crew: CrewRow;
+  const inCrew = async (user: string) =>
+    (await db.query("select 1 from crew_members where crew_id = $1 and user_id = $2", [crew.id, user])).rows.length > 0;
+  const entryCount = async (user: string) =>
+    (await db.query<{ n: number }>("select count(*)::int as n from entries where user_id = $1", [user])).rows[0].n;
+
+  beforeAll(async () => {
+    await db.query(
+      `insert into auth.users (id, raw_user_meta_data, is_anonymous) values
+       ($1, '{"display_name":"Quiet"}', true), ($2, '{"display_name":"Active"}', true),
+       ($3, '{"display_name":"Fresh"}', true), ($4, '{"display_name":"Owns"}', true),
+       ($5, '{"display_name":"Regular"}', false)`,
+      [QUIET, ACTIVE, FRESH, OWNS, REGULAR],
+    );
+    // A regular player's crew (the shared test players are in plenty already).
+    crew = await createCrew(REGULAR, "Quiet Check", "wordle");
+    for (const u of [QUIET, ACTIVE, FRESH]) await as(u, "select join_crew($1)", [crew.invite_code]);
+    // A guest who owns a crew, from before guests were stopped making them.
+    await db.query("update auth.users set is_anonymous = false where id = $1", [OWNS]);
+    await createCrew(OWNS, "Guest Owned 2");
+    await db.query("update auth.users set is_anonymous = true where id = $1", [OWNS]);
+    // A finished day the quiet guest played, and today, which they also played.
+    await insertRounds(crew.id, [
+      {
+        id: "00000000-0000-0000-0000-000000000710",
+        closes_at: new Date(Date.UTC(2026, 2, 1)).toISOString(),
+        entries: [{ user_id: QUIET, result: manualWordle("1", 4, false) }],
+      },
+    ]);
+    await submitEntry(QUIET, crew.id, solve(T, 3));
+    await submitEntry(ACTIVE, crew.id, solve(T, 4));
+    // Everyone but Fresh made their account and joined 3 days ago...
+    await db.query("update profiles set created_at = now() - interval '3 days' where id = any($1)", [[QUIET, ACTIVE, OWNS, REGULAR]]);
+    await db.query("update crew_members set joined_at = now() - interval '3 days' where user_id = any($1)", [[QUIET, ACTIVE, OWNS, REGULAR]]);
+    // ...and the quiet guest's last score was 3 days ago too. Active scored just now.
+    await db.query("update entries set submitted_at = now() - interval '3 days' where user_id = $1", [QUIET]);
+  });
+
+  it("takes guests with nothing done in 48 hours out of their crews, keeping finished days", async () => {
+    await db.query("select remove_expired_guests()");
+    expect(await inCrew(QUIET)).toBe(false);
+    // Today's score is gone; the finished day stays for the archive, and so does the account.
+    expect(await entryCount(QUIET)).toBe(1);
+    expect((await board(REGULAR, crew.id, T)).map((r) => r.user_id)).toEqual([ACTIVE]);
+    expect((await db.query("select 1 from auth.users where id = $1", [QUIET])).rows).toHaveLength(1);
+  });
+
+  it("leaves active and new guests, guests who own a crew, and regular players", async () => {
+    expect(await inCrew(ACTIVE)).toBe(true);
+    expect(await inCrew(FRESH)).toBe(true);
+    expect(await inCrew(REGULAR)).toBe(true);
+    expect((await db.query("select 1 from crew_members where user_id = $1", [OWNS])).rows).toHaveLength(1);
+  });
+
+  it("lets a removed guest rejoin with the invite link", async () => {
+    await as(QUIET, "select join_crew($1)", [crew.invite_code]);
+    expect(await inCrew(QUIET)).toBe(true);
+  });
+});
+
 describe("crew limits", () => {
   const id = (n: number) => `00000000-0000-0000-0000-0000000001${String(n).padStart(2, "0")}`;
   const GUEST = id(99);

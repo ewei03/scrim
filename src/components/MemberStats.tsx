@@ -37,7 +37,7 @@ export function MemberStats({
   games: GameAdapter<unknown>[];
   /** Finished days, every game. */
   rounds: GameRound[];
-  /** Everyone in the rankings (members, plus guests who left), for their place. */
+  /** Everyone in the rankings (current members), for their place. */
   rankedIds: string[];
   /** The crew's ranking rule. */
   byWinRate: boolean;

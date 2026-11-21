@@ -80,6 +80,9 @@ function Profile() {
             <p>
               You&apos;re playing as a <strong>guest</strong>. Link your Google account to keep your stats.
             </p>
+            <p className="muted small">
+              As a guest, you will be removed from your crews after 48 hours of inactivity.
+            </p>
             <GoogleButton mode="link" onError={setError} />
           </>
         ) : (
