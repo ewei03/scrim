@@ -1445,7 +1445,20 @@ select.input {
   background: var(--card);
   border: 2px solid var(--line);
   border-radius: var(--radius);
+  transition: transform 60ms, box-shadow 60ms;
+}
+
+/* Hovering the bar lifts the card, like the crew box's game buttons. */
+.game-card:has(> .game-card-bar:hover),
+.game-card:has(.game-card-toggle:focus-visible) {
+  transform: translate(-1px, -1px);
   box-shadow: 4px 4px 0 var(--game);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-card {
+    transition: none;
+  }
 }
 
 .game-card-bar {
