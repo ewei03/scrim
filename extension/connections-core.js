@@ -176,8 +176,9 @@
   }
 
   function formatScore(result) {
-    if (!result.solved) return `X · ${result.groups}/4`;
-    return result.mistakes === 0 ? "Perfect" : `${result.mistakes} mistake${result.mistakes === 1 ? "" : "s"}`;
+    // Same as the site: "⭐" for no mistakes, "1❌" to "3❌" for mistakes, "💀" on the fourth.
+    if (!result.solved) return "💀";
+    return result.mistakes === 0 ? "⭐" : `${result.mistakes}❌`;
   }
 
   const api = {

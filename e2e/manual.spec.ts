@@ -80,9 +80,10 @@ test("pasted results are checked, and a good one is locked in", async ({ page, c
   // One submission per puzzle: the paste box is gone.
   await expect(wordle.locator("textarea")).toHaveCount(0);
 
-  // The home page shows it as done.
+  // The home page drops it from Today: nothing left to play.
   await page.goto("/");
-  await expect(page.locator(".pill-done").first()).toBeVisible();
+  await expect(page.getByText("All caught up for today.")).toBeVisible();
+  await expect(page.locator(".list-live .list-row")).toHaveCount(0);
 });
 
 test("hidden scores stay hidden until you submit yours", async ({ page, context, browser }) => {

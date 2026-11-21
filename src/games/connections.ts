@@ -102,8 +102,8 @@ export const connections: GameAdapter<ConnectionsResult> = {
 
   compare: (a, b) => points(a) - points(b),
   canWin: (r) => r.solved,
-  formatScore: (r) =>
-    r.solved ? (r.mistakes === 0 ? "Perfect" : `${r.mistakes} mistake${r.mistakes === 1 ? "" : "s"}`) : `X · ${r.groups}/4`,
+  // Compact: "⭐" for no mistakes, "1❌" to "3❌" for mistakes, "💀" on the fourth.
+  formatScore: (r) => (!r.solved ? "💀" : r.mistakes === 0 ? "⭐" : `${r.mistakes}❌`),
   averageLabel: "Avg mistakes",
   average(results) {
     const solved = results.filter((r) => r.solved);

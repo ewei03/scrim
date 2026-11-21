@@ -205,6 +205,27 @@ test("pick the crew's games, including a custom one", async ({ page, context, br
   await wordleHeader.click();
   await expect(wordleHeader).toHaveAttribute("aria-expanded", "true");
 
+  // Reorder in the modal: Cancel keeps the order, OK saves it (and it stays after a reload).
+  const cardOrder = () =>
+    page.locator(".game-card").evaluateAll((cards) => cards.map((c) => (c as HTMLElement).dataset.gameCard));
+  const reorder = page.getByRole("dialog", { name: "Reorder games" });
+  expect(await cardOrder()).toEqual(["wordle", "connections"]);
+  await page.getByRole("button", { name: "reorder" }).click();
+  // (Dragging is what people use; the arrow keys move the focused game the same way.)
+  const row = (name: string) => reorder.getByRole("listitem", { name: new RegExp(`^${name},`) });
+  await row("Connections").press("ArrowUp");
+  await reorder.getByRole("button", { name: "Cancel" }).click();
+  await expect(reorder).toBeHidden();
+  expect(await cardOrder()).toEqual(["wordle", "connections"]);
+  await page.getByRole("button", { name: "reorder" }).click();
+  await row("Connections").press("ArrowUp");
+  await expect(row("Connections")).toHaveAccessibleName(/1 of 2/);
+  await reorder.getByRole("button", { name: "OK" }).click();
+  await expect(reorder).toBeHidden();
+  await expect.poll(cardOrder).toEqual(["connections", "wordle"]);
+  await page.reload();
+  await expect.poll(cardOrder).toEqual(["connections", "wordle"]);
+
   // Turn Connections off again (after confirming).
   await toggle("Connections").click();
   await answerConfirm(page, false);

@@ -1,5 +1,6 @@
 import type { GameAdapter } from "@/games/types";
 import type { PlayerStats } from "@/lib/stats";
+import { PlayerName } from "./PlayerName";
 
 export function Rankings({
   game,
@@ -32,8 +33,7 @@ export function Rankings({
             <tr key={p.userId}>
               <td className="place">{p.played ? sharedRank(players, p) : "–"}</td>
               <td className="name">
-                {names.get(p.userId) ?? "?"}
-                {guests.has(p.userId) && <span className="guest-tag"> (guest)</span>}
+                <PlayerName name={names.get(p.userId) ?? "?"} guest={guests.has(p.userId)} />
               </td>
               <td className="right score">{p.wins}</td>
               <td className="right">{p.played}</td>

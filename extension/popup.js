@@ -176,11 +176,8 @@ function save(view) {
 
 function describe(game, result) {
   if (game === "connections") {
-    const score = !result.solved
-      ? `X · ${result.groups}/4`
-      : result.mistakes === 0
-        ? "Perfect"
-        : `${result.mistakes} mistake${result.mistakes === 1 ? "" : "s"}`;
+    // Same as the site: "⭐" for no mistakes, "1❌" to "3❌" for mistakes, "💀" on the fourth.
+    const score = !result.solved ? "💀" : result.mistakes === 0 ? "⭐" : `${result.mistakes}❌`;
     return { name: "Connections", score };
   }
   if (game === "krillion") return { name: "Krillion", score: result.points.toLocaleString("en-US") };

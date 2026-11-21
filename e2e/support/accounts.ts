@@ -91,8 +91,8 @@ export async function createCrewApi(signed: Signed, name: string, games: string[
 }
 
 /**
- * Opens every game card under Today. Cards start collapsed on a first visit
- * (only games added since your last visit open by themselves).
+ * Opens every game card under Today. They start open, so this only matters
+ * after a test has collapsed some.
  */
 export async function expandGameCards(page: Page) {
   await page.locator(".game-card").first().waitFor();

@@ -8,6 +8,7 @@ import { CopyLink } from "@/components/CopyLink";
 import { CustomGameForm } from "@/components/CustomGameForm";
 import { GameTag, gameStyle } from "@/components/GameTag";
 import { Modal } from "@/components/Modal";
+import { ReorderGames } from "@/components/ReorderGames";
 import { Rankings } from "@/components/Rankings";
 import { Loading, RequireAuth } from "@/components/RequireAuth";
 import { Scoreboard } from "@/components/Scoreboard";
@@ -19,7 +20,6 @@ import type { GameAdapter } from "@/games/types";
 import { useAuth } from "@/lib/auth";
 import { askExtension, useExtension, type ExtensionState } from "@/lib/extension";
 import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone, roundZone } from "@/lib/rounds";
-import { joinedSince, lastCrewVisit, listNames, recordCrewVisit } from "@/lib/crewVisits";
 import { inSavedOrder, saveGameOrder, savedGameOrder } from "@/lib/gameOrder";
 import { crewStats } from "@/lib/stats";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
@@ -83,10 +83,9 @@ function rememberTab(code: string, tab: Tab) {
   }
 }
 
-type Person = { user_id: string; profiles: { display_name: string; is_guest: boolean } };
-type Member = Person & { joined_at: string };
+type Member = { user_id: string; profiles: { display_name: string; is_guest: boolean } };
 /** Someone asking to join a crew that needs the owner's approval (only the owner sees these). */
-type JoinRequest = Person & { created_at: string };
+type JoinRequest = Member & { created_at: string };
 type RoundWithEntries = Round & {
   entries: {
     id: string;
@@ -131,7 +130,7 @@ async function fetchCrew(code: string, join: boolean) {
     crew = data as Crew;
   }
   const [m, g, cg, r, jr] = await Promise.all([
-    sb.from("crew_members").select("user_id, joined_at, profiles(display_name, is_guest)").eq("crew_id", crew.id).order("joined_at"),
+    sb.from("crew_members").select("user_id, profiles(display_name, is_guest)").eq("crew_id", crew.id).order("joined_at"),
     sb.from("crew_games").select("game").eq("crew_id", crew.id),
     sb.from("custom_games").select("*").eq("crew_id", crew.id).order("created_at"),
     sb
@@ -185,32 +184,20 @@ function CrewPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<Tab>("today");
   const tabsId = useId();
-  // Which of today's cards are open. Every visit starts with them all
-  // collapsed; a game new to the crew opens once, when it appears.
+  // Which of today's cards you've collapsed or opened this visit. Every visit
+  // starts with them all open.
   const [openCards, setOpenCards] = useState<Record<string, boolean>>({});
   const setCardOpen = useCallback((gameId: string, open: boolean) => {
     setOpenCards((p) => (p[gameId] === open ? p : { ...p, [gameId]: open }));
   }, []);
-  // Your own order for today's cards (dragged by their handles), kept in this browser.
+  // Your own order for today's cards (set in the Reorder games modal), kept in this browser.
   const userId = user?.id;
   const crewId = crew?.id;
   const orderKey = userId && crewId ? `${userId}:${crewId}` : "";
   const [dragged, setDragged] = useState<{ key: string; ids: string[] } | null>(null);
   const storedOrder = useMemo(() => (userId && crewId ? savedGameOrder(userId, crewId) : []), [userId, crewId]);
   const gameOrder = dragged?.key === orderKey ? dragged.ids : storedOrder;
-  const [dragging, setDragging] = useState<string | null>(null);
-  // Who's joined since you last opened the crew (in this browser). The last
-  // visit is read once, before this one is recorded.
-  const lastVisit = useMemo(() => (userId && crewId ? lastCrewVisit(userId, crewId) : null), [userId, crewId]);
-  useEffect(() => {
-    if (userId && crewId) recordCrewVisit(userId, crewId);
-  }, [userId, crewId]);
-  const [dismissedJoins, setDismissedJoins] = useState<string[]>([]);
-  const newcomers = useMemo(() => joinedSince(members, userId, lastVisit), [members, userId, lastVisit]);
-  const unseenNewcomers = newcomers.filter((m) => !dismissedJoins.includes(m.user_id));
-  // Off by default, so the handles stay out of the way until you want to rearrange.
-  const [reordering, setReordering] = useState(false);
-  const todayPanel = useRef<HTMLElement>(null);
+  const [showReorder, setShowReorder] = useState(false);
   // Whether you've submitted each of today's games, as their boards report it.
   const [played, setPlayed] = useState<Record<string, boolean>>({});
   const onPlayed = useCallback(
@@ -253,7 +240,6 @@ function CrewPage() {
           setCrew(d.crew);
           setRequests(d.requests);
           setMembers(d.members);
-          for (const g of newGamesSinceLastVisit(d.crew.id, d.games)) setCardOpen(g, true);
           setGames(d.games);
           setCustomGames(d.customGames);
           setRounds(d.rounds);
@@ -261,7 +247,7 @@ function CrewPage() {
         },
         (e) => (e instanceof CrewGoneError ? setGone(true) : setError(errorMessage(e))),
       ),
-    [code, setCardOpen],
+    [code],
   );
 
   useEffect(() => {
@@ -403,7 +389,7 @@ function CrewPage() {
     (g) => g.id,
     gameOrder,
   );
-  const isOpen = (gameId: string) => openCards[gameId] ?? false;
+  const isOpen = (gameId: string) => openCards[gameId] ?? true;
   const anyCollapsed = tracked.some((g) => !isOpen(g.id));
   const toPlay = tracked.filter((g) => played[g.id] === false).length;
   // Custom games with scores in them have their scoring locked.
@@ -413,50 +399,6 @@ function CrewPage() {
     if (!userId || !crewId) return;
     setDragged({ key: orderKey, ids });
     saveGameOrder(userId, crewId, ids);
-  }
-
-  /** Moves a card one place up or down (the handle's arrow keys). */
-  function moveCard(gameId: string, step: -1 | 1) {
-    const ids = tracked.map((g) => g.id);
-    const from = ids.indexOf(gameId);
-    const to = from + step;
-    if (from < 0 || to < 0 || to >= ids.length) return;
-    ids.splice(from, 1);
-    ids.splice(to, 0, gameId);
-    reorder(ids);
-  }
-
-  /**
-   * Drags a card by its handle: as the pointer passes another card's middle,
-   * the cards swap places. Listens on the window, since the card moves around
-   * the page under the pointer.
-   */
-  function startDrag(e: React.PointerEvent, gameId: string) {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    setDragging(gameId);
-    const onMove = (ev: PointerEvent) => {
-      const panel = todayPanel.current;
-      if (!panel) return;
-      const cards = [...panel.querySelectorAll<HTMLElement>("[data-game-card]")];
-      const others = cards.filter((c) => c.dataset.gameCard !== gameId);
-      const to = others.filter((c) => {
-        const r = c.getBoundingClientRect();
-        return r.top + r.height / 2 < ev.clientY;
-      }).length;
-      const ids = others.map((c) => c.dataset.gameCard!);
-      ids.splice(to, 0, gameId);
-      if (ids.join() !== cards.map((c) => c.dataset.gameCard).join()) reorder(ids);
-    };
-    const stop = () => {
-      setDragging(null);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", stop);
-      window.removeEventListener("pointercancel", stop);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", stop);
-    window.addEventListener("pointercancel", stop);
   }
 
   async function voidEntry(name: string, entryId: string) {
@@ -515,14 +457,7 @@ function CrewPage() {
           </div>
           <ul className="member-chips">
             {members.map((m) => (
-              <li
-                key={m.user_id}
-                className={
-                  [m.user_id === user?.id && "me", newcomers.some((n) => n.user_id === m.user_id) && "new"]
-                    .filter(Boolean)
-                    .join(" ") || undefined
-                }
-              >
+              <li key={m.user_id} className={m.user_id === user?.id ? "me" : undefined}>
                 {m.user_id === crew.created_by && <OwnerCrown />}
                 {m.profiles.display_name}
                 {m.profiles.is_guest && <span className="guest-tag"> (guest)</span>}
@@ -607,23 +542,6 @@ function CrewPage() {
         </p>
       )}
 
-      {unseenNewcomers.length > 0 && (
-        <div className="card small row between joined-note" role="status">
-          <p>
-            <strong>{listNames(unseenNewcomers.map((m) => m.profiles.display_name))}</strong>{" "}
-            joined the crew since you were last here.
-          </p>
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label="Dismiss"
-            onClick={() => setDismissedJoins(newcomers.map((m) => m.user_id))}
-          >
-            ×
-          </button>
-        </div>
-      )}
-
 
       <div className="crew-tabs">
         <div className="crew-tabs-list" role="tablist" aria-label="Crew sections">
@@ -666,7 +584,6 @@ function CrewPage() {
       {/* One wrapper, so the page's entrance animation runs once and not on every tab switch. */}
       <div className="crew-panels">
         <section
-          ref={todayPanel}
           className="stack today-panel"
           role="tabpanel"
           id={`${tabsId}-today`}
@@ -685,13 +602,8 @@ function CrewPage() {
               </span>
               <div className="row today-head-actions">
                 {tracked.length > 1 && (
-                  <button
-                    type="button"
-                    className={`link-btn ${reordering ? "active" : ""}`}
-                    aria-pressed={reordering}
-                    onClick={() => setReordering((r) => !r)}
-                  >
-                    {reordering ? "lock in" : "reorder"}
+                  <button type="button" className="link-btn" aria-haspopup="dialog" onClick={() => setShowReorder(true)}>
+                    reorder
                   </button>
                 )}
                 <button
@@ -702,6 +614,12 @@ function CrewPage() {
                   {anyCollapsed ? "expand" : "collapse"}
                 </button>
               </div>
+              <ReorderGames
+                open={showReorder}
+                games={tracked}
+                onSave={reorder}
+                onClose={() => setShowReorder(false)}
+              />
             </div>
           )}
           {tracked.length === 0 ? (
@@ -728,9 +646,6 @@ function CrewPage() {
                 onPlayed={onPlayed}
                 open={isOpen(game.id)}
                 onOpen={(open) => setCardOpen(game.id, open)}
-                onDragStart={reordering && tracked.length > 1 ? (e) => startDrag(e, game.id) : undefined}
-                onMove={(step) => moveCard(game.id, step)}
-                dragging={dragging === game.id}
               />
             ))
           )}
@@ -828,15 +743,7 @@ function TodayRound({
   onPlayed,
   open,
   onOpen,
-  onDragStart,
-  onMove,
-  dragging,
 }: {
-  /** Set when there's more than one card: shows the handle that drags this one. */
-  onDragStart?: (e: React.PointerEvent) => void;
-  /** Moves the card a place up (-1) or down (1). */
-  onMove: (step: -1 | 1) => void;
-  dragging: boolean;
   /** Expanded or collapsed: kept by the page, so it can open or close them all. */
   open: boolean;
   onOpen: (open: boolean) => void;
@@ -894,7 +801,7 @@ function TodayRound({
 
   return (
     <article
-      className={`game-card ${open ? "" : "collapsed"} ${dragging ? "dragging" : ""}`}
+      className={`game-card ${open ? "" : "collapsed"}`}
       style={gameStyle(game)}
       data-game-card={game.id}
     >
@@ -905,23 +812,6 @@ function TodayRound({
           if (!(e.target as Element).closest("button, a, input, select")) toggle();
         }}
       >
-        {onDragStart && (
-          <button
-            type="button"
-            className="game-card-handle"
-            aria-label={`Move ${game.name} (arrow keys up or down)`}
-            title="Drag to reorder (or use the arrow keys)"
-            onPointerDown={onDragStart}
-            onKeyDown={(e) => {
-              const step = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
-              if (!step) return;
-              e.preventDefault();
-              onMove(step);
-            }}
-          >
-            <span aria-hidden>⠿</span>
-          </button>
-        )}
         <h3 className="today-title">
           <button type="button" className="game-card-toggle" aria-expanded={open} aria-controls={bodyId} onClick={toggle}>
             <span className="game-card-chevron" aria-hidden>
@@ -964,25 +854,6 @@ function TodayRound({
       </div>
     </article>
   );
-}
-
-/** The crew's games as of your last visit, in this browser. */
-const seenKey = (crewId: string) => `scrim-seen-games:${crewId}`;
-
-/**
- * The games the crew has added since you last looked, so they can be opened
- * and not missed. On your first visit nothing counts as new.
- */
-function newGamesSinceLastVisit(crewId: string, games: string[]): string[] {
-  try {
-    const saved = localStorage.getItem(seenKey(crewId));
-    localStorage.setItem(seenKey(crewId), JSON.stringify(games));
-    if (saved === null) return [];
-    const seen = new Set(JSON.parse(saved) as string[]);
-    return games.filter((g) => !seen.has(g));
-  } catch {
-    return []; // Storage blocked or garbled: everything just starts collapsed.
-  }
 }
 
 const DAYS_PER_PAGE = 10;

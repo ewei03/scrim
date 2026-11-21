@@ -763,7 +763,10 @@ select.input {
 
 /* ---------- scoreboard ---------- */
 
+/* Tables wider than the screen scroll sideways inside this. Positioned, so
+   off-screen labels (.sr-only) stay inside it instead of widening the page. */
 .table-wrap {
+  position: relative;
   overflow-x: auto;
 }
 
@@ -831,12 +834,39 @@ select.input {
   min-width: 15rem;
 }
 
-/* On phones, long names wrap instead of pushing the score off screen. */
+/* A name and its "(guest)" tag on one line (PlayerName). */
+.player-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35em;
+  max-width: 100%;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.player-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.player-name .guest-tag {
+  flex-shrink: 0;
+}
+
+/* On phones, long names are cut short with "…" rather than wrapping (which
+   made rows taller) or pushing the score off screen. */
 @media (max-width: 520px) {
   .scoreboard td.name {
     min-width: 0;
-    white-space: normal;
-    overflow-wrap: anywhere;
+  }
+
+  .player-name {
+    max-width: 36vw;
+  }
+
+  .player-name .guest-tag {
+    font-size: 0.75em;
   }
 }
 
@@ -1155,17 +1185,6 @@ select.input {
 
 /* ---------- today: live ---------- */
 
-/* Home page: today's games, one block per crew. */
-.today-crew {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.today-crew + .today-crew {
-  margin-top: 6px;
-}
-
 .today-head {
   margin: 0;
   align-items: center;
@@ -1176,8 +1195,7 @@ select.input {
   align-items: center;
 }
 
-/* Reorder / expand: brighten and sweep an underline in on hover. The reorder
-   toggle stays bright (but not underlined) while it's switched on. */
+/* Reorder / expand: brighten and sweep an underline in on hover. */
 .today-head-actions .link-btn {
   background-image: linear-gradient(currentColor, currentColor);
   background-repeat: no-repeat;
@@ -1193,18 +1211,15 @@ select.input {
   color: var(--ink);
   background-size: 100% 1px;
 }
-.today-head-actions .link-btn.active {
-  color: var(--ink);
-}
 @media (prefers-reduced-motion: reduce) {
   .today-head-actions .link-btn {
     transition: none;
   }
 }
 
-/* A little more air between today's game cards than a plain stack. */
+/* Today's game cards: a little closer together. */
 .today-panel {
-  gap: 16px;
+  gap: 10px;
 }
 
 /* ---------- crew page: Today / Rankings / Archive tabs ---------- */
@@ -1328,28 +1343,6 @@ select.input {
     padding: 8px 10px;
     font-size: 0.9rem;
   }
-}
-
-.today-crew-head {
-  align-items: center;
-}
-
-.today-crew-name {
-  font-size: 0.85rem;
-  font-family: var(--font-body), var(--emoji);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-}
-
-.today-crew-name a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.today-crew-name a:hover {
-  color: var(--ink);
-  text-decoration: underline;
 }
 
 .list-live {
@@ -1566,13 +1559,14 @@ select.input {
   color: inherit;
 }
 
-/* Game names on the Today cards: Fira Code (the body font), not the display
-   font the other headings use. Sized for Fira Code, so no display scaling. */
+/* Game names on the Today cards: set like the game buttons in the crew box
+   (.game-toggle), in the body font rather than the display font the other
+   headings use. */
 .today-title {
   font-family: var(--font-body), var(--emoji);
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -1634,41 +1628,83 @@ select.input {
   background: rgb(255 255 255 / 0.6);
 }
 
-/* The grip that drags a card into your own order. */
-.game-card-handle {
-  font: inherit;
-  font-size: 1.1rem;
-  line-height: 1;
-  color: inherit;
-  padding: 2px 4px;
-  margin-left: -8px;
-  background: none;
-  border: 0;
+/* ---------- Reorder games modal ---------- */
+
+/* Full width: beats .dialog-body ol's indent. */
+.dialog-body .reorder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* .dialog-body li + li adds a margin; the list's gap spaces them instead. */
+.dialog-body .reorder-list li + li {
+  margin-top: 0;
+}
+
+/* A small version of a game card's bar: the game's colour, picked up anywhere. */
+.reorder-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--game);
+  color: #1c1b19;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  font-weight: 600;
   cursor: grab;
   touch-action: none;
-  opacity: 0.7;
+  user-select: none;
 }
 
-.game-card-handle:hover,
-.game-card-handle:focus-visible {
-  opacity: 1;
-}
-
-.game-card-handle:focus-visible {
-  outline: 2px dashed #1c1b19;
+.reorder-row:focus-visible {
+  outline: 2px dashed var(--ink);
   outline-offset: 2px;
 }
 
-/* The card being dragged stays lifted, and the page doesn't select text. */
-.game-card.dragging {
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0 var(--game);
+.reorder-grip {
+  font-size: 1.1rem;
+  line-height: 1;
+  opacity: 0.6;
 }
 
-body:has(.game-card.dragging) {
+.reorder-name {
+  flex: 1;
+}
+
+/* While one is held, the others glide aside to show where it'll land. */
+.reorder-list.sorting .reorder-row:not(.lifted) {
+  transition: transform 0.15s ease;
+}
+
+/* The one being dragged: lifted off the list, following the pointer. */
+.reorder-row.lifted {
+  z-index: 1;
+  cursor: grabbing;
+  scale: 1.03;
+  box-shadow: 5px 5px 0 var(--line);
+}
+
+.reorder-row.lifted .reorder-grip {
+  opacity: 1;
+}
+
+body:has(.reorder-row.lifted) {
   cursor: grabbing;
   user-select: none;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .reorder-list.sorting .reorder-row:not(.lifted) {
+    transition: none;
+  }
+}
+
 
 .game-card-right {
   display: flex;
@@ -1755,22 +1791,6 @@ body:has(.game-card.dragging) {
 .join-requests-note {
   border: 2px solid var(--accent-text);
   box-shadow: none;
-}
-
-/* "Sam joined the crew since you were last here", and their chip, outlined. */
-.joined-note {
-  border: 2px solid var(--accent-text);
-  box-shadow: none;
-  align-items: center;
-  gap: 12px;
-}
-
-.joined-note p {
-  margin: 0;
-}
-
-.member-chips li.new {
-  border-color: var(--accent-text);
 }
 
 .member-chips li.me {

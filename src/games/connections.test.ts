@@ -16,7 +16,8 @@ describe("parseConnections", () => {
       ok: true,
       result: { puzzle: "403", solved: true, mistakes: 1, groups: 4, grid: ["yyyy", "gbgg", "gggg", "bbbb", "pppp"] },
     });
-    expect(connections.formatScore(r.ok ? r.result : ({} as never))).toBe("1 mistake");
+    expect(connections.formatScore(r.ok ? r.result : ({} as never))).toBe("1❌");
+    expect(connections.formatScore({ puzzle: "403", solved: true, mistakes: 0, groups: 4 })).toBe("⭐");
   });
 
   it("reads a loss and big puzzle numbers", () => {
@@ -24,6 +25,7 @@ describe("parseConnections", () => {
       "Connections \r\nPuzzle #1,257\r\n🟨🟨🟨🟨\r\n🟩🟦🟩🟩\r\n🟪🟦🟩🟩\r\n🟦🟦🟪🟦\r\n🟪🟩🟦🟪",
     );
     expect(r.ok && r.result).toMatchObject({ puzzle: "1257", solved: false, mistakes: 4, groups: 1 });
+    expect(connections.formatScore(r.ok ? r.result : ({} as never))).toBe("💀");
   });
 
   it("rejects text that isn't a finished game", () => {

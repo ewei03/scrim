@@ -24,6 +24,37 @@ export function Modal({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
+
+  // A click outside the dialog's box closes it. Judged by where the pointer
+  // went down and came up, not by the event's target, so it works wherever
+  // the backdrop is clicked; and a drag that starts inside (selecting text)
+  // and ends outside doesn't count. Keyboard "clicks" have no pointerdown.
+  useEffect(() => {
+    const d = dialog.current;
+    if (!d || !dismissOnBackdrop) return;
+    const outside = (e: MouseEvent) => {
+      const r = d.getBoundingClientRect();
+      return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+    };
+    let downOutside = false;
+    const down = (e: PointerEvent) => {
+      downOutside = outside(e);
+    };
+    const click = (e: MouseEvent) => {
+      if (downOutside && outside(e)) closeRef.current();
+      downOutside = false;
+    };
+    d.addEventListener("pointerdown", down);
+    d.addEventListener("click", click);
+    return () => {
+      d.removeEventListener("pointerdown", down);
+      d.removeEventListener("click", click);
+    };
+  }, [dismissOnBackdrop]);
 
   useEffect(() => {
     const d = dialog.current;
@@ -45,7 +76,6 @@ export function Modal({
       aria-labelledby={titleId}
       // Fires on Escape and on close(); keeps the parent's state in sync.
       onClose={onClose}
-      onClick={(e) => dismissOnBackdrop && e.target === dialog.current && onClose()}
     >
       <div className="dialog-head">
         <h2 id={titleId}>{title}</h2>

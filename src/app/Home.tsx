@@ -16,8 +16,7 @@ import { useExtension } from "@/lib/extension";
 import { inviteCode } from "@/lib/invite";
 import { inSavedOrder, savedGameOrder } from "@/lib/gameOrder";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
-import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone } from "@/lib/rounds";
-import { timeLeft } from "@/lib/time";
+import { crewDeadline, crewPuzzle, localTimeZone } from "@/lib/rounds";
 import type { Crew, Round } from "@/lib/types";
 
 type OpenRound = Pick<Round, "crew_id" | "game" | "puzzle_id"> & { entries: { user_id: string }[] };
@@ -158,7 +157,7 @@ function Dashboard() {
 
   // Every game each crew plays, on the crew's own day.
   const now = new Date();
-  const today = crews
+  const allToday = crews
     .flatMap((crew) =>
       // Built-in games, then the crew's own custom games, in the order you've
       // dragged them into on the crew's page.
@@ -175,22 +174,23 @@ function Dashboard() {
             crew,
             game,
             puzzleId,
-            deadline: crewDeadline(game, crew, now).toISOString(),
-            // Shown on the row only when it differs from the crew's (shown once, by the crew's name).
-            ownClock: crewDeadline(game, crew, now).getTime() !== crewDayEnd(crew, now).getTime(),
+            deadline: crewDeadline(game, crew, now).getTime(),
             done: Boolean(round?.entries.some((e) => e.user_id === user?.id)),
           };
         }),
-    )
-    // Still to play first.
-    .sort((a, b) => Number(a.done) - Number(b.done));
-
-  // Grouped by crew. Crews with something left to play come first; otherwise
-  // crews keep their usual order.
-  const todayByCrew = crews
-    .map((crew) => ({ crew, rows: today.filter((t) => t.crew.id === crew.id) }))
-    .filter((g) => g.rows.length > 0)
-    .sort((a, b) => Number(a.rows.every((r) => r.done)) - Number(b.rows.every((r) => r.done)));
+    );
+  // Only what you've still to play, and each game once: if several crews play
+  // it (say, in different time zones), the one whose day ends first. Once
+  // that's done, the next one shows, if it's a different puzzle.
+  const toPlay = allToday.filter((t) => !t.done);
+  const soonest = new Map<string, (typeof toPlay)[number]>();
+  for (const t of toPlay) {
+    const best = soonest.get(t.game.id);
+    if (!best || t.deadline < best.deadline) soonest.set(t.game.id, t);
+  }
+  // Just the games: crew names and time left differ crew to crew. Each row
+  // opens the crew it was picked from.
+  const today = toPlay.filter((t) => soonest.get(t.game.id) === t);
 
   return (
     <div className="stack-lg page-enter">
@@ -204,43 +204,25 @@ function Dashboard() {
           hasGames={crews.some((c) => c.crew_games.length > 0)}
         />
       )}
-      {today.length > 0 && (
+      {allToday.length > 0 && (
         <section className="stack">
           <h2>Today</h2>
-          {todayByCrew.map(({ crew, rows }) => (
-            <div key={crew.id} className="today-crew">
-              <div className="row between today-crew-head">
-                <h3 className="today-crew-name">
-                  <Link href={`/crew/${crew.invite_code}`}>{crew.name}</Link>
-                </h3>
-                <span className="time-left">{timeLeft(crewDayEnd(crew, now).toISOString())} left</span>
-              </div>
-              <ul className="list list-live">
-                {rows.map(({ game, puzzleId, deadline, ownClock, done }) => (
-                  <li key={game.id}>
-                    <Link
-                      href={`/crew/${crew.invite_code}`}
-                      className={`list-row ${done ? "" : "todo"}`}
-                      style={gameStyle(game)}
-                    >
-                      <span>
-                        <span className="live-dot" aria-hidden>●</span>
-                        <GameTag game={game} /> <strong>{game.puzzleLabel(puzzleId)}</strong>
-                      </span>
-                      <span className="row">
-                        {ownClock && <span className="time-left">{timeLeft(deadline)} left</span>}
-                        {done ? (
-                          <span className="pill pill-done">done</span>
-                        ) : (
-                          <span className="pill pill-hot">play</span>
-                        )}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {today.length === 0 && <p className="muted">All caught up for today. Nice work!</p>}
+          {today.length > 0 && (
+            <ul className="list list-live">
+              {today.map(({ crew, game, puzzleId }) => (
+                <li key={game.id}>
+                  <Link href={`/crew/${crew.invite_code}`} className="list-row todo" style={gameStyle(game)}>
+                    <span>
+                      <span className="live-dot" aria-hidden>●</span>
+                      <GameTag game={game} /> <strong>{game.puzzleLabel(puzzleId)}</strong>
+                    </span>
+                    <span className="pill pill-hot">play</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
 
