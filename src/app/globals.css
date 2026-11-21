@@ -18,6 +18,10 @@
   --tile-g: #6aaa64;
   --tile-y: #c9b458;
   --tile-x: #b9b4aa;
+  /* Podium places: deep enough to read on paper. */
+  --gold: #a87b00;
+  --silver: #6b737c;
+  --bronze: #9c5524;
   --shadow: 3px 3px 0 var(--line);
   --radius: 2px;
   --font-display: "Share Tech Mono", monospace;
@@ -35,6 +39,9 @@
   --muted: #8f8a80;
   --line: #ece7dc;
   --tile-x: #45423c;
+  --gold: #f2c94c;
+  --silver: #c3cbd3;
+  --bronze: #e0915a;
   --urgent: #ff6b5e;
   /* Dark mode keeps the orange accent. */
   --accent: #ff5b1f;
@@ -50,6 +57,9 @@
     --muted: #8f8a80;
     --line: #ece7dc;
     --tile-x: #45423c;
+    --gold: #f2c94c;
+    --silver: #c3cbd3;
+    --bronze: #e0915a;
     --urgent: #ff6b5e;
     /* Dark mode keeps the orange accent. */
     --accent: #ff5b1f;
@@ -842,6 +852,19 @@ select.input {
 
 .board tr.winner .place {
   color: var(--accent-text);
+}
+
+/* 1st, 2nd and 3rd in gold, silver and bronze. */
+.board tr .place.place-1 {
+  color: var(--gold);
+}
+
+.board tr .place.place-2 {
+  color: var(--silver);
+}
+
+.board tr .place.place-3 {
+  color: var(--bronze);
 }
 
 .hidden-row td {

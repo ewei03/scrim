@@ -54,7 +54,7 @@ export function Scoreboard({
         <tbody>
           {ranked.map((r) => (
             <tr key={r.entry_id} className={r.winner ? "winner" : ""}>
-              <td className="place">{r.winner ? "★" : ordinal(r.place)}</td>
+              <td className={r.place <= 3 ? `place place-${r.place}` : "place"}>{ordinal(r.place)}</td>
               <td className="name">{r.display_name}</td>
               <td className="score">{game.formatScore(r.result)}</td>
               <td className="hide-sm result">
