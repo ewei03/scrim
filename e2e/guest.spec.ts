@@ -39,8 +39,7 @@ test.describe("Play as guest", () => {
     await expect(page.getByRole("heading", { name: "Your crews" })).toBeVisible();
 
     // Guests can't make crews: the form is switched off, with a note saying why.
-    await expect(page.getByPlaceholder("New crew name")).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Create crew" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Add a new crew" })).toBeDisabled();
     await expect(page.getByText("Guests can't create crews.")).toBeVisible();
 
     // Still signed in after a reload.

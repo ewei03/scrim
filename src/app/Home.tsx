@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { customAdapter, type CustomGame } from "@/games/custom";
 import { gameList } from "@/games/registry";
 import { AuthError, Loading } from "@/components/RequireAuth";
 import { GameTag, gameStyle } from "@/components/GameTag";
+import { Modal } from "@/components/Modal";
 import { SetupNotice } from "@/components/SetupNotice";
 import { SignIn } from "@/components/SignIn";
 import { Welcome } from "@/components/Welcome";
@@ -54,14 +55,40 @@ function Landing() {
   );
 }
 
+const MAX_CREW_NAME = 40;
+
+/**
+ * "Sam's Crew", or "Sam's Crew 2", "Sam's Crew 3"… if the user already has a
+ * crew by that name (case-insensitive). Stays within the name length limit.
+ */
+function suggestCrewName(displayName: string, crews: Pick<Crew, "name">[]): string {
+  const taken = new Set(crews.map((c) => c.name.trim().toLowerCase()));
+  const base = `${displayName}'s Crew`;
+  for (let n = 1; ; n++) {
+    const suffix = n === 1 ? "" : ` ${n}`;
+    const name = base.slice(0, MAX_CREW_NAME - suffix.length).trimEnd() + suffix;
+    if (!taken.has(name.toLowerCase())) return name;
+  }
+}
+
 function Dashboard() {
-  const { user, isGuest } = useAuth();
+  const { user, profile, isGuest } = useAuth();
   const extension = useExtension();
   const router = useRouter();
   const [crews, setCrews] = useState<CrewWithCount[] | null>(null);
   const [open, setOpen] = useState<OpenRound[]>([]);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const nameInput = useRef<HTMLInputElement>(null);
+
+  // Runs after the Modal's own effect has opened the dialog, so focus sticks
+  // (otherwise the dialog focuses its × button).
+  useEffect(() => {
+    if (creating) nameInput.current?.select();
+  }, [creating]);
 
   useEffect(() => {
     (async () => {
@@ -81,11 +108,18 @@ function Dashboard() {
 
   async function createCrew(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitting(true);
+    setCreateError(null);
     try {
-      const crew = await rpc<Crew>("create_crew", { p_name: name, p_timezone: localTimeZone() });
+      const crew = await rpc<Crew>("create_crew", { p_name: name.trim(), p_timezone: localTimeZone() });
+      // This page is kept (hidden) after navigating, so reset it for next time.
+      setCreating(false);
+      setName("");
       router.push(`/crew/${crew.invite_code}`);
     } catch (err) {
-      setError(errorMessage(err));
+      setCreateError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -198,21 +232,42 @@ function Dashboard() {
             })}
           </ul>
         )}
-        <form className="row" onSubmit={createCrew}>
-          <input
-            className="input grow"
-            placeholder="New crew name"
-            maxLength={40}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+        <div className="row">
+          <button
+            className="btn btn-primary"
+            aria-haspopup="dialog"
             disabled={isGuest}
             aria-describedby={isGuest ? "guest-create-note" : undefined}
-            required
-          />
-          <button className="btn btn-primary" disabled={isGuest || !name.trim()}>
-            Create crew
+            onClick={() => {
+              setCreateError(null);
+              // Suggest a name; it's selected on open, so typing replaces it.
+              setName(profile ? suggestCrewName(profile.display_name, crews) : "");
+              setCreating(true);
+            }}
+          >
+            Add a new crew
           </button>
-        </form>
+        </div>
+        <Modal open={creating} onClose={() => setCreating(false)} dismissOnBackdrop={false} title="New crew">
+          <form className="stack" onSubmit={createCrew}>
+            <input
+              className="input input-plain"
+              aria-label="Crew name"
+              placeholder="Crew name"
+              maxLength={MAX_CREW_NAME}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              ref={nameInput}
+              required
+            />
+            {createError && <p className="error">{createError}</p>}
+            <div className="row">
+              <button className="btn btn-primary" disabled={submitting || !name.trim()}>
+                Create crew
+              </button>
+            </div>
+          </form>
+        </Modal>
         {isGuest && (
           <p className="muted small" id="guest-create-note">
             Guests can&apos;t create crews. <Link href="/profile">Sign in with Google</Link> to make one. As a guest,

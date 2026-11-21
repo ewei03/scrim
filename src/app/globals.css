@@ -526,6 +526,13 @@ textarea.input:focus,
   }
 }
 
+/* Opts a text box out of the ants: a plain solid border while focused. */
+input.input.input-plain:focus {
+  border-color: var(--accent-text);
+  background: var(--paper);
+  animation: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   input.input:focus,
   textarea.input:focus,

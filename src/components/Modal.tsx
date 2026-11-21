@@ -30,6 +30,12 @@ export function Modal({
     if (!d) return;
     if (open && !d.open) d.showModal();
     if (!open && d.open) d.close();
+    // With Cache Components, a page we navigate away from is hidden (React
+    // <Activity>), not unmounted, so an open modal would stay in the top layer
+    // and make the new page unclickable. Effects clean up on hide: close it.
+    return () => {
+      if (d.open) d.close();
+    };
   }, [open]);
 
   return (

@@ -36,10 +36,13 @@ async function openAs(context: BrowserContext, signed: Signed) {
 
 async function createCrewInUi(page: Page, name: string) {
   await page.goto("/");
-  await page.getByPlaceholder("New crew name").fill(name);
+  await page.getByRole("button", { name: "Add a new crew" }).click();
+  await page.getByRole("dialog").getByLabel("Crew name").fill(name);
   await page.getByRole("button", { name: "Create crew" }).click();
   await expect(page).toHaveURL(/\/crew\/[\w-]+$/);
   await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+  // The home page is kept hidden, not unmounted: its modal must not linger and block clicks.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 
 async function openManage(page: Page) {
@@ -280,6 +283,7 @@ test("delete a crew", async ({ page, context, browser }) => {
   await dialog.getByRole("button", { name: "Delete crew" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("heading", { name: "Your crews" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Manage crew" })).toHaveCount(0);
   await expect(page.locator(".crew-card", { hasText: "E2E Doomed Crew" })).toHaveCount(0);
 
   // It's gone for the friend too, and the invite link no longer works.

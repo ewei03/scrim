@@ -349,6 +349,7 @@ function CrewPage() {
                 setBoardsKey((k) => k + 1);
                 load();
               }}
+              onDeleted={() => setShowManage(false)}
             />
           </Modal>
         )}
@@ -722,11 +723,14 @@ function ManageCrew({
   members,
   onCrew,
   onRemoved,
+  onDeleted,
 }: {
   crew: Crew;
   members: Member[];
   onCrew: (crew: Crew) => void;
   onRemoved: () => void;
+  /** The crew is gone: close the dialog before leaving the page. */
+  onDeleted: () => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -771,6 +775,7 @@ function ManageCrew({
       await rpc("delete_crew", { p_crew: crew.id });
       // Have the extension drop this crew from its saved results.
       askExtension("sync");
+      onDeleted();
       router.push("/");
     });
   }

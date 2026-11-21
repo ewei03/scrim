@@ -166,7 +166,8 @@ test.describe("signed in to Scrim", () => {
     // Make a crew and pick Wordle.
     await scrim.bringToFront();
     await scrim.goto("/");
-    await scrim.getByPlaceholder("New crew name").fill("E2E Later Crew");
+    await scrim.getByRole("button", { name: "Add a new crew" }).click();
+    await scrim.getByRole("dialog").getByLabel("Crew name").fill("E2E Later Crew");
     await scrim.getByRole("button", { name: "Create crew" }).click();
     await expect(scrim.getByRole("heading", { level: 1, name: "E2E Later Crew" })).toBeVisible();
     await scrim.locator(".game-toggles").getByRole("button", { name: /^. Wordle$/ }).click();
