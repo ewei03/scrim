@@ -12,7 +12,7 @@ const display = Share_Tech_Mono({ weight: "400", subsets: ["latin"], variable: "
 const body = Fira_Code({ subsets: ["latin"], variable: "--font-body" });
 
 export const metadata: Metadata = {
-  title: "Scrim — daily puzzle showdowns",
+  title: "Scrim - daily puzzles with friends",
   description: "Compete with friends on daily browser games. Start a crew, share the link, play, compare.",
 };
 
