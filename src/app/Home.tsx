@@ -14,7 +14,7 @@ import { Welcome } from "@/components/Welcome";
 import { useAuth } from "@/lib/auth";
 import { useExtension } from "@/lib/extension";
 import { inviteCode } from "@/lib/invite";
-import { inSavedOrder, savedGameOrder } from "@/lib/gameOrder";
+import { inSavedOrder, savedGameOrder, syncGameOrder } from "@/lib/gameOrder";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
 import { crewDeadline, crewPuzzle, localTimeZone } from "@/lib/rounds";
 import type { Crew, Round } from "@/lib/types";
@@ -85,6 +85,9 @@ function Dashboard() {
   const router = useRouter();
   const [crews, setCrews] = useState<CrewWithCount[] | null>(null);
   const [open, setOpen] = useState<OpenRound[]>([]);
+  // Your order for each crew's games, from your account (crew id -> game ids).
+  const [orders, setOrders] = useState<Map<string, string[]>>(new Map());
+  const userId = user?.id;
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -103,18 +106,26 @@ function Dashboard() {
   useEffect(() => {
     (async () => {
       const sb = supabase();
-      const [c, l] = await Promise.all([
+      const [c, l, go] = await Promise.all([
         sb.from("crews").select("*, crew_members(count), crew_games(game), custom_games(*)").order("created_at"),
         sb
           .from("rounds")
           .select("crew_id, game, puzzle_id, entries(user_id)")
           .gt("closes_at", new Date().toISOString()),
+        // Only your own rows are readable.
+        sb.from("game_orders").select("crew_id, games"),
       ]);
       if (c.error || l.error) setError(errorMessage(c.error ?? l.error));
-      setCrews((c.data as CrewWithCount[]) ?? []);
+      const list = (c.data as CrewWithCount[]) ?? [];
+      setCrews(list);
       setOpen((l.data as OpenRound[]) ?? []);
+      // Couldn't read them: this browser's copies stay in use.
+      if (userId && !go.error) {
+        const saved = new Map((go.data as { crew_id: string; games: string[] }[]).map((o) => [o.crew_id, o.games]));
+        setOrders(new Map(list.map((crew) => [crew.id, syncGameOrder(userId, crew.id, saved.get(crew.id) ?? null)])));
+      }
     })();
-  }, []);
+  }, [userId]);
 
   async function createCrew(e: React.FormEvent) {
     e.preventDefault();
@@ -166,7 +177,7 @@ function Dashboard() {
           crew.crew_games.some((g) => g.game === game.id),
         ),
         (game) => game.id,
-        user ? savedGameOrder(user.id, crew.id) : [],
+        orders.get(crew.id) ?? (user ? savedGameOrder(user.id, crew.id) : []),
       ).map((game) => {
           const puzzleId = crewPuzzle(game, crew, now);
           const round = open.find((r) => r.crew_id === crew.id && r.game === game.id && r.puzzle_id === puzzleId);

@@ -1210,6 +1210,61 @@ describe("transferring a crew", () => {
   });
 });
 
+describe("game order", () => {
+  const [OWNER, MEMBER, OUTSIDER] = [
+    "00000000-0000-0000-0000-0000000007a1",
+    "00000000-0000-0000-0000-0000000007a2",
+    "00000000-0000-0000-0000-0000000007a3",
+  ];
+  let crew: CrewRow;
+  beforeAll(async () => {
+    await db.query(
+      `insert into auth.users (id, raw_user_meta_data) values
+       ($1, '{"display_name":"Orla"}'), ($2, '{"display_name":"Milo"}'), ($3, '{"display_name":"Otto"}')`,
+      [OWNER, MEMBER, OUTSIDER],
+    );
+    crew = await createCrew(OWNER, "Order Crew", "wordle", "connections");
+    await as(MEMBER, "select join_crew($1)", [crew.invite_code]);
+  });
+  const orderOf = (user: string) =>
+    as<{ games: string[] }>(user, "select games from game_orders where crew_id = $1", [crew.id]).then((r) => r[0]?.games ?? null);
+
+  it("saves and replaces your own order", async () => {
+    expect(await orderOf(MEMBER)).toBeNull();
+    await as(MEMBER, "select set_game_order($1, array['connections', 'wordle'])", [crew.id]);
+    expect(await orderOf(MEMBER)).toEqual(["connections", "wordle"]);
+    await as(MEMBER, "select set_game_order($1, array['wordle', 'connections'])", [crew.id]);
+    expect(await orderOf(MEMBER)).toEqual(["wordle", "connections"]);
+  });
+
+  it("keeps it private to you", async () => {
+    await as(OWNER, "select set_game_order($1, array['connections'])", [crew.id]);
+    expect(await orderOf(OWNER)).toEqual(["connections"]);
+    // Each member reads only their own row.
+    expect(await as(OWNER, "select user_id from game_orders")).toEqual([{ user_id: OWNER }]);
+    expect(await as(OUTSIDER, "select * from game_orders")).toEqual([]);
+    await expect(as(null, "select * from game_orders")).rejects.toThrow(/permission denied/);
+  });
+
+  it("only takes orders from crew members, and sane ones", async () => {
+    await expect(as(OUTSIDER, "select set_game_order($1, array['wordle'])", [crew.id])).rejects.toThrow(/Crew not found/);
+    await expect(
+      as(MEMBER, "select set_game_order($1, array_fill('wordle'::text, array[101]))", [crew.id]),
+    ).rejects.toThrow(/Invalid game order/);
+    await expect(as(MEMBER, "select set_game_order($1, array[repeat('x', 101)])", [crew.id])).rejects.toThrow(
+      /Invalid game order/,
+    );
+    await expect(as(MEMBER, "insert into game_orders (crew_id, user_id) values ($1, $2)", [crew.id, MEMBER])).rejects.toThrow(
+      /permission denied/,
+    );
+  });
+
+  it("is dropped when you leave the crew", async () => {
+    await as(MEMBER, "select leave_crew($1)", [crew.id]);
+    expect(await orderOf(MEMBER)).toBeNull();
+  });
+});
+
 describe("function permissions", () => {
   beforeAll(() => clearCrewsOf(ANN));
   // Everything the site, the extension and RLS call. Every other function is
@@ -1232,6 +1287,7 @@ describe("function permissions", () => {
     "reset_rankings",
     "revoke_extension_tokens",
     "set_crew_game",
+    "set_game_order",
     "submit_entry",
     "suggest_game",
     "transfer_crew",

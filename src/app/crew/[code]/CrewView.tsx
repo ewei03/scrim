@@ -21,7 +21,7 @@ import type { GameAdapter } from "@/games/types";
 import { useAuth } from "@/lib/auth";
 import { askExtension, useExtension, type ExtensionState } from "@/lib/extension";
 import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone, roundZone } from "@/lib/rounds";
-import { inSavedOrder, saveGameOrder, savedGameOrder } from "@/lib/gameOrder";
+import { inSavedOrder, saveGameOrder, savedGameOrder, syncGameOrder } from "@/lib/gameOrder";
 import { crewStats } from "@/lib/stats";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
 import { dateIn, formatDay, timeLeft } from "@/lib/time";
@@ -131,7 +131,7 @@ async function fetchCrew(code: string, join: boolean) {
     if (!data) throw new CrewGoneError();
     crew = data as Crew;
   }
-  const [m, g, cg, r, jr] = await Promise.all([
+  const [m, g, cg, r, jr, go] = await Promise.all([
     sb.from("crew_members").select("user_id, joined_at, profiles(display_name, is_guest)").eq("crew_id", crew.id).order("joined_at"),
     sb.from("crew_games").select("game").eq("crew_id", crew.id),
     sb.from("custom_games").select("*").eq("crew_id", crew.id).order("created_at"),
@@ -147,6 +147,8 @@ async function fetchCrew(code: string, join: boolean) {
       .eq("crew_id", crew.id)
       .eq("declined", false)
       .order("created_at"),
+    // Your own order for the crew's games (nobody else's is readable).
+    sb.from("game_orders").select("games").eq("crew_id", crew.id).maybeSingle(),
   ]);
   if (m.error || g.error || cg.error || r.error || jr.error) throw m.error ?? g.error ?? cg.error ?? r.error ?? jr.error;
   return {
@@ -157,6 +159,8 @@ async function fetchCrew(code: string, join: boolean) {
     games: (g.data as { game: string }[]).map((x) => x.game),
     customGames: cg.data as CustomGame[],
     rounds: r.data as RoundWithEntries[],
+    // Undefined when it couldn't be read: this browser's copy stays in use.
+    gameOrder: go.error ? undefined : ((go.data?.games as string[] | undefined) ?? null),
   };
 }
 
@@ -192,13 +196,21 @@ function CrewPage() {
   const setCardOpen = useCallback((gameId: string, open: boolean) => {
     setOpenCards((p) => (p[gameId] === open ? p : { ...p, [gameId]: open }));
   }, []);
-  // Your own order for today's cards (set in the Reorder games modal), kept in this browser.
+  // Your own order for today's cards (set in the Reorder games modal): this
+  // browser's copy until your account's has loaded, and what you've dragged
+  // this visit over both.
   const userId = user?.id;
   const crewId = crew?.id;
   const orderKey = userId && crewId ? `${userId}:${crewId}` : "";
   const [dragged, setDragged] = useState<{ key: string; ids: string[] } | null>(null);
+  // Your account's copy as last loaded (games null: none saved yet).
+  const [accountOrder, setAccountOrder] = useState<{ crewId: string; games: string[] | null } | null>(null);
   const storedOrder = useMemo(() => (userId && crewId ? savedGameOrder(userId, crewId) : []), [userId, crewId]);
-  const gameOrder = dragged?.key === orderKey ? dragged.ids : storedOrder;
+  const fromAccount = accountOrder && accountOrder.crewId === crewId ? accountOrder.games : null;
+  const gameOrder = dragged?.key === orderKey ? dragged.ids : (fromAccount ?? storedOrder);
+  useEffect(() => {
+    if (userId && accountOrder) syncGameOrder(userId, accountOrder.crewId, accountOrder.games);
+  }, [userId, accountOrder]);
   const [showReorder, setShowReorder] = useState(false);
   // Whose card is open (from their name in the crew box).
   const [viewing, setViewing] = useState<string | null>(null);
@@ -247,6 +259,7 @@ function CrewPage() {
           setGames(d.games);
           setCustomGames(d.customGames);
           setRounds(d.rounds);
+          if (d.gameOrder !== undefined) setAccountOrder({ crewId: d.crew.id, games: d.gameOrder });
           setError(null);
         },
         (e) => (e instanceof CrewGoneError ? setGone(true) : setError(errorMessage(e))),
