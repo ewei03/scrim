@@ -190,6 +190,7 @@ test.describe("signed in to Scrim", () => {
   });
 
   test("the popup's check finds a game played on another device", async ({ extContext, games }) => {
+    test.skip(true, "Check my games is turned off for now (CHECK_GAMES in extension/popup.js).");
     test.setTimeout(120_000);
     await createCrewApi(owner, "E2E Elsewhere Crew", ["wordle"]);
     const { wordle } = await setUp(extContext);

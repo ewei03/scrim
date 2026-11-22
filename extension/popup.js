@@ -71,9 +71,12 @@ function renderResults(stored) {
   // Offered while any game Scrim reads by itself has no result today: the same
   // games the check looks for (see catchUp in background.js).
   const missing = AUTO_GAMES.filter((g) => !Object.hasOwn(stored ?? {}, `${g}:${today[g]}`));
-  document.getElementById("check-games-box").hidden = missing.length === 0;
+  document.getElementById("check-games-box").hidden = !CHECK_GAMES || missing.length === 0;
   return missing;
 }
+
+/** "Check my games" is off for now: it doesn't find Wordle games finished on another device yet. */
+const CHECK_GAMES = false;
 
 /** Games the extension reads from their pages. */
 const AUTO_GAMES = ["wordle", "connections", "krillion"];
