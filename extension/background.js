@@ -1,6 +1,10 @@
 // Holds the connection to Scrim and submits results.
 const CONFIG_KEYS = ["token", "supabaseUrl", "supabaseKey", "scrimOrigin", "userId", "displayName"];
-/** Everything tied to the connected account: its connection and the results seen for it. */
+/**
+ * Everything tied to the connected account: its connection and the results
+ * seen for it. Kept across accounts: "installId" (this browser's id, for games
+ * played signed out of the game), "lastUserId" and "switchedAt" (see "pair").
+ */
 const ACCOUNT_KEYS = [...CONFIG_KEYS, "results"];
 const MAX_RESULTS = 14;
 
@@ -64,13 +68,23 @@ async function handle(msg) {
       if (!isAllowed(supabaseUrl, API_HOSTS)) return { ok: false, error: "That server isn't one Scrim uses" };
       // Results seen for someone else stay theirs: a different account (or a
       // connection too old to say whose it was) starts with none.
-      const before = await chrome.storage.local.get("userId");
+      const before = await chrome.storage.local.get(["token", "userId", "lastUserId"]);
       if (!before.userId || before.userId !== userId) await chrome.storage.local.remove("results");
-      await chrome.storage.local.set({ token, supabaseUrl, supabaseKey, scrimOrigin, userId, displayName });
+      // Switching from one Scrim account to another in this browser: games
+      // already finished here are the previous person's. Remember today's
+      // puzzle for each game; anything up to it that's already finished when
+      // its page is read doesn't count (see submitResult). A first connection
+      // (or the same account again) catches up instead.
+      const previousUser = before.userId ?? before.lastUserId;
+      const switched = (Boolean(previousUser) && previousUser !== userId) || (Boolean(before.token) && !before.userId);
+      if (switched) {
+        await chrome.storage.local.set({ switchedAt: Object.fromEntries(CATCH_UP.map((g) => [g.game, g.today()])) });
+      }
+      await chrome.storage.local.set({ token, supabaseUrl, supabaseKey, scrimOrigin, userId, displayName, lastUserId: userId });
       // Anything played before connecting gets submitted now: results already
       // seen, then today's games that finished while nothing was watching.
       const synced = await syncAll();
-      catchUp().catch(() => {});
+      if (!switched) catchUp().catch(() => {});
       return { ok: true, ...synced };
     }
     case "unpair":
@@ -81,7 +95,7 @@ async function handle(msg) {
       return { ok: true, connected: Boolean(c.token), userId: c.userId ?? null, displayName: c.displayName ?? null };
     }
     case "result":
-      return submitResult(msg.game, msg.result, msg.raw);
+      return submitResult(msg.game, msg.result, msg.raw, msg.account ?? null, msg.atLoad === true);
     case "sync":
       return { ok: true, ...(await syncAll()) };
     case "rankings": {
@@ -97,13 +111,23 @@ async function getResults() {
   return (await chrome.storage.local.get("results")).results ?? {};
 }
 
-async function submitResult(game, result, raw) {
+async function submitResult(game, result, raw, account, atLoad) {
   const results = await getResults();
   const key = `${game}:${result.puzzle}`;
   const previous = results[key];
   const isNew = !previous;
-  results[key] = { game, result, raw, seenAt: previous?.seenAt ?? Date.now(), crews: previous?.crews ?? [] };
-  const reply = await callSubmit(game, result, raw);
+  if (isNew && atLoad && (await finishedBeforeSwitch(game, result.puzzle))) {
+    return { ok: true, beforeSwitch: true, crews: [], isNew };
+  }
+  const player = previous?.player ?? (await playerId(game, account));
+  results[key] = { game, result, raw, player, seenAt: previous?.seenAt ?? Date.now(), crews: previous?.crews ?? [] };
+  const reply = await callSubmit(game, result, raw, player);
+  if (reply.ok && reply.notYours) {
+    // Someone else's game: nothing to keep.
+    delete results[key];
+    await chrome.storage.local.set({ results });
+    return { ok: true, notYours: true, crews: [], isNew };
+  }
   let newlyVoided = false;
   if (reply.ok) {
     const wasVoided = results[key].crews.some((c) => c.outcome === "voided");
@@ -118,9 +142,13 @@ async function submitResult(game, result, raw) {
 async function syncAll() {
   const results = await getResults();
   let submitted = 0;
-  for (const entry of Object.values(results)) {
-    const reply = await callSubmit(entry.game, entry.result, entry.raw);
+  for (const [key, entry] of Object.entries(results)) {
+    const reply = await callSubmit(entry.game, entry.result, entry.raw, entry.player ?? null);
     if (!reply.ok) return { submitted, error: reply.error };
+    if (reply.notYours) {
+      delete results[key];
+      continue;
+    }
     entry.crews = mergeCrews(entry.crews ?? [], reply.crews);
     submitted += reply.crews.filter((c) => c.outcome === "submitted").length;
   }
@@ -128,9 +156,42 @@ async function syncAll() {
   return { submitted };
 }
 
-async function callSubmit(game, result, raw) {
-  const reply = await callRpc("extension_submit", { p_game: game, p_result: result, p_raw: raw ?? null });
-  return reply.ok ? { ok: true, crews: reply.body ?? [] } : reply;
+/** Whether a game is from before this browser last switched Scrim accounts (today's puzzle then, or earlier). */
+async function finishedBeforeSwitch(game, puzzle) {
+  const { switchedAt } = await chrome.storage.local.get("switchedAt");
+  const limit = switchedAt?.[game];
+  return limit !== undefined && Number(puzzle) <= Number(limit);
+}
+
+/**
+ * Who played a game, for the server's one-game-one-account check: the game
+ * account it was played on, or this browser when played signed out. Hashed,
+ * so Scrim never sees the game account itself.
+ */
+async function playerId(game, account) {
+  const family = game === "krillion" ? "krillion" : "nyt";
+  const who = account ? `${family}:${account}` : `browser:${await installId()}`;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`scrim-player:${who}`));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** A random id for this browser's copy of the extension, made once. */
+async function installId() {
+  const { installId } = await chrome.storage.local.get("installId");
+  if (installId) return installId;
+  const id = crypto.randomUUID();
+  await chrome.storage.local.set({ installId: id });
+  return id;
+}
+
+async function callSubmit(game, result, raw, player) {
+  const args = { p_game: game, p_result: result, p_raw: raw ?? null };
+  if (player) args.p_player = player;
+  const reply = await callRpc("extension_submit", args);
+  if (!reply.ok) return reply;
+  const crews = reply.body ?? [];
+  if (crews.some((c) => c.outcome === "not-yours")) return { ok: true, notYours: true, crews: [] };
+  return { ok: true, crews };
 }
 
 /** Calls a token-authorised RPC. Signs the extension out if the token was revoked. */

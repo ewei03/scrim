@@ -16,9 +16,10 @@ describe("findFinishedDives", () => {
       ],
       2,
     );
+    // Each dive knows the account it was played on (none when signed out).
     expect(dives).toEqual([
-      { puzzle: "127", date: "2026-11-19", tiers: "sprxksd" },
-      { puzzle: "126", date: "2026-11-18", tiers: "sprxksd" },
+      { puzzle: "127", date: "2026-11-19", tiers: "sprxksd", account: "abc%40x" },
+      { puzzle: "126", date: "2026-11-18", tiers: "sprxksd", account: null },
     ]);
   });
 
@@ -26,7 +27,7 @@ describe("findFinishedDives", () => {
     const game = (phase: string) =>
       JSON.stringify({ date: "2026-11-19", phase, results: TIERS.map((t) => ({ tier: t === "miss" ? null : t })) });
     expect(core.findFinishedDives([["krillion:game:v1", game("done")]])).toEqual([
-      { puzzle: "127", date: "2026-11-19", tiers: "sprxksd" },
+      { puzzle: "127", date: "2026-11-19", tiers: "sprxksd", account: null },
     ]);
     expect(
       core.findFinishedDives([

@@ -3,6 +3,8 @@ import type { ConnectionsResult } from "../src/games/connections";
 
 export type FinishedGame = {
   signedIn: boolean;
+  /** The NYT account (regiId) it was played on, or null when signed out. */
+  account: string | null;
   solvedCategories: unknown[];
   puzzle: string;
   printDate: string;
@@ -15,6 +17,7 @@ export type FinishedGame = {
 declare const core: {
   numberFromPrintDate(printDate: string): number;
   isSignedInKey(key: string): boolean;
+  accountOf(key: string): string | null;
   findFinishedGames(entries: [string, string][], now?: Date): FinishedGame[];
   levelsFromPuzzle(puzzle: unknown): Map<string, number>;
   gridFromGuesses(guesses: unknown[], levels?: Map<string, number>, solvedCategories?: unknown[]): string[] | null;

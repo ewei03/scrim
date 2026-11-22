@@ -71,7 +71,7 @@ export function Welcome({
         <>Installed and connected. Your scores will be submitted for you.</>
       ) : (
         <>
-          This is super important! Without it you won't get the full Scrim experience. The extension automatically submits your scores to Scrim.
+          This is super important! Without it you won&apos;t get the full Scrim experience. The extension automatically submits your scores to Scrim.
           <a className="btn btn-primary welcome-cta" href={EXTENSION_STORE_URL} target="_blank" rel="noreferrer">
             Add to Chrome <ExternalArrow />
           </a>

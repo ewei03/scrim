@@ -42,7 +42,10 @@ describe("findFinishedGames", () => {
 
   it("marks signed-out saves, and prefers the signed-in save for the same puzzle", () => {
     const loss = { ...LOSS, puzzleComplete: true };
-    expect(core.findFinishedGames([["games-state-connections/ANON", saved(WIN)]])[0].signedIn).toBe(false);
+    expect(core.findFinishedGames([["games-state-connections/ANON", saved(WIN)]])[0]).toMatchObject({
+      signedIn: false,
+      account: null,
+    });
     for (const order of [
       [
         ["games-state-connections/ANON", saved(WIN)],
@@ -55,7 +58,7 @@ describe("findFinishedGames", () => {
     ] as [string, string][][]) {
       const games = core.findFinishedGames(order);
       expect(games).toHaveLength(1);
-      expect(games[0]).toMatchObject({ signedIn: true, solved: false });
+      expect(games[0]).toMatchObject({ signedIn: true, account: "12345", solved: false });
     }
   });
 

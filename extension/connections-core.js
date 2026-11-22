@@ -46,8 +46,13 @@
 
   /** NYT saves under ".../<regiId>" when signed in and ".../ANON" when not. */
   function isSignedInKey(key) {
+    return accountOf(key) !== null;
+  }
+
+  /** The NYT account a save belongs to (its regiId), or null when signed out. */
+  function accountOf(key) {
     const account = key.split("/")[1] ?? "";
-    return account !== "" && account !== "ANON";
+    return account !== "" && account !== "ANON" ? account : null;
   }
 
   /** A guess's cards as a list of position strings, whatever form they were saved in. */
@@ -88,6 +93,7 @@
         if (byPuzzle.get(puzzle)?.signedIn && !signedIn) return;
         byPuzzle.set(puzzle, {
           signedIn,
+          account: accountOf(key),
           puzzle,
           printDate: date,
           solved,
@@ -184,6 +190,7 @@
   const api = {
     numberFromPrintDate,
     isSignedInKey,
+    accountOf,
     findFinishedGames,
     levelsFromPuzzle,
     gridFromGuesses,

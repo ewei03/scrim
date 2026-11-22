@@ -3,6 +3,8 @@ import type { WordleResult } from "../src/games/wordle";
 
 export type FinishedGame = {
   signedIn: boolean;
+  /** The NYT account (regiId) it was played on, or null when signed out. */
+  account: string | null;
   puzzle: string;
   printDate: string;
   solved: boolean;
@@ -13,6 +15,7 @@ export type FinishedGame = {
 declare const core: {
   numberFromPrintDate(printDate: string): number;
   isSignedInKey(key: string): boolean;
+  accountOf(key: string): string | null;
   findFinishedGames(entries: [string, string][]): FinishedGame[];
   evaluate(guess: string, answer: string): string;
   gridFromTileStates(rows: string[][]): string[];

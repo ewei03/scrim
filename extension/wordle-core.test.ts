@@ -27,11 +27,20 @@ describe("numberFromPrintDate", () => {
 describe("findFinishedGames", () => {
   it("reads real NYT win and loss states", () => {
     expect(core.findFinishedGames([["games-state-wordleV2/ANON", WIN]])).toEqual([
-      { signedIn: false, puzzle: "1979", printDate: "2026-11-19", solved: true, guesses: ["clout"], hardMode: false },
+      {
+        signedIn: false,
+        account: null,
+        puzzle: "1979",
+        printDate: "2026-11-19",
+        solved: true,
+        guesses: ["clout"],
+        hardMode: false,
+      },
     ]);
     const [loss] = core.findFinishedGames([["games-state-wordleV2/12345", FAIL]]);
     expect(loss).toMatchObject({
       signedIn: true,
+      account: "12345",
       solved: false,
       guesses: ["audio", "pious", "tempo", "dumpy", "fight", "brick"],
     });

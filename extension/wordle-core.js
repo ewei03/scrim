@@ -35,6 +35,7 @@
         const guesses = (data.boardState ?? []).filter((w) => typeof w === "string" && w.length === 5);
         games.push({
           signedIn: isSignedInKey(key),
+          account: accountOf(key),
           puzzle: String(numberFromPrintDate(state.printDate)),
           printDate: state.printDate,
           solved: data.status === "WIN",
@@ -48,8 +49,13 @@
 
   /** NYT saves under ".../<regiId>" when signed in and ".../ANON" when not. */
   function isSignedInKey(key) {
+    return accountOf(key) !== null;
+  }
+
+  /** The NYT account a save belongs to (its regiId), or null when signed out. */
+  function accountOf(key) {
     const account = key.split("/")[1] ?? "";
-    return account !== "" && account !== "ANON";
+    return account !== "" && account !== "ANON" ? account : null;
   }
 
   /** Standard Wordle colouring, including repeated letters. */
@@ -105,7 +111,7 @@
     return `${header}\n\n${rows.join("\n")}`;
   }
 
-  const api = { numberFromPrintDate, isSignedInKey, findFinishedGames, evaluate, gridFromTileStates, toResult, shareText };
+  const api = { numberFromPrintDate, isSignedInKey, accountOf, findFinishedGames, evaluate, gridFromTileStates, toResult, shareText };
   root.ScrimWordle = api;
   if (typeof module !== "undefined") module.exports = api;
 })(globalThis);

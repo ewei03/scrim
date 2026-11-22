@@ -30,8 +30,13 @@
     return codes.every(Boolean) ? codes.join("") : null;
   }
 
-  function dive(date, tiers) {
-    return { puzzle: String(numberFromDate(date)), date, tiers };
+  function dive(date, tiers, account) {
+    return { puzzle: String(numberFromDate(date)), date, tiers, account };
+  }
+
+  /** The Krillion account a key belongs to ("krillion:account:<owner>:..."), or null when signed out. */
+  function accountOf(key) {
+    return /^krillion:account:([^:]+):/.exec(key)?.[1] ?? null;
   }
 
   /**
@@ -51,11 +56,11 @@
       if (STATS_KEY.test(key)) {
         for (const [date, entry] of Object.entries(parsed?.history ?? {})) {
           const tiers = DATE.test(date) && tiersFrom(entry?.tiers);
-          if (tiers) byDate.set(date, dive(date, tiers));
+          if (tiers) byDate.set(date, dive(date, tiers, accountOf(key)));
         }
       } else if (parsed?.phase === "done" && DATE.test(parsed?.date ?? "")) {
         const tiers = tiersFrom((parsed.results ?? []).map((r) => r?.tier ?? "miss"));
-        if (tiers && !byDate.has(parsed.date)) byDate.set(parsed.date, dive(parsed.date, tiers));
+        if (tiers && !byDate.has(parsed.date)) byDate.set(parsed.date, dive(parsed.date, tiers, accountOf(key)));
       }
     }
     return [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, days);
@@ -74,7 +79,7 @@
     return result.points.toLocaleString("en-US");
   }
 
-  const api = { numberFromDate, findFinishedDives, toResult, shareText, formatScore };
+  const api = { numberFromDate, accountOf, findFinishedDives, toResult, shareText, formatScore };
   root.ScrimKrillion = api;
   if (typeof module !== "undefined") module.exports = api;
 })(globalThis);

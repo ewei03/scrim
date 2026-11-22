@@ -128,6 +128,16 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
   signed in). Archive, Unlimited and pack dives are ignored.
 - NYT games count whether or not you're signed in to NYT (saves under
   `…/<regiId>` or `…/ANON`). If a puzzle has both, the signed-in save wins.
+- One game, one Scrim account: each result carries a hashed player id (the
+  NYT/Krillion account it was played on, or a random per-install id when
+  played signed out). The first Scrim account to send a game claims it
+  (`game_claims`, kept a week); the same game from another account gets
+  `not-yours` and the extension drops it.
+- Switching Scrim accounts in one browser: the extension remembers today's
+  puzzle for each game, and games already finished when their page is read
+  (in its first few seconds) up to that puzzle don't count: they're the
+  previous person's. It also skips the catch-up visits. A first connection, or
+  the same account again, catches up as usual.
 - A result the crew owner voids stays out: the server remembers it
   (`voided_entries`) and answers `voided` if the extension sends it again.
   A different result for that day (the game played again) still counts.

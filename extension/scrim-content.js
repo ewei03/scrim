@@ -2,6 +2,7 @@
 // hand each one to the background worker, and show a small notice.
 (function (root) {
   const POLL_MS = 1000;
+  const AT_LOAD_MS = 5000;
 
   /**
    * @param {object} opts
@@ -23,6 +24,11 @@
     if (root.__scrimWatching[opts.game]) return;
     root.__scrimWatching[opts.game] = true;
     const handled = new Set();
+    // Games already finished when the page opened, as opposed to ones seen
+    // finishing while it's open. After the extension switches Scrim accounts,
+    // these are taken to be the previous person's. "When it opened" allows a
+    // few seconds: signed in, NYT loads the saved game from its server.
+    const startedAt = Date.now();
     let timer;
     async function tick() {
       // The extension was reloaded or updated since this page loaded: this copy
@@ -35,6 +41,7 @@
       } catch {
         return;
       }
+      const atLoad = Date.now() - startedAt < AT_LOAD_MS;
       // Signed-out games count too. If a puzzle was played both ways, the
       // signed-in save wins.
       const signedIn = new Set(games.filter((g) => g.signedIn).map((g) => g.puzzle));
@@ -51,6 +58,10 @@
             game: opts.game,
             result,
             raw: opts.shareText(result),
+            // Who played it: the game account, if signed in to the game. The
+            // background worker hashes it before sending it anywhere.
+            account: game.account ?? null,
+            atLoad,
           });
           if (isToday(opts, result.puzzle)) showToast(reply, opts.label(result), opts.score(result));
         } catch (e) {
@@ -93,7 +104,14 @@
     if (!reply) return;
     let title;
     let body;
-    if (!reply.ok && reply.error === "not-connected") {
+    if (reply.ok && reply.notYours) {
+      title = "Not counted";
+      body = `${label} was played on another Scrim account.`;
+    } else if (reply.ok && reply.beforeSwitch) {
+      if (!once(`before-switch:${label}`)) return;
+      title = "Not counted";
+      body = `${label} was finished before you signed in to Scrim on this browser.`;
+    } else if (!reply.ok && reply.error === "not-connected") {
       title = "Not connected";
       body = "Open Scrim and sign in to connect.";
     } else if (!reply.ok) {
@@ -122,6 +140,18 @@
     }
 
     show(title, body);
+  }
+
+  /** True the first time it's asked about `what` in this browser session. */
+  function once(what) {
+    const seen = `scrim-notice:${what}`;
+    try {
+      if (sessionStorage.getItem(seen)) return false;
+      sessionStorage.setItem(seen, "1");
+    } catch {
+      // Storage blocked: show it anyway.
+    }
+    return true;
   }
 
   function show(title, body) {

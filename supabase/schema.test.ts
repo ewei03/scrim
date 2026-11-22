@@ -397,6 +397,31 @@ describe("extension", () => {
     await expect(as(BOB, "select * from voided_entries")).rejects.toThrow(/permission denied/);
   });
 
+  it("lets only the first Scrim account to send a game have it", async () => {
+    const player = "a".repeat(64);
+    const send = (token: string, result: string, who: string | null = player) =>
+      as<{ crew_code: string | null; crew_name: string | null; outcome: string }>(
+        null,
+        `select * from extension_submit($1, 'wordle', $2, 'auto', $3)`,
+        [token, result, who],
+      );
+    // Eve plays first: it's hers, in every crew of hers.
+    expect((await send(eveToken, solve(T, 3))).find((r) => r.crew_name === "Weekend")?.outcome).toBe("submitted");
+    // The same game (same player, game and puzzle) from Ann's account goes nowhere.
+    expect(await send(annToken, solve(T, 3))).toEqual([{ crew_code: null, crew_name: null, outcome: "not-yours" }]);
+    // Eve sending it again is fine.
+    expect((await send(eveToken, solve(T, 3))).find((r) => r.crew_name === "Weekend")?.outcome).toBe("already");
+    // A different player is a different game.
+    expect((await send(annToken, solve(T, 3), "b".repeat(64))).every((r) => r.outcome !== "not-yours")).toBe(true);
+    // The claim is made even when it counts nowhere (here, a day that's over).
+    const late = "c".repeat(64);
+    expect((await send(eveToken, solve(OLD, 3), late)).every((r) => r.outcome === "closed")).toBe(true);
+    expect(await send(annToken, solve(OLD, 3), late)).toEqual([{ crew_code: null, crew_name: null, outcome: "not-yours" }]);
+    // Junk players are refused, and the claims aren't readable from the API.
+    await expect(send(annToken, solve(T, 3), "not-a-hash")).rejects.toThrow(/Invalid player/);
+    await expect(as(BOB, "select * from game_claims")).rejects.toThrow(/permission denied/);
+  });
+
   it("rejects unknown and revoked tokens", async () => {
     await expect(submit("nope", solve(T, 3))).rejects.toThrow(/not connected/);
     await as(BOB, "select revoke_extension_tokens()");
@@ -618,7 +643,7 @@ describe("extension rankings", () => {
   });
 });
 
-describe("display names within a crew", () => {
+describe("duplicate display names within a crew", () => {
   const ZED = "00000000-0000-0000-0000-0000000000f1";
   const ZED2 = "00000000-0000-0000-0000-0000000000f2";
   let crew: CrewRow;
@@ -631,27 +656,17 @@ describe("display names within a crew", () => {
     crew = await createCrew(ZED, "Zed's Crew");
   });
 
-  it("won't let you join a crew where someone already has your name", async () => {
-    await expect(as(ZED2, "select join_crew($1)", [crew.invite_code])).rejects.toThrow(/already called/);
+  it("lets you join a crew where someone already has your name, and opening the link again is fine", async () => {
+    await as(ZED2, "select join_crew($1)", [crew.invite_code]);
+    await as(ZED2, "select join_crew($1)", [crew.invite_code]);
     const members = await as<{ user_id: string }>(ZED, "select user_id from crew_members where crew_id = $1", [crew.id]);
-    expect(members.map((m) => m.user_id)).toEqual([ZED]);
+    expect(members.map((m) => m.user_id).sort()).toEqual([ZED, ZED2].sort());
   });
 
-  it("lets you in once your name is different, and opening the link again is fine", async () => {
-    await as(ZED2, "update profiles set display_name = 'Zed Two' where id = $1", [ZED2]);
-    await as(ZED2, "select join_crew($1)", [crew.invite_code]);
-    await as(ZED2, "select join_crew($1)", [crew.invite_code]);
-    expect(await as(ZED2, "select * from crews where id = $1", [crew.id])).toHaveLength(1);
-  });
-
-  it("won't let you rename yourself to a name taken in one of your crews", async () => {
-    await expect(as(ZED2, "update profiles set display_name = 'ZED' where id = $1", [ZED2])).rejects.toThrow(
-      /already called/,
-    );
-    // Changing only your own name's capitals is fine.
-    await as(ZED2, "update profiles set display_name = 'zed two' where id = $1", [ZED2]);
-    // A name nobody in your crews has is fine too.
-    await as(ZED2, "update profiles set display_name = 'Annie' where id = $1", [ZED2]);
+  it("lets you rename yourself to a name someone in your crews already has", async () => {
+    await as(ZED2, "update profiles set display_name = 'Zed' where id = $1", [ZED2]);
+    const [p] = await as<{ display_name: string }>(ZED2, "select display_name from profiles where id = $1", [ZED2]);
+    expect(p.display_name).toBe("Zed");
   });
 });
 

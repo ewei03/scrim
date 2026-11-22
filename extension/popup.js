@@ -38,14 +38,18 @@ function todaysPuzzles() {
   };
 }
 
-/** Today's results only: earlier days' are kept (for syncing) but not listed. */
+/**
+ * Today's results for games one of your crews plays. Earlier days', and games
+ * no crew of yours plays yet, are kept (for syncing: joining a crew that plays
+ * it submits it then) but not listed.
+ */
 function renderResults(stored) {
   // e.g. "Results for Friday, November 20."
   const date = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
   document.getElementById("results-date").textContent = `Results for ${date}.`;
   const today = todaysPuzzles();
   const results = Object.values(stored ?? {})
-    .filter((r) => String(r.result?.puzzle) === today[r.game])
+    .filter((r) => String(r.result?.puzzle) === today[r.game] && (r.crews ?? []).length > 0)
     .sort((a, b) => b.seenAt - a.seenAt);
   const list = document.getElementById("results");
   list.replaceChildren();
