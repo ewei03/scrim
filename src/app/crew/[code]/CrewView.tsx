@@ -599,22 +599,6 @@ function CrewPage() {
         rankedIds={rankedIds}
         byWinRate={crew.rank_by_win_rate}
         onClose={() => setViewing(null)}
-        onRemove={
-          isOwner && viewedMember && !viewedMember.isOwner
-            ? async () => {
-                const m = members.find((x) => x.user_id === viewedMember.userId);
-                if (!m) return;
-                try {
-                  if (await removeMember(crew, m)) {
-                    setViewing(null);
-                    load();
-                  }
-                } catch (e) {
-                  setError(errorMessage(e));
-                }
-              }
-            : undefined
-        }
       />
 
       {isOwner && requests.length > 0 && (

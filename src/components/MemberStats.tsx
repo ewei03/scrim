@@ -21,7 +21,7 @@ type GameRound = StatRound<unknown> & { game: string };
 /**
  * One member's card, opened from their name in the crew box: when they joined,
  * and their record in each game the crew has finished days of (all time, the
- * same numbers as Rankings). The crew owner can remove them from here.
+ * same numbers as Rankings). Removing someone is in Manage crew, not here.
  */
 export function MemberStats({
   member,
@@ -30,7 +30,6 @@ export function MemberStats({
   rankedIds,
   byWinRate,
   onClose,
-  onRemove,
 }: {
   member: MemberInfo | null;
   /** The crew's games that anyone has finished a day of. */
@@ -42,8 +41,6 @@ export function MemberStats({
   /** The crew's ranking rule. */
   byWinRate: boolean;
   onClose: () => void;
-  /** Set for the owner, for anyone but themselves. */
-  onRemove?: () => void;
 }) {
   const rows = useMemo(() => {
     if (!member) return [];
@@ -107,14 +104,6 @@ export function MemberStats({
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
-
-          {onRemove && (
-            <div className="row">
-              <button type="button" className="btn btn-small btn-danger" onClick={onRemove}>
-                × Remove from crew
-              </button>
             </div>
           )}
         </div>
