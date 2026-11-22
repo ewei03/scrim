@@ -27,26 +27,24 @@ function markSeen(userId: string) {
 const NEW_ACCOUNT_MS = 10 * 60_000;
 
 /**
- * Getting-started guide, shown once: the first time a brand-new account reaches
- * the home page, right after signing up. It's marked as seen the moment it
- * opens, so it never comes back, whether it's closed, the player navigates
- * away, or they return to the home page later. Older accounts never see it,
- * even on a new browser, and guests never do (they can't create crews). Each
- * step ticks off as it's done.
+ * Getting-started guide for guests, shown once: the first time a brand-new
+ * guest reaches the home page, right after signing in. It's marked as seen the
+ * moment it opens, so it never comes back, whether it's closed, the player
+ * navigates away, or they return to the home page later. Older accounts never
+ * see it, even on a new browser, and Google accounts don't either. Each step
+ * ticks off as it's done.
  */
 export function Welcome({
   userId,
   accountCreatedAt,
   extension,
   hasCrew,
-  hasGames,
 }: {
   userId: string;
   /** The auth account's creation time (ISO). */
   accountCreatedAt: string;
   extension: ExtensionState;
   hasCrew: boolean;
-  hasGames: boolean;
 }) {
   const connected = extension === "connected";
   // Decided once, on first render.
@@ -66,43 +64,31 @@ export function Welcome({
 
   const steps = [
     {
-      done: hasCrew,
-      title: "Create a crew",
-      body: (
-        <>
-          Invite your friends to your crew!
-        </>
-      ),
-    },
-    {
-      done: hasGames,
-      title: "Pick your games",
-      body: (
-        <>
-          Choose your favourite games to play. You can edit the list at any time.
-        </>
-      ),
-    },
-    {
       done: connected,
-      title: "Get the Scrim extension",
-      body: (
+      key: true,
+      title: "Install the Scrim extension",
+      body: connected ? (
+        <>Installed and connected. Your scores will be submitted for you.</>
+      ) : (
         <>
-          The extension tracks your scores so you don&apos;t have to submit anything manually. <strong>HIGHLY RECOMMENDED!</strong>{" "}
-          <a href={EXTENSION_STORE_URL} target="_blank" rel="noreferrer">
-            Get it on the Chrome Web Store <ExternalArrow />
+          This is super important! Without it you won't get the full Scrim experience. The extension automatically submits your scores to Scrim.
+          <a className="btn btn-primary welcome-cta" href={EXTENSION_STORE_URL} target="_blank" rel="noreferrer">
+            Add to Chrome <ExternalArrow />
           </a>
         </>
       ),
     },
     {
+      done: hasCrew,
+      key: false,
+      title: "Join a crew",
+      body: <>Ask a friend for their crew&apos;s invite link and open it to join.</>,
+    },
+    {
       done: false,
+      key: false,
       title: "Play!",
-      body: (
-        <>
-          At midnight, the winner is crowned. Good luck!
-        </>
-      ),
+      body: <>At midnight, the winner is crowned. Good luck!</>,
     },
   ];
 
@@ -111,7 +97,10 @@ export function Welcome({
       <p>Follow the steps below to get started:</p>
       <ol className="welcome-steps">
         {steps.map((s) => (
-          <li key={s.title} className={s.done ? "done" : undefined}>
+          <li
+            key={s.title}
+            className={[s.done && "done", s.key && !s.done && "welcome-key"].filter(Boolean).join(" ") || undefined}
+          >
             <strong>
               {s.title}
               {s.done && <span className="sr-only"> (done)</span>}

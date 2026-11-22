@@ -74,8 +74,13 @@ export function Modal({
       ref={dialog}
       className={`dialog ${size === "small" ? "dialog-sm" : ""}`}
       aria-labelledby={titleId}
-      // Fires on Escape and on close(); keeps the parent's state in sync.
-      onClose={onClose}
+      // Fires on Escape and on close(); keeps the parent's state in sync. The
+      // event comes a moment after close(), so if the dialog is open again by
+      // then (an effect closed and reopened it, as React's Strict Mode does
+      // in development), it's stale: ignore it.
+      onClose={() => {
+        if (!dialog.current?.open) onClose();
+      }}
     >
       <div className="dialog-head">
         <h2 id={titleId}>{title}</h2>

@@ -77,11 +77,11 @@ NYT account or knowing today's answer.
 | `google.spec.ts` | Google sign-in opens Google in a pop-up (up to Google's own page); guests can link Google |
 | `navigation.spec.ts` | Help, theme toggle, Suggest a game (× / outside click / Escape), GitHub, @eggnonk, Privacy & Terms, old URLs |
 | `crew.spec.ts` | Create, invite (friend + guest), duplicate names refused, settings (rename, hide scores, time zone, remove member), games (built-in + custom), delete, leave |
-| `extension.spec.ts` | Finishing a game: not connected, connected (straight into the crew), signed out of NYT, unfinished, played before the crew picked the game, extension popup |
+| `extension.spec.ts` | Finishing a game: not connected, connected (straight into the crew), played signed out of NYT, unfinished, played before the crew picked the game, extension popup |
 | `extension-autoconnect.spec.ts` | Signing in connects the extension by itself; signing out disconnects it |
 | `manual.spec.ts` | Pasting results (invalid ones refused, wrong day, a good one), hidden scores, voiding, custom game scores |
 | `midnight.spec.ts` | The crew's day rolling over at midnight (faked browser clock): results move to the archive, rankings update, a new day starts |
-| `welcome.spec.ts` | The welcome guide: first visit only, never again, never for older accounts or guests |
+| `welcome.spec.ts` | The welcome guide: new guests only, first visit only, never again, never for Google accounts |
 
 Signing in to Google itself isn't automated: Google blocks automated
 browsers, and a test shouldn't hold a real Google password.

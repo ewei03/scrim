@@ -113,18 +113,19 @@ test.describe("signed in to Scrim", () => {
     await expect(wordle.locator("[data-scrim-toast]")).toHaveCount(0);
   });
 
-  test("a game played signed out of NYT doesn't count", async ({ extContext, games }) => {
+  test("a game played signed out of NYT counts too", async ({ extContext, games }) => {
     const crew = await createCrewApi(owner, "E2E NYT Crew", ["wordle"]);
     const { wordle, scrim } = await setUp(extContext);
 
     games.wordle = { signedIn: false, status: "WIN" };
     await wordle.bringToFront();
     await wordle.reload();
-    await expect(toast(wordle)).toContainText("Not counted: signed out", { timeout: 20_000 });
-    await expect(toast(wordle)).toContainText("Sign in to NYT");
+    await expect(toast(wordle)).toContainText("3/6 locked in ⚡", { timeout: 20_000 });
 
     await scrim.goto(`/crew/${crew.invite_code}`);
-    await expect(board(scrim, "Wordle")).toContainText("Nobody has submitted yet");
+    await expect(board(scrim, "Wordle").locator("tr", { hasText: accounts.owner.name })).toContainText("3/6", {
+      timeout: 20_000,
+    });
   });
 
   test("an earlier day's game doesn't pop up a notice", async ({ extContext, games }) => {

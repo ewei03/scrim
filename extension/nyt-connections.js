@@ -26,7 +26,6 @@
     label: (r) => `Connections #${Number(r.puzzle).toLocaleString("en-US")}`,
     score: ScrimConnections.formatScore,
     delayMs: 1500, // let the last group's reveal finish saving
-    signInTo: "NYT",
     today: () => String(ScrimConnections.numberFromPrintDate(ScrimContent.localDate())),
   });
 })();

@@ -430,7 +430,7 @@ function CrewPage() {
   }
 
   async function voidEntry(name: string, entryId: string) {
-    if (!(await confirmDialog(`Void ${name}'s entry? They'll be able to submit again while the day is still on.`)))
+    if (!(await confirmDialog(`Void ${name}'s entry? They'll have to replay the game to submit a new score. This cannot be undone.`)))
       return;
     try {
       await rpc("void_entry", { p_entry: entryId });
@@ -492,7 +492,7 @@ function CrewPage() {
                   ⚙
                 </button>
               ) : (
-                <button className="link-btn danger" onClick={leave}>
+                <button className="btn btn-small btn-danger" onClick={leave}>
                   Leave
                 </button>
               )}

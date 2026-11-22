@@ -1,5 +1,7 @@
 // Holds the connection to Scrim and submits results.
 const CONFIG_KEYS = ["token", "supabaseUrl", "supabaseKey", "scrimOrigin", "userId", "displayName"];
+/** Everything tied to the connected account: its connection and the results seen for it. */
+const ACCOUNT_KEYS = [...CONFIG_KEYS, "results"];
 const MAX_RESULTS = 14;
 
 // What this build may talk to, read from the manifest (the store build drops
@@ -60,6 +62,10 @@ async function handle(msg) {
       const { token, supabaseUrl, supabaseKey, scrimOrigin, userId, displayName } = msg;
       if (!token || !supabaseUrl || !supabaseKey) return { ok: false, error: "Missing pairing details" };
       if (!isAllowed(supabaseUrl, API_HOSTS)) return { ok: false, error: "That server isn't one Scrim uses" };
+      // Results seen for someone else stay theirs: a different account (or a
+      // connection too old to say whose it was) starts with none.
+      const before = await chrome.storage.local.get("userId");
+      if (!before.userId || before.userId !== userId) await chrome.storage.local.remove("results");
       await chrome.storage.local.set({ token, supabaseUrl, supabaseKey, scrimOrigin, userId, displayName });
       // Anything played before connecting gets submitted now: results already
       // seen, then today's games that finished while nothing was watching.
@@ -68,7 +74,7 @@ async function handle(msg) {
       return { ok: true, ...synced };
     }
     case "unpair":
-      await chrome.storage.local.remove(CONFIG_KEYS);
+      await chrome.storage.local.remove(ACCOUNT_KEYS);
       return { ok: true };
     case "status": {
       const c = await chrome.storage.local.get(["token", "userId", "displayName"]);
@@ -98,9 +104,14 @@ async function submitResult(game, result, raw) {
   const isNew = !previous;
   results[key] = { game, result, raw, seenAt: previous?.seenAt ?? Date.now(), crews: previous?.crews ?? [] };
   const reply = await callSubmit(game, result, raw);
-  if (reply.ok) results[key].crews = mergeCrews(results[key].crews, reply.crews);
+  let newlyVoided = false;
+  if (reply.ok) {
+    const wasVoided = results[key].crews.some((c) => c.outcome === "voided");
+    results[key].crews = mergeCrews(results[key].crews, reply.crews);
+    newlyVoided = !wasVoided && reply.crews.some((c) => c.outcome === "voided");
+  }
   await chrome.storage.local.set({ results: prune(results) });
-  return { ...reply, isNew };
+  return { ...reply, isNew, newlyVoided };
 }
 
 /** Re-submit recent results, e.g. after joining a crew or a crew picking a game. The server is idempotent. */
@@ -144,7 +155,7 @@ async function callRpc(fn, args) {
   if (!res.ok) {
     const error = body?.message ?? `HTTP ${res.status}`;
     if (/not connected/i.test(error)) {
-      await chrome.storage.local.remove(CONFIG_KEYS); // token was revoked
+      await chrome.storage.local.remove(ACCOUNT_KEYS); // token was revoked
       return { ok: false, error: "not-connected" };
     }
     return { ok: false, error };
@@ -158,8 +169,11 @@ async function callRpc(fn, args) {
  */
 function mergeCrews(previous, next) {
   const before = new Map(previous.map((c) => [c.crew_code, c]));
-  // Keep "submitted" once it happened, even if later calls report "already".
-  return next.map((c) => (before.get(c.crew_code)?.outcome === "submitted" ? before.get(c.crew_code) : c));
+  // Keep "submitted" once it happened while later calls report "already",
+  // but not once the crew owner voids it.
+  return next.map((c) =>
+    c.outcome === "already" && before.get(c.crew_code)?.outcome === "submitted" ? before.get(c.crew_code) : c,
+  );
 }
 
 function prune(results) {

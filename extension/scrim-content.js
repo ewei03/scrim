@@ -13,8 +13,6 @@
    * @param {(r: object) => string} opts.label  e.g. "Wordle #1,979"
    * @param {(r: object) => string} opts.score  e.g. "3/6"
    * @param {number} [opts.delayMs]  wait before reading, e.g. for animations
-   * @param {string} [opts.signInTo]  only count games with `signedIn: true`; games
-   *   finished while signed out get a notice naming this site instead
    * @param {() => string} [opts.today]  today's puzzle id. Older puzzles are still
    *   sent (a crew whose day hasn't ended yet may count them), but quietly: the
    *   notices are only for today's game.
@@ -37,14 +35,10 @@
       } catch {
         return;
       }
-      if (opts.signInTo) {
-        const counted = new Set(games.filter((g) => g.signedIn).map((g) => g.puzzle));
-        for (const game of games) {
-          if (game.signedIn || counted.has(game.puzzle) || !isToday(opts, game.puzzle)) continue;
-          noticeSignedOut(opts, game);
-        }
-        games = games.filter((g) => g.signedIn);
-      }
+      // Signed-out games count too. If a puzzle was played both ways, the
+      // signed-in save wins.
+      const signedIn = new Set(games.filter((g) => g.signedIn).map((g) => g.puzzle));
+      games = games.filter((g) => g.signedIn !== false || !signedIn.has(g.puzzle));
       for (const game of games) {
         const key = opts.key(game);
         if (handled.has(key)) continue;
@@ -95,21 +89,6 @@
     return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(now);
   }
 
-  /** Once per puzzle per browser session, so it doesn't nag on every visit. */
-  function noticeSignedOut(opts, game) {
-    const seen = `scrim-signed-out-notice:${opts.game}:${game.puzzle}`;
-    try {
-      if (sessionStorage.getItem(seen)) return;
-      sessionStorage.setItem(seen, "1");
-    } catch {
-      // Storage blocked: show it anyway.
-    }
-    show(
-      "Not counted: signed out",
-      `You played ${opts.label(game)} while signed out of ${opts.signInTo}. Sign in to ${opts.signInTo} and play there for Scrim to count it.`,
-    );
-  }
-
   function showToast(reply, label, score) {
     if (!reply) return;
     let title;
@@ -122,10 +101,14 @@
       body = reply.error;
     } else {
       const submitted = reply.crews.filter((c) => c.outcome === "submitted");
-      if (!reply.isNew && submitted.length === 0) return; // already reported on an earlier visit
+      // Already reported on an earlier visit (a void is reported once, too).
+      if (!reply.isNew && submitted.length === 0 && !reply.newlyVoided) return;
       if (submitted.length) {
         title = `${score} locked in ⚡`;
         body = `${label} → ${submitted.map((c) => c.crew_name).join(", ")}`;
+      } else if (reply.crews.some((c) => c.outcome === "voided")) {
+        title = "Voided";
+        body = `The crew owner voided ${label}. Play it again to submit a new result.`;
       } else if (reply.crews.some((c) => c.outcome === "already")) {
         title = "Already submitted";
         body = `${label} is already in your crews.`;

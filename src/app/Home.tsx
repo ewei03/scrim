@@ -194,14 +194,13 @@ function Dashboard() {
 
   return (
     <div className="stack-lg page-enter">
-      {/* The setup guide starts with making a crew, which guests can't. */}
-      {user && !isGuest && (
+      {/* The getting-started guide is for guests. */}
+      {user && isGuest && (
         <Welcome
           userId={user.id}
           accountCreatedAt={user.created_at}
           extension={extension.state}
           hasCrew={crews.length > 0}
-          hasGames={crews.some((c) => c.crew_games.length > 0)}
         />
       )}
       {allToday.length > 0 && (

@@ -84,7 +84,7 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 
 - **Home:** a Today list of every game in every crew you're in (unplayed
   first), your crews, and a form to create a crew.
-  First-time players get a welcome guide that ticks off each setup step.
+  New guests get a welcome guide that ticks off each setup step.
 - **Crew page:** a card per game for today, colour-coded and collapsible, with
   the time left, your submit panel and the live scoreboard. Then rankings and
   past days (click a day to see its full scoreboard).
@@ -126,8 +126,11 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 - `krillion.js` runs on krillion.io and reads finished Daily Dives from
   `localStorage["krillion:stats:v1"]` (prefixed `krillion:account:<id>:` when
   signed in). Archive, Unlimited and pack dives are ignored.
-- NYT games only count when played signed in to NYT: saves under `…/ANON`
-  (signed out) are ignored, and the page shows a notice instead.
+- NYT games count whether or not you're signed in to NYT (saves under
+  `…/<regiId>` or `…/ANON`). If a puzzle has both, the signed-in save wins.
+- A result the crew owner voids stays out: the server remembers it
+  (`voided_entries`) and answers `voided` if the extension sends it again.
+  A different result for that day (the game played again) still counts.
 - `scrim-content.js` is the shared watch-and-notify loop the game scripts use.
 - Games finished *before* the extension was connected: on install/update,
   `background.js` injects the content scripts into tabs that were already

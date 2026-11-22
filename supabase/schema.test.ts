@@ -375,6 +375,28 @@ describe("extension", () => {
     await expect(submit(eveToken, solve(T, 2, grid("ggggg", "ggggg")))).rejects.toThrow(/does not match/);
   });
 
+  it("doesn't take a voided result back, but takes a new one", async () => {
+    // Bob's 4/6 is in Weekend (Ann's crew) from earlier.
+    const weekendOutcome = async (result: string) =>
+      (await submit(bobToken, result)).find((r) => r.crew_name === "Weekend")?.outcome;
+    const bobs = async () =>
+      ((await board(ANN, weekend.id, T)) as { entry_id: string; user_id: string }[]).filter((e) => e.user_id === BOB);
+    const [entry] = await bobs();
+    await as(ANN, "select void_entry($1)", [entry.entry_id]);
+
+    // The extension sending it again (it keeps what it's seen) changes nothing.
+    expect(await weekendOutcome(solve(T, 4))).toBe("voided");
+    await expect(
+      as(BOB, "select submit_entry($1, 'wordle', $2, 'pasted', 'paste')", [weekend.id, solve(T, 4)]),
+    ).rejects.toThrow(/voided this result/);
+    expect(await bobs()).toHaveLength(0);
+    // Playing again gives a different result, which counts.
+    expect(await weekendOutcome(solve(T, 5))).toBe("submitted");
+    expect(await bobs()).toHaveLength(1);
+    // The record of the void isn't readable from the API.
+    await expect(as(BOB, "select * from voided_entries")).rejects.toThrow(/permission denied/);
+  });
+
   it("rejects unknown and revoked tokens", async () => {
     await expect(submit("nope", solve(T, 3))).rejects.toThrow(/not connected/);
     await as(BOB, "select revoke_extension_tokens()");

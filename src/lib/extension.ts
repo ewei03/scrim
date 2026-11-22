@@ -64,12 +64,12 @@ export async function pairExtension(userId: string, displayName: string | undefi
 }
 
 /**
- * Connects the extension as soon as someone's signed in and it's installed
- * but not connected: after signing in, or when it's installed with Scrim open
- * (it marks the page then). There's no Disconnect: signing out disconnects
- * it, and removing the extension does the rest. Not when it's connected to
- * another account in this browser: switching stays up to the player. Mounted
- * once, in the layout.
+ * Keeps the extension connected to whoever is signed in to Scrim in this
+ * browser: after signing in, when it's installed with Scrim open (it marks the
+ * page then), and when it's still connected to someone else (another account
+ * that didn't sign out cleanly, or a connection too old to say whose it is),
+ * so one person's games never land on another's account. Signing out
+ * disconnects it. Mounted once, in the layout.
  */
 export function ExtensionAutoConnect() {
   const { user, profile } = useAuth();
@@ -85,7 +85,9 @@ export function ExtensionAutoConnect() {
       running = true;
       try {
         const status = await askExtension<StatusReply>("status");
-        if (!cancelled && status?.ok && !status.connected) await pairExtension(userId!, name);
+        if (!cancelled && status?.ok && (!status.connected || status.userId !== userId)) {
+          await pairExtension(userId!, name);
+        }
       } catch {
         // The Connect button on the profile page is still there, with the error.
       } finally {
@@ -115,7 +117,7 @@ export function useExtension() {
     const reply = await askExtension<StatusReply>("status");
     if (!reply) setState("missing");
     else if (!reply.connected) setState("disconnected");
-    else if (reply.userId && reply.userId !== userId) setState("other-account");
+    else if (reply.userId !== userId) setState("other-account");
     else setState("connected");
   }, [userId]);
 
@@ -127,7 +129,7 @@ export function useExtension() {
         if (cancelled) return;
         if (!reply) setState("missing");
         else if (!reply.connected) setState("disconnected");
-        else if (reply.userId && reply.userId !== userId) setState("other-account");
+        else if (reply.userId !== userId) setState("other-account");
         else setState("connected");
       });
     }, 50);

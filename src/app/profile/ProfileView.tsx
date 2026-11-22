@@ -1,6 +1,7 @@
 "use client";
 
 import { confirmDialog } from "@/components/ConfirmDialog";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ExtensionPanel } from "@/components/ExtensionPanel";
@@ -40,9 +41,9 @@ function Profile() {
   async function signOut() {
     if (isGuest && !(await confirmDialog("Guest accounts can't be recovered after signing out. Sign out anyway?")))
       return;
-    // Stop the extension submitting results to this account from this browser.
-    const status = await askExtension<{ ok: boolean; userId: string | null }>("status");
-    if (status?.userId === user?.id) await askExtension("unpair");
+    // Disconnect the extension, so whoever signs in next starts fresh and none
+    // of their games land on this account.
+    await askExtension("unpair");
     await supabase().auth.signOut();
     router.push("/");
   }
@@ -93,6 +94,12 @@ function Profile() {
         </button>
       </section>
       {error && <p className="error">{error}</p>}
+
+      <div className="back-home">
+        <Link href="/" className="btn btn-primary">
+          ← Back to Scrim
+        </Link>
+      </div>
     </div>
   );
 }

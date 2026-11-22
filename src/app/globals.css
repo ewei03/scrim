@@ -769,6 +769,25 @@ select.input {
   color: var(--muted);
 }
 
+/* The step that matters most (the extension), until it's done. */
+.welcome-steps li.welcome-key {
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: calc(3px + var(--shadow-dx)) calc(3px + var(--shadow-dy)) 0 var(--accent);
+  padding: 12px;
+}
+
+.welcome-steps li.welcome-key > .muted {
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.welcome-cta {
+  display: block;
+  margin-top: 10px;
+  width: fit-content;
+}
+
 .welcome-link {
   padding: 0;
   color: var(--ink);
