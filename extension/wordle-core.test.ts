@@ -64,6 +64,52 @@ describe("findFinishedGames", () => {
   });
 });
 
+describe("findBoardGame", () => {
+  const TODAY = "2026-11-19";
+  const tiles = (word: string, states: string) =>
+    Array.from(word, (letter, i) => ({ state: ({ g: "correct", y: "present", ".": "absent" } as const)[states[i] as "g"], letter }));
+  const empty = () => Array.from({ length: 5 }, () => ({ state: "empty", letter: "" }));
+  // A save NYT made here before the game was finished on another device.
+  const inProgress: [string, string][] = [["games-state-wordleV2/216849005", state("IN_PROGRESS", { boardState: [], hardMode: false })]];
+
+  it("reads a win from the board when the save says in progress", () => {
+    const rows = [tiles("CRANE", "...y."), tiles("CLOUT", "ggggg"), empty(), empty(), empty(), empty()];
+    expect(core.findBoardGame(inProgress, rows, TODAY)).toEqual({
+      signedIn: true,
+      account: "216849005",
+      hardMode: false,
+      puzzle: "1979",
+      printDate: TODAY,
+      solved: true,
+      guesses: ["crane", "clout"],
+    });
+  });
+
+  it("reads a loss once all six rows are scored", () => {
+    const rows = ["audio", "pious", "tempo", "dumpy", "fight", "brick"].map((w) => tiles(w, "y...."));
+    expect(core.findBoardGame(inProgress, rows, TODAY)).toMatchObject({ solved: false, guesses: expect.any(Array) });
+  });
+
+  it("ignores an unfinished board, or one still flipping", () => {
+    expect(core.findBoardGame(inProgress, [tiles("crane", "...y."), empty()], TODAY)).toBeNull();
+    const flipping = [tiles("clout", "gggg."), empty()];
+    flipping[0][4] = { state: "tbd", letter: "T" };
+    expect(core.findBoardGame(inProgress, flipping, TODAY)).toBeNull();
+  });
+
+  it("leaves it to the save when the save is finished", () => {
+    expect(core.findBoardGame([["games-state-wordleV2/1", WIN]], [tiles("clout", "ggggg")], TODAY)).toBeNull();
+  });
+
+  it("needs a save for today's puzzle, not an archive one", () => {
+    const win = [tiles("clout", "ggggg")];
+    expect(core.findBoardGame([], win, TODAY)).toBeNull();
+    expect(core.findBoardGame(inProgress, win, "2026-11-20")).toBeNull();
+    const archive: [string, string][] = [["games-state-wordleV2/1", state("IN_PROGRESS", { isPlayingArchive: true })]];
+    expect(core.findBoardGame(archive, win, TODAY)).toBeNull();
+  });
+});
+
 describe("evaluate", () => {
   it("colours repeated letters like Wordle does", () => {
     expect(core.evaluate("crane", "clout")).toBe("g....");

@@ -17,6 +17,11 @@ declare const core: {
   isSignedInKey(key: string): boolean;
   accountOf(key: string): string | null;
   findFinishedGames(entries: [string, string][]): FinishedGame[];
+  findBoardGame(
+    entries: [string, string][],
+    rows: { state: string | undefined; letter: string }[][],
+    today: string,
+  ): FinishedGame | null;
   evaluate(guess: string, answer: string): string;
   gridFromTileStates(rows: string[][]): string[];
   toResult(game: FinishedGame, tileRows: string[][]): WordleResult;

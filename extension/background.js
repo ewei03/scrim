@@ -44,6 +44,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   // The site's origin comes from the page the message came from, not the message.
   if (fromSite) msg = { ...msg, scrimOrigin: new URL(sender.url).origin };
+  if (msg?.type === "is-check-tab") msg = { type: msg.type, tabId: sender.tab?.id };
   handle(msg).then(
     (reply) => {
       sendResponse(reply);
@@ -98,6 +99,9 @@ async function handle(msg) {
       return submitResult(msg.game, msg.result, msg.raw, msg.account ?? null, msg.atLoad === true);
     case "sync":
       return { ok: true, ...(await syncAll()) };
+    case "is-check-tab":
+      // Asked by a game page: whether it's a tab a catch-up opened.
+      return { ok: true, checkTab: visits.has(msg.tabId) };
     case "catch-up":
       // From the popup: e.g. today's games were played on a phone, signed in
       // to the same game accounts as this browser. One already running (e.g.

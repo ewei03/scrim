@@ -47,6 +47,53 @@
     return games;
   }
 
+  /**
+   * Today's game as finished on the board, when NYT's save here doesn't say so.
+   *
+   * Signed in, NYT loads a game finished on another device (e.g. a phone) from
+   * its server and shows it, but this browser's save can stay "IN_PROGRESS".
+   * The board is then the only place the result is.
+   *
+   * `entries` is [key, value][] from localStorage, `rows` the board's rows of
+   * tiles ({ state: data-state, letter }), `today` today's print date. Only
+   * trusted when this browser has a save for today's (non-archive) puzzle, which
+   * says whose game it is; null otherwise, or when the board isn't finished.
+   */
+  function findBoardGame(entries, rows, today) {
+    if (findFinishedGames(entries).some((g) => g.printDate === today)) return null; // the save has it
+    let save = null;
+    for (const [key, value] of entries) {
+      if (!STATE_KEY.test(key)) continue;
+      let parsed;
+      try {
+        parsed = JSON.parse(value);
+      } catch {
+        continue;
+      }
+      const state = (parsed?.states ?? []).find((s) => s?.printDate === today && s.data && !s.data.isPlayingArchive);
+      // A signed-in save wins over a signed-out one.
+      if (state && (!save || (!save.signedIn && isSignedInKey(key)))) {
+        save = { signedIn: isSignedInKey(key), account: accountOf(key), hardMode: Boolean(state.data.hardMode) };
+      }
+    }
+    if (!save) return null;
+
+    const guesses = [];
+    let solved = false;
+    for (const row of rows) {
+      if (row.length !== 5 || !row.every((t) => t.state in TILE_STATE)) break;
+      const word = row.map((t) => t.letter).join("").toLowerCase();
+      if (!/^[a-z]{5}$/.test(word)) return null;
+      guesses.push(word);
+      if (row.every((t) => t.state === "correct")) {
+        solved = true;
+        break;
+      }
+    }
+    if (!solved && guesses.length < 6) return null;
+    return { ...save, puzzle: String(numberFromPrintDate(today)), printDate: today, solved, guesses: guesses.slice(0, 6) };
+  }
+
   /** NYT saves under ".../<regiId>" when signed in and ".../ANON" when not. */
   function isSignedInKey(key) {
     return accountOf(key) !== null;
@@ -111,7 +158,7 @@
     return `${header}\n\n${rows.join("\n")}`;
   }
 
-  const api = { numberFromPrintDate, isSignedInKey, accountOf, findFinishedGames, evaluate, gridFromTileStates, toResult, shareText };
+  const api = { numberFromPrintDate, isSignedInKey, accountOf, findFinishedGames, findBoardGame, evaluate, gridFromTileStates, toResult, shareText };
   root.ScrimWordle = api;
   if (typeof module !== "undefined") module.exports = api;
 })(globalThis);
