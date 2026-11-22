@@ -899,7 +899,7 @@ function TodayRound({
 
   return (
     <article
-      className={`game-card ${open ? "" : "collapsed"}`}
+      className={`game-card ${open ? "" : "collapsed"} ${submitted ? "" : "unplayed"}`}
       style={gameStyle(game)}
       data-game-card={game.id}
     >

@@ -111,8 +111,8 @@ test("hidden scores stay hidden until you submit yours", async ({ page, context,
   await friendPage.goto(`/crew/${crew.invite_code}`);
   await expandGameCards(friendPage);
   const ownerRow = card(friendPage, "Wordle").locator("tbody tr", { hasText: accounts.owner.name });
-  await expect(ownerRow.getByText("Hidden")).toBeVisible();
-  await expect(ownerRow).toContainText("Submit yours to see");
+  // Score and result are both hidden.
+  await expect(ownerRow.getByText("Hidden", { exact: true })).toHaveCount(2);
   await expect(ownerRow).not.toContainText("3/6");
 
   // Once the friend submits, both show.

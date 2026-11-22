@@ -95,7 +95,11 @@ export function Scoreboard({
                     Hidden
                   </span>
                 </td>
-                <td className="result muted small">Submit yours to see</td>
+                <td className="result">
+                  <span className="pill hidden-pill" title="Submit your own result to see this">
+                    Hidden
+                  </span>
+                </td>
                 <td className="time muted small">
                   <time dateTime={r.submitted_at}>{formatTime(r.submitted_at, clock24h)}</time>
                 </td>
@@ -114,11 +118,7 @@ export function Scoreboard({
           </tbody>
         </table>
       </div>
-      {!closed && hidden.length > 0 && (
-        <p className="muted small">
-          Scores are hidden until you submit yours. No peeking!
-        </p>
-      )}
+      {!closed && hidden.length > 0}
     </section>
   );
 }
