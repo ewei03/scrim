@@ -29,20 +29,9 @@ export function Scoreboard({
   const hidden = rows.filter((r) => r.hidden);
   // Your 12/24-hour choice, shared by every scoreboard (click the heading to flip it).
   const clock24h = useClock24h();
-  const winners = ranked.filter((r) => r.winner);
 
   return (
     <section className="stack">
-      {closed && (
-        <div className="banner">
-          {rows.length === 0
-            ? "NO ENTRIES"
-            : winners.length === 0
-              ? "NO WINNER TODAY"
-              : `★ ${joinNames(winners.map((w) => w.display_name))} ${winners.length > 1 ? "WIN" : "WINS"} ★`}
-        </div>
-      )}
-
       {/* On phones the table can be wider than the screen (the Result column):
           it scrolls sideways rather than dropping a column. */}
       <div className="table-wrap">
@@ -144,10 +133,4 @@ function VoidButton({ onClick }: { onClick: () => void }) {
       ×
     </button>
   );
-}
-
-function joinNames(names: string[]): string {
-  const upper = names.map((n) => n.toUpperCase());
-  if (upper.length <= 2) return upper.join(" & ");
-  return `${upper.slice(0, -1).join(", ")} & ${upper.at(-1)}`;
 }

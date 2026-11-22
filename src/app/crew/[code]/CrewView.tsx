@@ -661,6 +661,14 @@ function CrewPage() {
           hidden={tab !== "today"}
         >
           <h2 className="sr-only">Today</h2>
+          <DayEndedNotice
+            crew={crew}
+            rounds={finished}
+            findGame={findGame}
+            names={names}
+            now={now}
+            onRankings={() => selectTab("rankings")}
+          />
           {/* Every game's day ends together, at the crew's midnight (games on another clock say so on their card). */}
           {tracked.length > 0 && (
             <div className="row between today-head">
@@ -936,6 +944,97 @@ function TodayRound({
         {error && <p className="error small">{error}</p>}
       </div>
     </article>
+  );
+}
+
+/** Dismissing the "day has ended" notice, per crew and day, in this browser. */
+const endedKey = (crewId: string, day: string) => `scrim-day-ended:${crewId}:${day}`;
+
+function wasDismissed(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function joinNames(names: string[]): string {
+  if (names.length <= 2) return names.join(" & ");
+  return `${names.slice(0, -1).join(", ")} & ${names.at(-1)}`;
+}
+
+/**
+ * Once the crew's day rolls over: yesterday is over, here's who won each game,
+ * and a nudge to the rankings. Shown on the Today tab until dismissed.
+ */
+function DayEndedNotice({
+  crew,
+  rounds,
+  findGame,
+  names,
+  now,
+  onRankings,
+}: {
+  crew: Crew;
+  /** Finished rounds with entries. */
+  rounds: RoundWithEntries[];
+  findGame: (id: string) => GameAdapter<unknown>;
+  names: Map<string, string>;
+  now: number;
+  onRankings: () => void;
+}) {
+  const zone = crew.timezone ?? "UTC";
+  const yesterday = dayNumber(dateIn(zone, new Date(now))) - 1;
+  const dayKey = String(yesterday);
+  const key = endedKey(crew.id, dayKey);
+  // Only rendered once the crew has loaded in the browser, so storage is there to read.
+  const [dismissed, setDismissed] = useState<string | null>(null);
+
+  const results = useMemo(
+    () =>
+      rounds
+        .filter((r) => dayNumber(dateIn(zone, roundDay(r))) === yesterday)
+        .map((r) => {
+          const game = findGame(r.game);
+          const winners = rankEntries(game, r.entries).filter((e) => e.winner);
+          return { id: r.id, game, winners: winners.map((w) => names.get(w.user_id) ?? "?") };
+        }),
+    [rounds, zone, yesterday, findGame, names],
+  );
+
+  if (results.length === 0 || dismissed === key || wasDismissed(key)) return null;
+
+  function dismiss() {
+    setDismissed(key);
+    try {
+      localStorage.setItem(key, "1");
+    } catch {
+      // Storage blocked: it comes back next visit.
+    }
+  }
+
+  return (
+    <div className="card day-ended" role="status">
+      <div className="row between day-ended-head">
+        <strong>Yesterday&apos;s games have ended!</strong>
+        <button type="button" className="icon-btn" aria-label="Dismiss" title="Dismiss" onClick={dismiss}>
+          ×
+        </button>
+      </div>
+      <ul className="day-ended-results">
+        {results.map(({ id, game, winners }) => (
+          <li key={id}>
+            <GameTag game={game} />{" "}
+            {winners.length === 0
+              ? "No winner"
+              : `★ ${joinNames(winners)} ${winners.length > 1 ? "win" : "wins"}`}
+          </li>
+        ))}
+      </ul>
+      <button type="button" className="link-btn" onClick={onRankings}>
+        View rankings →
+      </button>
+    </div>
   );
 }
 

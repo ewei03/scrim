@@ -143,7 +143,6 @@ h2,
 h3,
 .title,
 .logo,
-.banner,
 .score,
 .place,
 .hero h1 {
@@ -393,16 +392,6 @@ main.container {
   box-shadow: var(--shadow);
   border-radius: var(--radius);
   padding: 18px;
-}
-
-.banner {
-  border: 2px solid var(--line);
-  background: var(--accent);
-  color: var(--accent-ink);
-  box-shadow: var(--shadow);
-  font-size: calc(2.2rem * var(--display-scale));
-  text-align: center;
-  padding: 10px;
 }
 
 .pill,
@@ -1895,6 +1884,30 @@ body:has(.reorder-row.lifted) {
 }
 
 /* The owner's heads-up that people are waiting to be let in. */
+/* "Yesterday's games have ended": who won, and a link to the rankings. */
+.day-ended {
+  border: 2px solid var(--accent-text);
+  box-shadow: none;
+  display: grid;
+  gap: 8px;
+}
+
+.day-ended-head {
+  align-items: center;
+}
+
+.day-ended-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.day-ended .link-btn {
+  justify-self: start;
+}
+
 .join-requests-note {
   border: 2px solid var(--accent-text);
   box-shadow: none;
