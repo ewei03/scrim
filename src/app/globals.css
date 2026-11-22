@@ -2134,17 +2134,6 @@ body:has(.reorder-row.lifted) {
   box-shadow: calc(4px + var(--shadow-dx)) calc(4px + var(--shadow-dy)) 0 var(--line);
 }
 
-/* Like How Scrim works: hovering a card brings it forward, and everything
-   else dims and blurs. */
-.manage-body > * {
-  transition: opacity 320ms ease, filter 320ms ease;
-}
-
-.manage-body:has(.manage-card:hover) > :not(:hover) {
-  opacity: 0.3;
-  filter: blur(1.5px);
-}
-
 .manage-card h3 {
   transition: letter-spacing 150ms;
 }
