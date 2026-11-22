@@ -91,7 +91,6 @@ export function MemberStats({
                       <td className="nowrap">{game.name}</td>
                       <td className="right nowrap" title={`${ordinal(place)} of ${of} in ${game.name}`}>
                         {ordinal(place)}
-                        <span className="muted small">/{of}</span>
                       </td>
                       <td className="right">{stats.played}</td>
                       <td className="right">{stats.wins}</td>
