@@ -1149,8 +1149,10 @@ describe("crew limits", () => {
     expect(p.display_name).toBe("Bartholomew Mont");
   });
 
-  it("doesn't let guests suggest games", async () => {
-    await expect(as(GUEST, "select suggest_game('Strands')")).rejects.toThrow(/Sign in with Google/);
+  it("doesn't let guests suggest games, but lets them report problems", async () => {
+    await expect(as(GUEST, "select send_feedback('game', null, 'Strands')")).rejects.toThrow(/Sign in with Google/);
+    await as(GUEST, "select send_feedback('problem', 'Scores missing on Opera')");
+    await db.query("delete from game_suggestions where user_id = $1", [GUEST]);
   });
 });
 
@@ -1316,10 +1318,10 @@ describe("function permissions", () => {
     "remove_crew_member",
     "reset_rankings",
     "revoke_extension_tokens",
+    "send_feedback",
     "set_crew_game",
     "set_game_order",
     "submit_entry",
-    "suggest_game",
     "transfer_crew",
     "update_crew_settings",
     "update_custom_game",
@@ -1365,50 +1367,74 @@ describe("function permissions", () => {
   });
 });
 
-describe("game suggestions", () => {
-  it("accepts suggestions from signed-in users and keeps them private", async () => {
-    await as(BOB, "select suggest_game($1, $2, $3)", ["  Strands ", "https://nytimes.com/games/strands", "pls"]);
-    await expect(as(null, "select suggest_game('Nope')")).rejects.toThrow(/permission denied/);
-    await expect(as(BOB, "select suggest_game('  ')")).rejects.toThrow(/name/);
-    await expect(as(BOB, "select suggest_game('X', 'javascript:alert(1)')")).rejects.toThrow(/web address/);
+describe("feedback", () => {
+  const send = (user: string | null, ...args: unknown[]) =>
+    as(user, `select send_feedback(${args.map((_, i) => `$${i + 1}`).join(", ")})`, args);
+
+  it("accepts game suggestions from signed-in users and keeps them private", async () => {
+    await send(BOB, "game", "pls", "  Strands ", "https://nytimes.com/games/strands");
+    await expect(send(null, "game", null, "Nope")).rejects.toThrow(/permission denied/);
+    await expect(send(BOB, "game", null, "  ")).rejects.toThrow(/name/);
+    await expect(send(BOB, "game", null, "X", "javascript:alert(1)")).rejects.toThrow(/web address/);
+    await expect(send(BOB, "bogus", "hi")).rejects.toThrow(/what this is about/);
 
     // Nobody can read them through the API, not even the author.
     await expect(as(BOB, "select * from game_suggestions")).rejects.toThrow(/permission denied/);
     await expect(as(ANN, "select * from game_suggestions")).rejects.toThrow(/permission denied/);
 
-    const { rows } = await db.query<{ name: string; user_id: string; notes: string; email: string | null }>(
-      "select name, user_id, notes, email from game_suggestions",
-    );
-    expect(rows).toEqual([{ name: "Strands", user_id: BOB, notes: "pls", email: null }]);
+    const { rows } = await db.query("select kind, name, user_id, notes, email from game_suggestions");
+    expect(rows).toEqual([{ kind: "game", name: "Strands", user_id: BOB, notes: "pls", email: null }]);
+    await db.query("delete from game_suggestions");
+  });
+
+  it("takes problem reports with a message and the browser details, and nothing else", async () => {
+    await expect(send(ANN, "problem", "  ")).rejects.toThrow(/Write a message/);
+    const details = { browser: "Mozilla/5.0 OPR/120", extension: "0.5.8", page: "/crew/ABC", password: "nope" };
+    await send(ANN, "problem", "Scores missing", "ignored", "https://ignored.example", null, JSON.stringify(details));
+    await db.query("update game_suggestions set created_at = now() - interval '3 minutes'");
+    await send(ANN, "other", "Love it", null, null, null, JSON.stringify(details));
+    const { rows } = await db.query("select kind, name, url, notes, details from game_suggestions order by created_at");
+    expect(rows).toEqual([
+      {
+        kind: "problem",
+        name: null,
+        url: null,
+        notes: "Scores missing",
+        details: { browser: "Mozilla/5.0 OPR/120", extension: "0.5.8", page: "/crew/ABC" },
+      },
+      // Only problem reports keep the details.
+      { kind: "other", name: null, url: null, notes: "Love it", details: null },
+    ]);
+    await db.query("delete from game_suggestions");
   });
 
   it("takes an optional contact email and checks it looks like one", async () => {
-    await expect(as(ANN, "select suggest_game('X', null, null, 'not an email')")).rejects.toThrow(/email/);
-    await expect(as(ANN, "select suggest_game('X', null, null, 'a@b')")).rejects.toThrow(/email/);
-    await as(ANN, "select suggest_game('Spelling Bee', null, null, '  Ann@Example.COM ')");
+    await expect(send(ANN, "game", null, "X", null, "not an email")).rejects.toThrow(/email/);
+    await expect(send(ANN, "game", null, "X", null, "a@b")).rejects.toThrow(/email/);
+    await send(ANN, "game", null, "Spelling Bee", null, "  Ann@Example.COM ");
     const { rows } = await db.query<{ email: string }>("select email from game_suggestions where user_id = $1", [ANN]);
     expect(rows).toEqual([{ email: "ann@example.com" }]);
     await db.query("delete from game_suggestions where user_id = $1", [ANN]);
   });
 
-  it("makes each user wait an hour between suggestions", async () => {
-    await as(ANN, "select suggest_game('First')");
-    await expect(as(ANN, "select suggest_game('Second')")).rejects.toThrow(/an hour/);
+  it("makes each user wait two minutes between messages", async () => {
+    await send(ANN, "other", "First");
+    await expect(send(ANN, "problem", "Second")).rejects.toThrow(/couple of minutes/);
 
-    await db.query("update game_suggestions set created_at = now() - interval '61 minutes' where user_id = $1", [ANN]);
-    await as(ANN, "select suggest_game('Second')");
+    await db.query("update game_suggestions set created_at = now() - interval '3 minutes' where user_id = $1", [ANN]);
+    await send(ANN, "problem", "Second");
   });
 
   it("limits each user to five a day", async () => {
     for (let i = 0; i < 5; i++) {
-      await as(EVE, "select suggest_game($1)", [`Game ${i}`]);
-      // Step past the hourly cooldown, keeping every row inside the last day.
+      await send(EVE, "game", null, `Game ${i}`);
+      // Step past the cooldown, keeping every row inside the last day.
       await db.query(
-        "update game_suggestions set created_at = created_at - interval '61 minutes' where user_id = $1",
+        "update game_suggestions set created_at = created_at - interval '3 minutes' where user_id = $1",
         [EVE],
       );
     }
-    await expect(as(EVE, "select suggest_game('One more')")).rejects.toThrow(/tomorrow/);
+    await expect(send(EVE, "other", "One more")).rejects.toThrow(/tomorrow/);
   });
 });
 

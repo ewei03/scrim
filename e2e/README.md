@@ -55,8 +55,8 @@ above), so they create real rows there. All of it cleans itself up:
 - Supabase limits anonymous sign-ins (30 an hour per IP by default; Supabase →
   Authentication → Rate Limits), so running the whole suite more than once in
   an hour can hit it: tests then fail with "Request rate limit reached".
-- "Suggest a game" is tested with the request answered by the test, so no
-  suggestion is stored and the 1-hour cooldown isn't started.
+- Feedback (and "Suggest a game") is tested with the request answered by the
+  test, so nothing is stored and the cooldown isn't started.
 
 ## The game sites
 
@@ -75,7 +75,7 @@ NYT account or knowing today's answer.
 | `crew-full.spec.ts` | The 11th person to open an invite link is told the crew is full (10 players) |
 | `crew-rules.spec.ts` | Approving new members: the invite link asks, the owner approves or declines |
 | `google.spec.ts` | Google sign-in opens Google in a pop-up (up to Google's own page); guests can link Google |
-| `navigation.spec.ts` | Help, theme toggle, Suggest a game (× / outside click / Escape), GitHub, @eggnonk, Privacy & Terms, old URLs |
+| `navigation.spec.ts` | Help, theme toggle, Feedback and Suggest a game (× / outside click / Escape), GitHub, @eggnonk, Privacy & Terms, old URLs |
 | `crew.spec.ts` | Create, invite (friend + guest), duplicate names refused, settings (rename, hide scores, time zone, remove member), games (built-in + custom), delete, leave |
 | `extension.spec.ts` | Finishing a game: not connected, connected (straight into the crew), played signed out of NYT, unfinished, played before the crew picked the game, extension popup |
 | `extension-autoconnect.spec.ts` | Signing in connects the extension by itself; signing out disconnects it |

@@ -3,7 +3,7 @@ import { Fira_Code, Noto_Color_Emoji, Share_Tech_Mono } from "next/font/google";
 import Link from "next/link";
 import { ConfirmDialogHost } from "@/components/ConfirmDialog";
 import { Header } from "@/components/Header";
-import { SuggestGameLink } from "@/components/SuggestGame";
+import { FeedbackLink } from "@/components/Feedback";
 import { THEME_INIT_SCRIPT } from "@/components/ThemeToggle";
 import { AuthProvider } from "@/lib/auth";
 import { ExtensionAutoConnect } from "@/lib/extension";
@@ -45,7 +45,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </span>
             <nav>
               <Link href="/games">Games</Link>
-              <SuggestGameLink />
+              <FeedbackLink />
               <a href="https://github.com/ewei03/scrim" target="_blank" rel="noreferrer">
                 GitHub
               </a>

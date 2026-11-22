@@ -41,8 +41,9 @@ export default function PrivacyPage() {
           and when it was last used.
         </li>
         <li>
-          <strong>Game suggestions:</strong> if you suggest a game, what you wrote, which account sent it, and the
-          email address you gave, if any. That address is only used to reply about your suggestion.
+          <strong>Feedback:</strong> if you send feedback or suggest a game, what you wrote, which account sent it, and
+          the email address you gave, if any. That address is only used to reply to you. Problem reports also include
+          your browser&apos;s user agent (its name and version), the extension&apos;s version and the page you were on.
         </li>
       </ul>
       <p>
@@ -54,7 +55,7 @@ export default function PrivacyPage() {
       <p>
         Your display name and results are visible to the other members of your crews. While a puzzle&apos;s day is
         still on and &quot;hide scores until you submit&quot; is on, other players can&apos;t see your result until
-        they&apos;ve submitted their own. Game suggestions are only visible to Scrim&apos;s maintainer.
+        they&apos;ve submitted their own. Feedback is only visible to Scrim&apos;s maintainer.
       </p>
 
       <h3>The Chrome extension</h3>
@@ -136,7 +137,7 @@ export default function PrivacyPage() {
 
       <h3>Names and other things you write</h3>
       <p>
-        Display names, crew names and game suggestions must not be abusive, hateful, sexually explicit or illegal,
+        Display names, crew names and feedback must not be abusive, hateful, sexually explicit or illegal,
         and must not impersonate someone else with malicious intent. You own what you write.
       </p>
 

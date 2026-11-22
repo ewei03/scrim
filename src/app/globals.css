@@ -11,6 +11,8 @@
   --accent: #3eb489;
   --accent-ink: #1c1b19;
   --accent-text: #18734f;
+  /* How much accent fills a chosen card: pale mint needs more than orange. */
+  --chosen-mix: 45%;
   --good: #2f8f4e;
   --bad: #c2362b;
   /* Time running out: red that stays readable on cards in both themes. */
@@ -57,6 +59,7 @@
   /* Dark mode keeps the orange accent. */
   --accent: #ff5b1f;
   --accent-text: var(--accent);
+  --chosen-mix: 18%;
   color-scheme: dark;
 }
 
@@ -76,6 +79,7 @@
     /* Dark mode keeps the orange accent. */
     --accent: #ff5b1f;
     --accent-text: var(--accent);
+    --chosen-mix: 18%;
     color-scheme: dark;
   }
 }
@@ -227,6 +231,11 @@ main.container {
   width: 0.75em;
   height: 0.75em;
   vertical-align: -0.02em;
+}
+
+.gear-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .cursor,
@@ -2159,7 +2168,7 @@ body:has(.reorder-row.lifted) {
 
 .choice-card.chosen {
   border-color: var(--line);
-  background: color-mix(in srgb, var(--accent) 18%, var(--card));
+  background: color-mix(in srgb, var(--accent) var(--chosen-mix), var(--card));
 }
 
 .choice-card:has(input:focus-visible) {

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { confirmByTyping, confirmDialog, confirmWithOption } from "@/components/ConfirmDialog";
 import { CopyLink } from "@/components/CopyLink";
 import { CustomGameForm } from "@/components/CustomGameForm";
+import { GearIcon } from "@/components/GearIcon";
 import { GameTag, gameStyle } from "@/components/GameTag";
 import { Modal } from "@/components/Modal";
 import { MemberStats } from "@/components/MemberStats";
@@ -502,7 +503,7 @@ function CrewPage() {
                   title="Manage crew"
                   onClick={() => setShowManage(true)}
                 >
-                  ⚙
+                  <GearIcon />
                 </button>
               ) : (
                 <button className="btn btn-small btn-danger" onClick={leave}>

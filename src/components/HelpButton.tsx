@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { EXTENSION_STORE_URL } from "@/lib/extension";
 import { Modal } from "./Modal";
-import { openSuggestGame } from "./SuggestGame";
+import { openFeedback } from "./Feedback";
 
 const STEPS = [
   { title: "Create your crew", text: "Name your crew and pick your games. The more, the merrier!" },
@@ -61,7 +61,7 @@ export function HelpButton() {
             className="footer-link"
             onClick={() => {
               close();
-              openSuggestGame();
+              openFeedback("game");
             }}
           >
             here!

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SuggestGameButton } from "@/components/SuggestGame";
+import { SuggestGameButton } from "@/components/Feedback";
 import { gameList } from "@/games/registry";
 
 export const metadata: Metadata = { title: "Games - Scrim" };

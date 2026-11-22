@@ -47,7 +47,7 @@ test("Help's tips link to Suggest a game and to signing in", async ({ page }) =>
   await page.getByRole("button", { name: "How Scrim works" }).click();
   await help.getByRole("button", { name: "here!" }).click();
   await expect(help).toBeHidden();
-  await expect(page.getByRole("dialog", { name: "Suggest a game" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Feedback" })).toBeVisible();
   await page.keyboard.press("Escape");
 
   await page.getByRole("button", { name: "How Scrim works" }).click();
@@ -74,37 +74,55 @@ test("the theme toggle switches dark and light mode, and remembers it", async ({
   await expect(page.getByRole("button", { name: "Switch to dark mode" })).toBeVisible();
 });
 
-test("Suggest a game opens from the footer and closes with × or a click outside", async ({ page }) => {
-  const dialog = page.getByRole("dialog", { name: "Suggest a game" });
-  await checkModalCloses(page, () => page.getByRole("button", { name: "Suggest a game" }).click(), dialog);
+test("Feedback opens from the footer and closes with × or a click outside", async ({ page }) => {
+  const dialog = page.getByRole("dialog", { name: "Feedback" });
+  await checkModalCloses(page, () => page.getByRole("button", { name: "Feedback" }).click(), dialog);
 
-  // Signed out, it asks you to sign in with Google first.
-  await page.getByRole("button", { name: "Suggest a game" }).click();
-  await expect(dialog.getByText("Sign in with Google to suggest a game.")).toBeVisible();
+  // Signed out, it asks you to sign in first.
+  await page.getByRole("button", { name: "Feedback" }).click();
+  await expect(dialog.getByText("Sign in to send feedback.")).toBeVisible();
 });
 
-test("guests are asked to link Google before suggesting a game", async ({ page, context }) => {
-  await loginBrowser(context, await newGuest("Suggesting Guest"));
+test("guests can report a problem, but are asked to link Google before suggesting a game", async ({ page, context }) => {
+  await loginBrowser(context, await newGuest("Feedback Guest"));
+  let sent: Record<string, unknown> | null = null;
+  await context.route("**/rest/v1/rpc/send_feedback", async (route) => {
+    sent = route.request().postDataJSON();
+    await route.fulfill({ status: 204 });
+  });
   await page.goto("/");
-  await page.getByRole("button", { name: "Suggest a game" }).click();
-  const dialog = page.getByRole("dialog", { name: "Suggest a game" });
-  await expect(dialog.getByText("Suggestions need a Google account.")).toBeVisible();
+  await page.getByRole("button", { name: "Feedback" }).click();
+  const dialog = page.getByRole("dialog", { name: "Feedback" });
+
+  await dialog.getByLabel("Suggest a game").check();
+  await expect(dialog.getByText("Suggesting a game needs a Google account.")).toBeVisible();
   await expect(dialog.getByRole("link", { name: "Link one on your profile" })).toHaveAttribute("href", "/profile");
   await expect(dialog.getByRole("button", { name: "Send suggestion" })).toHaveCount(0);
+
+  await dialog.getByLabel("Something's not working").check();
+  const send = dialog.getByRole("button", { name: "Send", exact: true });
+  await expect(send).toBeDisabled(); // a message is required
+  await dialog.getByLabel("What happened?").fill("Added by the e2e tests");
+  await send.click();
+  await expect(dialog.getByText("Thanks! Your message was sent.")).toBeVisible();
+  expect(sent).toMatchObject({ p_kind: "problem", p_message: "Added by the e2e tests", p_name: null });
+  expect((sent as { p_details: { browser: string } } | null)?.p_details.browser).toBeTruthy();
 });
 
 test("Suggest a game sends a suggestion from a Google (regular) account", async ({ page, context }) => {
   test.skip(!hasAccounts, NO_ACCOUNTS);
   await loginBrowser(context, await signIn("owner"));
-  // Answer the request here rather than storing a real suggestion (and starting the 1-hour cooldown).
+  // Answer the request here rather than storing a real suggestion (and starting the cooldown).
   let sent: Record<string, unknown> | null = null;
-  await context.route("**/rest/v1/rpc/suggest_game", async (route) => {
+  await context.route("**/rest/v1/rpc/send_feedback", async (route) => {
     sent = route.request().postDataJSON();
     await route.fulfill({ status: 204 });
   });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Suggest a game" }).click();
-  const dialog = page.getByRole("dialog", { name: "Suggest a game" });
+  await page.goto("/games");
+  // "here!" opens the form on Suggest a game.
+  await page.getByRole("button", { name: "here!" }).click();
+  const dialog = page.getByRole("dialog", { name: "Feedback" });
+  await expect(dialog.getByLabel("Suggest a game")).toBeChecked();
 
   const send = dialog.getByRole("button", { name: "Send suggestion" });
   await expect(send).toBeDisabled(); // a game name is required
@@ -113,9 +131,10 @@ test("Suggest a game sends a suggestion from a Google (regular) account", async 
   await dialog.getByLabel("Anything else? (optional)").fill("Added by the e2e tests");
   await send.click();
 
-  await expect(dialog.getByText("Thanks! Your suggestion was sent.")).toBeVisible();
+  await expect(dialog.getByText("Thanks! Your message was sent.")).toBeVisible();
   // The account's own email is filled in for them.
   expect(sent).toMatchObject({
+    p_kind: "game",
     p_name: "Strands",
     p_url: "https://www.nytimes.com/games/strands",
     p_email: accounts.owner.email,
