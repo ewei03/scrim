@@ -253,7 +253,7 @@ function CustomSubmit({
           </label>
         )}
         {problem && <p className="error small">{problem}</p>}
-        {result && !failed && (
+        {result && (
           <p className="muted small">
             Shows as <strong>{game.formatScore(result)}</strong>
           </p>

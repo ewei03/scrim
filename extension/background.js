@@ -114,6 +114,12 @@ async function handle(msg) {
       const reply = await callRpc("extension_rankings", {});
       return reply.ok ? { ok: true, rows: reply.body ?? [] } : reply;
     }
+    case "results": {
+      // Today's results from the server, wherever they were played. The popup
+      // says which puzzle is today's for each game.
+      const reply = await callRpc("extension_results", { p_puzzles: msg.puzzles ?? {} });
+      return reply.ok ? { ok: true, rows: reply.body ?? [] } : reply;
+    }
     default:
       return { ok: false, error: `Unknown message: ${msg.type}` };
   }

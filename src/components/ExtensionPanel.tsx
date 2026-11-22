@@ -68,6 +68,12 @@ export function ExtensionPanel() {
         </>
       )}
 
+      {state !== "checking" && (
+        <p className="muted small">
+          Note: ad blockers may prevent the extension from working properly.
+        </p>
+      )}
+
       {note && <p className="muted small">{note}</p>}
       {error && <p className="error">{error}</p>}
     </section>

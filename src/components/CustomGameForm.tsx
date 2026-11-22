@@ -5,7 +5,6 @@ import { useState } from "react";
 import {
   CUSTOM_COLORS,
   SCORE_TYPES,
-  failLabel,
   formatCustomValue,
   type CustomGame,
   type CustomSettings,
@@ -113,7 +112,7 @@ export function CustomGameForm({
 
   return (
     <form className="stack custom-form" onSubmit={save}>
-      <p className="muted small">
+      <p className="small manual-note">
         <strong>Scores will be entered manually.</strong>
       </p>
 
@@ -252,8 +251,8 @@ export function CustomGameForm({
         </p>
       </fieldset>
 
-      <fieldset className="field custom-fieldset" disabled={scoringLocked}>
-        <legend>Who wins</legend>
+      <fieldset className="field custom-fieldset custom-criteria" disabled={scoringLocked}>
+        <legend>Scoring Criteria</legend>
         <div className="row wrap">
           <label className="check">
             <input
@@ -276,7 +275,7 @@ export function CustomGameForm({
         </div>
         <label className="check">
           <input type="checkbox" checked={s.allow_fail} onChange={(e) => set({ allow_fail: e.target.checked })} />{" "}
-          Players can enter &quot;{failLabel(s)}&quot; (it ranks last and can&apos;t win)
+          Allow "Did not finish" as a score
         </label>
       </fieldset>
 

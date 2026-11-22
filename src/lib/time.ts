@@ -50,12 +50,12 @@ export function formatDay(iso: string): string {
 
 /**
  * When something happened, as a time of day in the viewer's own zone: "21:42"
- * on a 24-hour clock, "9:42 PM" on a 12-hour one (the viewer's choice, see
- * src/lib/clock.ts).
+ * on a 24-hour clock, "09:42 PM" on a 12-hour one (the viewer's choice, see
+ * src/lib/clock.ts). Hours are always two digits so times line up.
  */
 export function formatTime(iso: string, clock24h = false): string {
   return new Date(iso).toLocaleTimeString(undefined, {
-    hour: clock24h ? "2-digit" : "numeric",
+    hour: "2-digit",
     minute: "2-digit",
     hourCycle: clock24h ? "h23" : "h12",
   });

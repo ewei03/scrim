@@ -11,19 +11,30 @@
   // Results and rankings belong to a connected account; signed out, there's nothing to show.
   document.getElementById("panel-results").hidden = !c.token;
   if (c.token) {
+    // What this browser saw, straight away; then the server's list, which also
+    // has games played in other browsers.
     renderResults(c.results);
     setUpCheckGames();
     setUpTabs(c.popupView ?? {}, c.scrimOrigin);
-    // Re-send saved results: the server's reply lists only crews you're still
-    // in, so crews you've left or that were deleted drop off each result.
+    loadServerResults();
+    // Re-send saved results (anything not submitted yet goes in now), then
+    // ask the server again.
     chrome.runtime
       .sendMessage({ type: "sync" })
-      .then(async (reply) => {
-        if (reply?.ok) renderResults((await chrome.storage.local.get("results")).results);
-      })
+      .then(() => loadServerResults())
       .catch(() => {});
   }
 })();
+
+/** Today's results from the server, once loaded: null until then, or if it couldn't be reached. */
+let serverResults = null;
+
+async function loadServerResults() {
+  const reply = await chrome.runtime.sendMessage({ type: "results", puzzles: todaysPuzzles() }).catch(() => null);
+  // Unreachable (offline, or an older server): keep showing what this browser saw.
+  if (reply?.ok) serverResults = reply.rows.filter((r) => Object.hasOwn(GAME_NAMES, r.game));
+  renderResults((await chrome.storage.local.get("results")).results);
+}
 
 /** Today's puzzle number per game, as the games number them (see background.js). */
 function todaysPuzzles() {
@@ -40,23 +51,31 @@ function todaysPuzzles() {
 }
 
 /**
- * Today's results for games one of your crews plays. Earlier days', and games
- * no crew of yours plays yet, are kept (for syncing: joining a crew that plays
- * it submits it then) but not listed.
+ * Today's results for games one of your crews plays: from the server when it
+ * answered (so games played in other browsers show too), otherwise the ones
+ * this browser saw. Earlier days', and games no crew of yours plays yet, are
+ * kept (for syncing: joining a crew that plays it submits it then) but not listed.
  */
 function renderResults(stored) {
   // e.g. "Results for Friday, November 20."
   const date = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
   document.getElementById("results-date").textContent = `Results for ${date}.`;
   const today = todaysPuzzles();
-  const results = Object.values(stored ?? {})
-    .filter((r) => String(r.result?.puzzle) === today[r.game] && (r.crews ?? []).length > 0)
-    .sort((a, b) => b.seenAt - a.seenAt);
+  const results = serverResults
+    ? serverResults.map((r) => ({ game: r.game, result: r.result, sent: r.crews }))
+    : Object.values(stored ?? {})
+        .filter((r) => String(r.result?.puzzle) === today[r.game] && (r.crews ?? []).length > 0)
+        .sort((a, b) => b.seenAt - a.seenAt)
+        .map((r) => ({
+          game: r.game,
+          result: r.result,
+          sent: (r.crews ?? []).filter((c) => c.outcome === "submitted" || c.outcome === "already").length,
+        }));
   const list = document.getElementById("results");
   list.replaceChildren();
   for (const r of results.slice(0, 7)) {
     const { name, score } = describe(r.game, r.result);
-    const sent = (r.crews ?? []).filter((c) => c.outcome === "submitted" || c.outcome === "already").length;
+    const sent = r.sent;
     const left = document.createElement("span");
     left.textContent = `${name} #${Number(r.result.puzzle).toLocaleString("en-US")} · ${score}`;
     const right = document.createElement("span");
@@ -70,7 +89,9 @@ function renderResults(stored) {
   document.getElementById("results-empty").hidden = results.length > 0;
   // Offered while any game Scrim reads by itself has no result today: the same
   // games the check looks for (see catchUp in background.js).
-  const missing = AUTO_GAMES.filter((g) => !Object.hasOwn(stored ?? {}, `${g}:${today[g]}`));
+  const missing = AUTO_GAMES.filter(
+    (g) => !Object.hasOwn(stored ?? {}, `${g}:${today[g]}`) && !results.some((r) => r.game === g),
+  );
   document.getElementById("check-games-box").hidden = !CHECK_GAMES || missing.length === 0;
   return missing;
 }

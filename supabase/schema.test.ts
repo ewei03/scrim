@@ -641,6 +641,35 @@ describe("extension rankings", () => {
     const after = await as<{ crew_name: string; user_id: string }>(null, "select * from extension_rankings($1)", [token]);
     expect(after.filter((r) => r.crew_name === "Ranked").map((r) => r.user_id)).toEqual([ANN, BOB]);
   });
+
+  it("lists today's results for the popup, whichever browser sent them", async () => {
+    const one = await createCrew(ANN, "Popup One", "wordle");
+    const two = await createCrew(ANN, "Popup Two", "wordle");
+    await submitEntry(ANN, one.id, solve(T, 3));
+    await submitEntry(ANN, two.id, solve(T, 3));
+    await as(BOB, "select join_crew($1)", [one.invite_code]);
+    await submitEntry(BOB, one.id, solve(T, 2)); // someone else's
+
+    const token = (await as<{ create_extension_token: string }>(ANN, "select create_extension_token()"))[0]
+      .create_extension_token;
+    type Row = { game: string; puzzle: string; result: { guesses: number }; crews: number };
+    const results = (puzzles: object) =>
+      as<Row>(null, "select * from extension_results($1, $2)", [token, JSON.stringify(puzzles)]);
+
+    await expect(as(null, "select * from extension_results('nope', '{}')")).rejects.toThrow(/not connected/);
+    await expect(results([])).rejects.toThrow(/Invalid puzzles/);
+
+    const rows = await results({ wordle: T, connections: "1" });
+    expect(rows.map(({ game, puzzle, result, crews }) => ({ game, puzzle, guesses: result.guesses, crews }))).toEqual([
+      { game: "wordle", puzzle: T, guesses: 3, crews: 2 },
+    ]);
+    // Another day's puzzle isn't today's.
+    expect(await results({ wordle: OLD })).toEqual([]);
+
+    // Crews you've left don't count.
+    await db.query("delete from crew_members where crew_id = $1 and user_id = $2", [two.id, ANN]);
+    expect((await results({ wordle: T }))[0].crews).toBe(1);
+  });
 });
 
 describe("duplicate display names within a crew", () => {
@@ -1278,6 +1307,7 @@ describe("function permissions", () => {
     "delete_crew",
     "delete_custom_game",
     "extension_rankings",
+    "extension_results",
     "extension_submit",
     "get_round_board",
     "is_crew_member",
@@ -1295,7 +1325,7 @@ describe("function permissions", () => {
     "update_custom_game",
     "void_entry",
   ];
-  const EXTENSION = ["extension_rankings", "extension_submit"];
+  const EXTENSION = ["extension_rankings", "extension_results", "extension_submit"];
 
   const callable = async (role: string) =>
     (

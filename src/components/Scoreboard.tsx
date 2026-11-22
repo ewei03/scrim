@@ -50,7 +50,7 @@ export function Scoreboard({
                   title={clock24h ? "Switch to 12-hour time" : "Switch to 24-hour time"}
                   aria-label={`Time, ${clock24h ? "24" : "12"}-hour. Switch to ${clock24h ? "12" : "24"}-hour`}
                 >
-                  Time
+                  Completed at
                 </button>
               </th>
               <th>

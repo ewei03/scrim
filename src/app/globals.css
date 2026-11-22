@@ -15,6 +15,8 @@
   --bad: #c2362b;
   /* Time running out: red that stays readable on cards in both themes. */
   --urgent: #c2362b;
+  /* Orange call-outs: deep enough to read on paper. */
+  --orange: #c2570c;
   --tile-g: #6aaa64;
   --tile-y: #c9b458;
   --tile-x: #b9b4aa;
@@ -51,6 +53,7 @@
   --silver: #c3cbd3;
   --bronze: #e0915a;
   --urgent: #ff6b5e;
+  --orange: #ff7a3d;
   /* Dark mode keeps the orange accent. */
   --accent: #ff5b1f;
   --accent-text: var(--accent);
@@ -69,6 +72,7 @@
     --silver: #c3cbd3;
     --bronze: #e0915a;
     --urgent: #ff6b5e;
+    --orange: #ff7a3d;
     /* Dark mode keeps the orange accent. */
     --accent: #ff5b1f;
     --accent-text: var(--accent);
@@ -2087,6 +2091,15 @@ body:has(.reorder-row.lifted) {
   color: var(--muted);
 }
 
+/* Radios and checkbox sit evenly apart, whether the radios share a line or wrap. */
+.custom-criteria {
+  gap: 8px;
+}
+
+.custom-criteria .row {
+  gap: 8px 20px;
+}
+
 .custom-fieldset:disabled {
   opacity: 0.6;
 }
@@ -2419,4 +2432,8 @@ body:has(.reorder-row.lifted) {
   .dialog-body .help-tips {
     grid-template-columns: 1fr;
   }
+}
+
+.manual-note {
+  color: var(--orange);
 }

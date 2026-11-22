@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * How you like times shown: 12-hour ("9:42 PM", the default) or 24-hour
+ * How you like times shown: 12-hour ("09:42 PM", the default) or 24-hour
  * ("21:42"). Yours alone, kept in this browser, and the same everywhere:
  * every scoreboard in every crew. Clicking a scoreboard's Time heading flips
  * it, and every board on the page (and in other tabs) follows.
