@@ -77,7 +77,29 @@
         background: #1c1b19;
         color: #f3efe6;
       }
+      .check-games {
+        display: grid;
+        gap: 8px;
+        margin-top: 2px;
+        padding-top: 10px;
+        border-top: 1px solid #77736b;
+        font-size: 12px;
+      }
+      #check-games {
+        font: inherit;
+        padding: 5px 0;
+        border: 2px solid #1c1b19;
+        background: #1c1b19;
+        color: #f3efe6;
+        cursor: pointer;
+      }
+      #check-games:disabled {
+        background: #fbf9f4;
+        color: #77736b;
+        cursor: default;
+      }
       .tabs button:focus-visible,
+      #check-games:focus-visible,
       select:focus-visible,
       a:focus-visible {
         outline: 2px dashed #ff5b1f;
@@ -146,8 +168,12 @@
       </div>
       <section id="panel-results" role="tabpanel" aria-labelledby="tab-results" hidden>
         <ul id="results" hidden></ul>
-        <div id="results-empty" class="muted" hidden>No results for your crews today.</div>
+        <div id="results-empty" class="muted" hidden>No results detected today.</div>
         <div class="muted" id="results-date">Results for today.</div>
+        <div class="check-games" id="check-games-box" hidden>
+          <div class="muted" id="check-games-text">Played on another device? Scrim can try and grab your results for you.</div>
+          <button id="check-games" type="button">Check my games</button>
+        </div>
       </section>
       <section id="panel-rankings" role="tabpanel" aria-labelledby="tab-rankings" hidden>
         <div id="rankings-status" class="muted">Loading…</div>

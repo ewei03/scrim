@@ -98,6 +98,14 @@ async function handle(msg) {
       return submitResult(msg.game, msg.result, msg.raw, msg.account ?? null, msg.atLoad === true);
     case "sync":
       return { ok: true, ...(await syncAll()) };
+    case "catch-up":
+      // From the popup: e.g. today's games were played on a phone, signed in
+      // to the same game accounts as this browser. One already running (e.g.
+      // from connecting) may have checked a game before it was finished: let it
+      // end, then check again.
+      await catchingUp?.catch(() => {});
+      await catchUp();
+      return { ok: true };
     case "rankings": {
       const reply = await callRpc("extension_rankings", {});
       return reply.ok ? { ok: true, rows: reply.body ?? [] } : reply;
@@ -257,27 +265,29 @@ const CATCH_UP = [
 const VISIT_TIMEOUT_MS = 20000;
 /** Tab id -> resolves the visit early once that tab reports a result. */
 const visits = new Map();
-let catchingUp = false;
+/** The catch-up in progress, so a second request waits for it instead of starting another. */
+let catchingUp = null;
 
-async function catchUp() {
-  if (catchingUp) return;
-  catchingUp = true;
-  try {
-    for (const g of CATCH_UP) {
-      const results = await getResults();
-      if (results[`${g.game}:${g.today()}`]) continue;
-      const scripts = contentScriptsFor(g.url);
-      if (!scripts) continue;
-      const open = await chrome.tabs.query({ url: scripts.matches });
-      if (open.length) {
-        // Its content script reports a finished game by itself; make sure it's there.
-        await inject(open[0].id, scripts.js);
-      } else {
-        await visitInBackground(g.url);
-      }
+function catchUp() {
+  catchingUp ??= checkEachGame().finally(() => {
+    catchingUp = null;
+  });
+  return catchingUp;
+}
+
+async function checkEachGame() {
+  for (const g of CATCH_UP) {
+    const results = await getResults();
+    if (results[`${g.game}:${g.today()}`]) continue;
+    const scripts = contentScriptsFor(g.url);
+    if (!scripts) continue;
+    const open = await chrome.tabs.query({ url: scripts.matches });
+    if (open.length) {
+      // Its content script reports a finished game by itself; make sure it's there.
+      await inject(open[0].id, scripts.js);
+    } else {
+      await visitInBackground(g.url);
     }
-  } finally {
-    catchingUp = false;
   }
 }
 

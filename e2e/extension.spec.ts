@@ -189,6 +189,28 @@ test.describe("signed in to Scrim", () => {
     await expect(board(scrim, "Wordle").locator("tr", { hasText: accounts.owner.name })).toContainText("3/6");
   });
 
+  test("the popup's check finds a game played on another device", async ({ extContext, games }) => {
+    test.setTimeout(120_000);
+    await createCrewApi(owner, "E2E Elsewhere Crew", ["wordle"]);
+    const { wordle } = await setUp(extContext);
+    // Finished elsewhere: no Wordle tab is open here to see it.
+    await wordle.close();
+    games.wordle = { signedIn: true, status: "WIN" };
+
+    const [worker] = extContext.serviceWorkers();
+    const popup = await extContext.newPage();
+    await popup.goto(`chrome-extension://${new URL(worker.url()).host}/popup.html`);
+    await expect(popup.getByText("No results detected today.")).toBeVisible();
+    await popup.getByRole("button", { name: "Check my games" }).click();
+    // Each stand-in game without a result waits out its visit, so this is slow.
+    await expect(popup.getByText(`Wordle #${todaysWordle().toLocaleString("en-US")} · 3/6`)).toBeVisible({
+      timeout: 100_000,
+    });
+    // Connections and Krillion still aren't played, so it can be run again.
+    await expect(popup.getByText("Found some. The rest aren't finished yet.")).toBeVisible();
+    await expect(popup.getByRole("button", { name: "Check again" })).toBeVisible();
+  });
+
   test("the extension popup shows saved results", async ({ extContext, games }) => {
     await createCrewApi(owner, "E2E Popup Crew", ["wordle"]);
     const { wordle } = await setUp(extContext);

@@ -12,6 +12,7 @@
   document.getElementById("panel-results").hidden = !c.token;
   if (c.token) {
     renderResults(c.results);
+    setUpCheckGames();
     setUpTabs(c.popupView ?? {}, c.scrimOrigin);
     // Re-send saved results: the server's reply lists only crews you're still
     // in, so crews you've left or that were deleted drop off each result.
@@ -67,6 +68,36 @@ function renderResults(stored) {
   }
   list.hidden = results.length === 0;
   document.getElementById("results-empty").hidden = results.length > 0;
+  // Offered while any game Scrim reads by itself has no result today: the same
+  // games the check looks for (see catchUp in background.js).
+  const missing = AUTO_GAMES.filter((g) => !Object.hasOwn(stored ?? {}, `${g}:${today[g]}`));
+  document.getElementById("check-games-box").hidden = missing.length === 0;
+  return missing;
+}
+
+/** Games the extension reads from their pages. */
+const AUTO_GAMES = ["wordle", "connections", "krillion"];
+
+/**
+ * "Check my games": for games played elsewhere (e.g. on a phone) with the same
+ * game accounts this browser is signed in to. The background worker opens each
+ * game without a result today in a background tab, which loads the saved game
+ * from the game's server, and its content script reports it as usual.
+ */
+function setUpCheckGames() {
+  const button = document.getElementById("check-games");
+  const text = document.getElementById("check-games-text");
+  button.addEventListener("click", async () => {
+    const before = renderResults((await chrome.storage.local.get("results")).results).length;
+    button.disabled = true;
+    button.textContent = "Checking…";
+    await chrome.runtime.sendMessage({ type: "catch-up" }).catch(() => {});
+    const after = renderResults((await chrome.storage.local.get("results")).results).length;
+    button.disabled = false;
+    button.textContent = "Check again";
+    text.textContent =
+      after < before ? "Found some. The rest aren't finished yet." : "No finished games detected.";
+  });
 }
 
 const GAME_NAMES = { wordle: "Wordle", connections: "Connections", krillion: "Krillion" };
