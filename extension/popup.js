@@ -49,6 +49,10 @@ function todaysPuzzles() {
     strands: days(local, Date.UTC(2024, 2, 3)),
     krillion: days(newYork, Date.UTC(2026, 6, 15)),
     contexto: days(local, Date.UTC(2022, 8, 18)),
+    costcodle: days(local, Date.UTC(2026, 10, 9)),
+    // One puzzle worldwide, changing at 08:00 UTC.
+    poople: String(Math.floor((now.getTime() - 8 * 3600000 - Date.UTC(2025, 7, 14)) / 86400000)),
+    minicrossword: days(local, Date.UTC(2026, 5, 21)),
   };
 }
 
@@ -102,7 +106,7 @@ function renderResults(stored) {
 const CHECK_GAMES = false;
 
 /** Games the extension reads from their pages. */
-const AUTO_GAMES = ["wordle", "connections", "strands", "krillion", "contexto"];
+const AUTO_GAMES = ["wordle", "connections", "strands", "krillion", "contexto", "costcodle", "poople", "minicrossword"];
 
 /**
  * "Check my games": for games played elsewhere (e.g. on a phone) with the same
@@ -132,6 +136,9 @@ const GAME_NAMES = {
   strands: "Strands",
   krillion: "Krillion",
   contexto: "Contexto",
+  costcodle: "Costcodle",
+  poople: "Poople",
+  minicrossword: "Mini Crossword",
 };
 
 /** Results / Rankings tabs. Remembers the last tab, crew and game. */
@@ -241,6 +248,12 @@ function save(view) {
   chrome.storage.local.set({ popupView: view }).catch(() => {});
 }
 
+const usd = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** 1234 -> "$12.34". */
+function formatCents(cents) {
+  return `$${usd.format(cents / 100)}`;
+}
+
 function describe(game, result) {
   if (game === "connections") {
     // Same as the site: "⭐" for no mistakes, "1❌" to "3❌" for mistakes, "💀" on the fourth.
@@ -254,6 +267,20 @@ function describe(game, result) {
     // Same as the site: guesses, "+2💡" for hints, "🏳️" for giving up.
     const score = !result.solved ? "🏳️" : result.hints ? `${result.guesses} +${result.hints}💡` : String(result.guesses);
     return { name: "Contexto", score };
+  }
+  // Same as the site: the total off, e.g. "$12.40".
+  if (game === "costcodle") return { name: "Costcodle", score: formatCents(result.total) };
+  // Same as the site: "⭐" for the shortest path, otherwise "6/4".
+  if (game === "poople") {
+    const score = result.best === undefined ? String(result.guesses) : result.guesses === result.best ? "⭐" : `${result.guesses}/${result.best}`;
+    return { name: "Poople", score };
+  }
+  // Same as the site: "1:23", "45s", "+2💡" for reveals.
+  if (game === "minicrossword") {
+    const m = Math.floor(result.seconds / 60);
+    const s = result.seconds % 60;
+    const time = m === 0 ? `${s}s` : `${m}:${String(s).padStart(2, "0")}`;
+    return { name: "Mini Crossword", score: result.reveals ? `${time} +${result.reveals}💡` : time };
   }
   return { name: "Wordle", score: `${result.solved ? result.guesses : "X"}/6` };
 }

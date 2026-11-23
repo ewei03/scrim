@@ -1089,6 +1089,38 @@ select.input {
   white-space: nowrap;
 }
 
+/* Costcodle: each item's miss as a small chip, green (close) to red (far).
+   Two rows, three and two, all the same width. */
+.citems {
+  display: inline-grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+}
+.citem {
+  text-align: center;
+  white-space: nowrap;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  color: #1d1b18;
+}
+.citem-near {
+  background: #9fd39a;
+}
+.citem-mid {
+  background: #e6d27c;
+}
+.citem-far {
+  background: #ee9a96;
+}
+
+/* Poople: letters that match POOP. */
+.pp {
+  background: #8b5a2b;
+}
+
 @media (max-width: 520px) {
   .hide-sm {
     display: none;

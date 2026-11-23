@@ -4,7 +4,8 @@ Daily puzzle showdowns with friends. Start a crew, pick the games it plays and
 share the invite. Everyone plays each day's puzzle on their own time, each day
 crowns a winner, and the crew keeps rankings and every past day.
 
-**Games:** Wordle, NYT Connections, NYT Strands, Krillion and Contexto, today's puzzle only. Desktop
+**Games:** Wordle, NYT Connections, NYT Strands, Krillion, Contexto, Costcodle (Checkout),
+Poople and the Mini Crossword (Easy), today's puzzle only. Desktop
 Chrome only. Only free-to-play games are supported (`GameAdapter.free` is typed
 `true`).
 
@@ -31,7 +32,7 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 | Concept | Lifetime | Notes |
 |---|---|---|
 | **Crew** | permanent | Friend group. The owner picks its games, time zone and spoiler setting. Rankings and past days. Link: `/crew/<code>` |
-| **Round** | one crew, one game, one puzzle | Nobody creates it: the first result for that puzzle starts it. Closes at midnight in the crew's time zone (New York time for Krillion) |
+| **Round** | one crew, one game, one puzzle | Nobody creates it: the first result for that puzzle starts it. Closes at midnight in the crew's time zone (New York time for Krillion, UTC−8 for Poople) |
 | **Entry** | one per player per round | Validated server-side. Source is `extension`, or `paste` as the fallback |
 
 - **Joining:** opening a crew's invite link joins it, unless someone in the
@@ -133,10 +134,22 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
   from `localStorage["contexto-games-en"]` (today's and yesterday's only, so
   archive games don't count). Signing in to Contexto is optional, like NYT:
   signed in, the player id comes from the Firebase uid in IndexedDB.
+- `costcodle.js` runs on costcodle.com and reads finished Checkout games (the
+  five-item mode) from `localStorage["checkoutState"]` and
+  `["checkoutStats"].history`, today's and yesterday's only. Each round's
+  `diffCents` is checked against its guess and price; the total is worked out
+  from the five misses, on the server too. Classic mode is ignored.
+- `poople.js` runs on poople.io and reads today's path from
+  `localStorage["guesses"]` once it ends at POOP. The shortest path isn't
+  saved, so it's read from the results on the page.
+- `mini.js` runs on minicrossword.com and reads the Easy daily from
+  `localStorage["crosswordMini_daily_daily-easy"]` once `isComplete`
+  (today's and yesterday's only). Hard, archive and Unlimited puzzles are
+  ignored. Signed in, the player id comes from `heygg_user`.
 - NYT games count whether or not you're signed in to NYT (saves under
   `…/<regiId>` or `…/ANON`). If a puzzle has both, the signed-in save wins.
 - One game, one Scrim account: each result carries a hashed player id (the
-  NYT/Krillion/Contexto account it was played on, or a random per-install id when
+  NYT/Krillion/Contexto/Mini Crossword account it was played on, or a random per-install id when
   played signed out). The first Scrim account to send a game claims it
   (`game_claims`, kept a week); the same game from another account gets
   `not-yours` and the extension drops it.

@@ -187,7 +187,7 @@ async function finishedBeforeSwitch(game, puzzle) {
  * so Scrim never sees the game account itself.
  */
 async function playerId(game, account) {
-  const family = game === "krillion" || game === "contexto" ? game : "nyt";
+  const family = ["wordle", "connections", "strands"].includes(game) ? "nyt" : game;
   const who = account ? `${family}:${account}` : `browser:${await installId()}`;
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`scrim-player:${who}`));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
@@ -273,6 +273,9 @@ const CATCH_UP = [
   { game: "strands", url: "https://www.nytimes.com/games/strands", today: () => localDays(2024, 3, 3) },
   { game: "krillion", url: "https://krillion.io/", today: () => newYorkDays(2026, 7, 15) },
   { game: "contexto", url: "https://contexto.me/en/", today: () => localDays(2022, 9, 18) },
+  { game: "costcodle", url: "https://costcodle.com/", today: () => localDays(2026, 11, 9) },
+  { game: "poople", url: "https://poople.io/", today: () => poopleDays() },
+  { game: "minicrossword", url: "https://minicrossword.com/", today: () => localDays(2026, 6, 21) },
 ];
 const VISIT_TIMEOUT_MS = 20000;
 /** Tab id -> resolves the visit early once that tab reports a result. */
@@ -352,6 +355,10 @@ function localDays(y, m, d) {
 }
 
 /** Today's puzzle number for games numbered by the New York date. */
+/** Poople has one puzzle worldwide, changing at 08:00 UTC; #0 was 2025-08-14. */
+function poopleDays() {
+  return String(Math.floor((Date.now() - 8 * 3600000 - Date.UTC(2025, 7, 14)) / 86400000));
+}
 function newYorkDays(y, m, d) {
   const [ny, nm, nd] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date()).split("-").map(Number);
   return String(Math.round((Date.UTC(ny, nm - 1, nd) - Date.UTC(y, m - 1, d)) / 86400000));

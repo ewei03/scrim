@@ -2,7 +2,9 @@
 
 import type { ConnectionsResult } from "./connections";
 import type { ContextoResult } from "./contexto";
+import { closeness, money, shortMoney, type CostcodleResult } from "./costcodle";
 import { TIERS, type KrillionResult } from "./krillion";
+import type { PoopleResult } from "./poople";
 import type { StrandsResult } from "./strands";
 import type { WordleResult } from "./wordle";
 
@@ -28,6 +30,14 @@ export function ResultDetail({ gameId, result }: { gameId: string; result: unkno
   if (gameId === "contexto") {
     const chart = (result as ContextoResult).chart;
     return chart ? <ContextoChart chart={chart} /> : null;
+  }
+  if (gameId === "costcodle") {
+    const offs = (result as CostcodleResult).offs;
+    return offs ? <CostcodleItems offs={offs} /> : null;
+  }
+  if (gameId === "poople") {
+    const grid = (result as PoopleResult).grid;
+    return grid ? <PoopleGrid grid={grid} /> : null;
   }
   return null;
 }
@@ -103,6 +113,34 @@ function ContextoChart({ chart }: { chart: [number, number, number] }) {
         <div key={i} className="cchart-row" title={`${labels[i]}: ${n}`}>
           <span className={`cbar cbar-${i}`} style={{ width: `${Math.max(n ? 6 : 0, (n / total) * 100)}%` }} />
           <span className="cchart-n">{n}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Costcodle: how far off each of the five guesses was, coloured by how close. */
+function CostcodleItems({ offs }: { offs: number[] }) {
+  return (
+    <span className="citems" aria-label={`Off by ${offs.map(money).join(", ")}`}>
+      {offs.map((c, i) => (
+        <span key={i} className={`citem citem-${closeness(c)}`} title={`Item ${i + 1}: off ${money(c)}`}>
+          {shortMoney(c)}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Poople's share: a row per word, brown where a letter matches POOP. */
+function PoopleGrid({ grid }: { grid: string[] }) {
+  return (
+    <div className="wgrid" aria-label="Poople path">
+      {grid.map((row, i) => (
+        <div key={i} className="wrow">
+          {Array.from(row).map((c, j) => (
+            <span key={j} className={`wtile ${c === "p" ? "pp" : "wx"}`} />
+          ))}
         </div>
       ))}
     </div>

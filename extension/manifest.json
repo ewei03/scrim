@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Scrim",
-  "version": "0.5.9",
+  "version": "0.6.0",
   "description": "A daily puzzle showdown between you and your friends.",
   "icons": {
     "16": "icons/icon-16.png",
@@ -18,6 +18,11 @@
     "https://www.nytimes.com/games/*",
     "https://krillion.io/*",
     "https://contexto.me/*",
+    "https://costcodle.com/*",
+    "https://www.costcodle.com/*",
+    "https://poople.io/*",
+    "https://minicrossword.com/*",
+    "https://www.minicrossword.com/*",
     "https://daily-scrim.vercel.app/*",
     "http://localhost/*",
     "http://127.0.0.1/*"
@@ -78,6 +83,41 @@
         "scrim-content.js",
         "contexto-core.js",
         "contexto.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://costcodle.com/*",
+        "https://www.costcodle.com/*"
+      ],
+      "js": [
+        "scrim-content.js",
+        "costcodle-core.js",
+        "costcodle.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://poople.io/*"
+      ],
+      "js": [
+        "scrim-content.js",
+        "poople-core.js",
+        "poople.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://minicrossword.com/*",
+        "https://www.minicrossword.com/*"
+      ],
+      "js": [
+        "scrim-content.js",
+        "mini-core.js",
+        "mini.js"
       ],
       "run_at": "document_idle"
     },

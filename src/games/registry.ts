@@ -1,6 +1,9 @@
 import { connections } from "./connections";
 import { contexto } from "./contexto";
+import { costcodle } from "./costcodle";
 import { krillion } from "./krillion";
+import { mini } from "./mini";
+import { poople } from "./poople";
 import { strands } from "./strands";
 import type { GameAdapter } from "./types";
 import { wordle } from "./wordle";
@@ -12,6 +15,9 @@ export const GAMES: Record<string, GameAdapter<unknown>> = {
   [strands.id]: strands,
   [krillion.id]: krillion,
   [contexto.id]: contexto,
+  [costcodle.id]: costcodle,
+  [poople.id]: poople,
+  [mini.id]: mini,
 };
 
 export function getGame(id: string): GameAdapter<unknown> {

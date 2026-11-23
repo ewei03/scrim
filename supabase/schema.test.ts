@@ -6,7 +6,9 @@ import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
 import { manualConnections } from "@/games/connections";
 import { manualContexto } from "@/games/contexto";
+import { costcodleResult } from "@/games/costcodle";
 import { manualKrillion } from "@/games/krillion";
+import { manualPoople } from "@/games/poople";
 import { manualStrands } from "@/games/strands";
 import { GAMES } from "@/games/registry";
 import { crewStats } from "@/lib/stats";
@@ -622,6 +624,63 @@ describe("connections and krillion", () => {
     );
     expect(rows).toEqual([{ ok: true }]);
   });
+
+  it("adds up Costcodle's five misses, and needs them in a paste", async () => {
+    const { rows: n } = await db.query<{ c: number }>(
+      "select ((now() at time zone 'UTC')::date - date '2026-11-09') as c",
+    );
+    const P = String(n[0].c);
+    await as(ANN, "select set_crew_game($1, 'costcodle', true)", [crew]);
+    await expect(submit(EVE, "costcodle", { puzzle: P, total: 0 })).rejects.toThrow(/coloured grid/);
+    await expect(submit(EVE, "costcodle", { puzzle: P, offs: [1, 2, 3, 4] })).rejects.toThrow(/5 items/);
+    await expect(submit(EVE, "costcodle", { puzzle: P, offs: [1, 2, 3, 4, -5] })).rejects.toThrow(/can't be right/);
+    await expect(submit(EVE, "costcodle", { puzzle: P, offs: [1, 2, 3, 4, 5.5] })).rejects.toThrow(/can't be right/);
+    // A claimed total is ignored: it's worked out from the items.
+    await submit(ANN, "costcodle", { puzzle: P, offs: [320, 0, 123456, 50, 1000], total: 1 });
+    expect(await stored(ANN, "costcodle")).toEqual({ puzzle: P, offs: [320, 0, 123456, 50, 1000], total: 124826 });
+  });
+
+  it("checks Poople's path, and closes at midnight UTC-8", async () => {
+    const { rows: n } = await db.query<{ p: number }>(
+      "select ((now() at time zone 'Etc/GMT+8')::date - date '2025-08-14') as p",
+    );
+    const P = String(n[0].p);
+    await as(ANN, "select set_crew_game($1, 'poople', true)", [crew]);
+    const path = ["....", "p...", "pp..", "ppp.", "pppp"];
+    await expect(submit(EVE, "poople", { puzzle: P, guesses: 4, best: 4 })).rejects.toThrow(/coloured grid/);
+    await expect(submit(EVE, "poople", { puzzle: String(Number(P) - 1), guesses: 4, grid: path })).rejects.toThrow(
+      /day is over/,
+    );
+    await expect(submit(EVE, "poople", { puzzle: P, guesses: 5, grid: path })).rejects.toThrow(/match the steps/);
+    await expect(submit(EVE, "poople", { puzzle: P, guesses: 4, grid: ["....", "pp..", "ppp.", "ppp.", "pppp"] })).rejects.toThrow(
+      /one letter/,
+    );
+    await expect(submit(EVE, "poople", { puzzle: P, guesses: 4, grid: ["....", "p...", "pppp", "ppp.", "pppp"] })).rejects.toThrow(
+      /ends at POOP/,
+    );
+    await expect(submit(EVE, "poople", { puzzle: P, guesses: 4, best: 5, grid: path })).rejects.toThrow(/shortest path/);
+    await submit(ANN, "poople", { puzzle: P, guesses: 4, best: 3, grid: path });
+    expect(await stored(ANN, "poople")).toEqual({ puzzle: P, guesses: 4, best: 3, grid: path });
+
+    const { rows } = await db.query<{ ok: boolean }>(
+      `select closes_at = ((date '2025-08-14' + $1::int + 1)::timestamp at time zone 'Etc/GMT+8') as ok
+       from rounds where crew_id = $2 and game = 'poople'`,
+      [P, crew],
+    );
+    expect(rows).toEqual([{ ok: true }]);
+  });
+
+  it("checks the Mini's time and reveals", async () => {
+    const { rows: n } = await db.query<{ m: number }>(
+      "select ((now() at time zone 'UTC')::date - date '2026-06-21') as m",
+    );
+    const M = String(n[0].m);
+    await as(ANN, "select set_crew_game($1, 'minicrossword', true)", [crew]);
+    await expect(submit(EVE, "minicrossword", { puzzle: M, seconds: -1 })).rejects.toThrow(/time/);
+    await expect(submit(EVE, "minicrossword", { puzzle: M, seconds: 60, reveals: 50 })).rejects.toThrow(/Reveals/);
+    await submit(ANN, "minicrossword", { puzzle: M, seconds: 83, extra: true });
+    expect(await stored(ANN, "minicrossword")).toEqual({ puzzle: M, seconds: 83, reveals: 0 });
+  });
 });
 
 describe("removing a game", () => {
@@ -690,6 +749,19 @@ describe("extension rankings", () => {
       manualContexto("1", 40),
       manualContexto("1", null),
       { ...manualContexto("1", null), guesses: 3 },
+    ],
+    costcodle: [
+      costcodleResult("1", [0, 0, 0, 0, 0]),
+      costcodleResult("1", [100, 0, 0, 0, 0]),
+      costcodleResult("1", [0, 0, 0, 0, 100]),
+      costcodleResult("1", [99999, 5, 5, 5, 5]),
+    ],
+    poople: [manualPoople("1", 4, 4), manualPoople("1", 5, 4), manualPoople("1", 5), manualPoople("1", 12, 4)],
+    minicrossword: [
+      { puzzle: "1", seconds: 300, reveals: 0 },
+      { puzzle: "1", seconds: 30, reveals: 0 },
+      { puzzle: "1", seconds: 30, reveals: 1 },
+      { puzzle: "1", seconds: 20, reveals: 2 },
     ],
   };
 
