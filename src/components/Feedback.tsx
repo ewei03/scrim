@@ -209,7 +209,7 @@ export function FeedbackLink() {
   }, []);
   return (
     <>
-      <button type="button" className="footer-link" onClick={() => open("problem")}>
+      <button type="button" className="footer-link" onClick={() => open("game")}>
         Feedback
       </button>
       <Modal open={kind !== null} onClose={() => setKind(null)} title="Feedback">
