@@ -351,10 +351,17 @@ function CrewPage() {
   // Rounds nobody finished aren't worth showing.
   const finished = useMemo(() => rounds.filter((r) => isClosed(r, now) && r.entries.length > 0), [rounds, now]);
 
-  // Games anyone has played in this crew, finished or today: the choices in Rankings.
+  // Games anyone has played in this crew, finished or today: the choices in
+  // Rankings, in the same order as your cards on Today (games not
+  // in it go last).
   const rankedGames = useMemo(
-    () => allGames.filter((g) => rounds.some((r) => r.game === g.id && r.entries.length > 0)),
-    [rounds, allGames],
+    () =>
+      inSavedOrder(
+        allGames.filter((g) => rounds.some((r) => r.game === g.id && r.entries.length > 0)),
+        (g) => g.id,
+        gameOrder,
+      ),
+    [rounds, allGames, gameOrder],
   );
 
   // Rankings count only days that end after the owner last reset them (the archive keeps them all).
