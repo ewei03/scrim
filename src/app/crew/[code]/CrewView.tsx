@@ -21,11 +21,12 @@ import { gameList, getGame } from "@/games/registry";
 import type { GameAdapter } from "@/games/types";
 import { useAuth } from "@/lib/auth";
 import { askExtension, useExtension, type ExtensionState } from "@/lib/extension";
-import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone, roundZone } from "@/lib/rounds";
+import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone } from "@/lib/rounds";
+import { useClock24h } from "@/lib/clock";
 import { inSavedOrder, saveGameOrder, savedGameOrder, syncGameOrder } from "@/lib/gameOrder";
 import { crewStats } from "@/lib/stats";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
-import { dateIn, formatDay, timeLeft } from "@/lib/time";
+import { dateIn, formatDay, formatTime, timeLeft } from "@/lib/time";
 import { zoneGroups } from "@/lib/timezones";
 import { isClosed, type BoardRow, type Crew, type EntrySource, type Round } from "@/lib/types";
 
@@ -856,7 +857,8 @@ function TodayRound({
   const puzzleId = crewPuzzle(game, crew, new Date(now));
   const ends = crewDeadline(game, crew, new Date(now));
   const deadline = ends.toISOString();
-  // Shown on the card only when this game's day doesn't end with the crew's (e.g. Krillion, on New York time).
+  // Noted on the card only when this game's day doesn't end with the crew's
+  // (Krillion on New York time, Poople at 08:00 UTC).
   const ownClock = ends.getTime() !== crewDayEnd(crew, new Date(now)).getTime();
   const [board, setBoard] = useState<BoardRow[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -915,14 +917,6 @@ function TodayRound({
           <span className="game-card-summary">
             {submitted ? "✓ Completed" : "Your turn"} · {board.length}/{memberCount} played
           </span>
-          {ownClock && (
-            <span className="time-left" title={`${game.name} runs on ${roundZone(game, crew).replaceAll("_", " ")} time`}>
-              <span className="live-dot" aria-hidden>
-                ●
-              </span>
-              {timeLeft(deadline, now)} left
-            </span>
-          )}
           {onEdit && (
             <button
               type="button"
@@ -940,6 +934,7 @@ function TodayRound({
         {!submitted && (
           <SubmitPanel crew={crew} game={game} puzzleId={puzzleId} extension={extension} onSubmitted={loadBoard} />
         )}
+        {ownClock && <OwnClockNote game={game} deadline={deadline} now={now} />}
         <Scoreboard
           game={game}
           rows={board}
@@ -950,6 +945,32 @@ function TodayRound({
         {error && <p className="error small">{error}</p>}
       </div>
     </article>
+  );
+}
+
+/**
+ * On a game whose day doesn't end with the crew's (Poople, Krillion): when
+ * this round closes instead, and why. Dismissing it lasts until the page reloads.
+ */
+function OwnClockNote({ game, deadline, now }: { game: GameAdapter<unknown>; deadline: string; now: number }) {
+  const clock24h = useClock24h();
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+
+  return (
+    <div className="own-clock-note" role="note">
+      <span>
+        <strong>⚠ NOTE:</strong> {game.name} switches to a new puzzle at <strong>{formatTime(deadline, clock24h)}</strong> your time, NOT at
+        midnight. You have{" "}
+        <span className="time-left">
+          {timeLeft(deadline, now)}
+        </span>{" "}
+        to complete it.
+      </span>
+      <button type="button" className="own-clock-dismiss" aria-label="Dismiss" title="Dismiss" onClick={() => setDismissed(true)}>
+        ×
+      </button>
+    </div>
   );
 }
 

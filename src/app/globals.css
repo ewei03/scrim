@@ -17,6 +17,8 @@
   --bad: #c2362b;
   /* Time running out: red that stays readable on cards in both themes. */
   --urgent: #c2362b;
+  --warn: #8a5a00;
+  --warn-bg: #fff1cc;
   /* Orange call-outs: deep enough to read on paper. */
   --orange: #c2570c;
   --tile-g: #6aaa64;
@@ -55,6 +57,8 @@
   --silver: #c3cbd3;
   --bronze: #e0915a;
   --urgent: #ff6b5e;
+  --warn: #f5c451;
+  --warn-bg: #3a2f14;
   --orange: #ff7a3d;
   /* Dark mode keeps the orange accent. */
   --accent: #ff5b1f;
@@ -75,6 +79,8 @@
     --silver: #c3cbd3;
     --bronze: #e0915a;
     --urgent: #ff6b5e;
+    --warn: #f5c451;
+    --warn-bg: #3a2f14;
     --orange: #ff7a3d;
     /* Dark mode keeps the orange accent. */
     --accent: #ff5b1f;
@@ -1803,6 +1809,42 @@ select.input {
 
 .time-left .live-dot {
   color: inherit;
+}
+
+/* A game whose day ends at another time than the crew's (Poople, Krillion):
+   a note above its scoreboard, so the one countdown up top stays the main one. */
+.own-clock-note {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: var(--warn-bg);
+  border-bottom: 2px solid var(--line);
+  border-left: 4px solid var(--warn);
+}
+
+.own-clock-note strong:first-child {
+  color: var(--warn);
+}
+
+.own-clock-dismiss {
+  flex: none;
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0 2px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.own-clock-dismiss:hover,
+.own-clock-dismiss:focus-visible {
+  color: var(--ink);
 }
 
 /* Game names on the Today cards: set like the game buttons in the crew box
