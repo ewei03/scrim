@@ -42,17 +42,19 @@ describe("parseContexto", () => {
 });
 
 describe("ranking", () => {
-  it("ranks solves by guesses then hints, and giving up can't win", () => {
+  it("ranks solves by guesses alone, and giving up is last and can't win", () => {
     const [best, hinted, slow, quit] = [
       manualContexto("1", 12),
       manualContexto("1", 12, 1),
       manualContexto("1", 40),
       manualContexto("1", null),
     ];
-    expect(contexto.compare(best, hinted)).toBeLessThan(0);
+    expect(contexto.compare(best, hinted)).toBe(0);
     expect(contexto.compare(hinted, slow)).toBeLessThan(0);
     expect(contexto.compare(slow, quit)).toBeLessThan(0);
     expect(contexto.compare(manualContexto("1", 900), { ...quit, guesses: 3 })).toBeLessThan(0);
+    // Everyone who gave up ties, whatever their guesses.
+    expect(contexto.compare(quit, { ...quit, guesses: 3 })).toBe(0);
     expect(contexto.canWin(quit)).toBe(false);
     expect(contexto.average([best, slow, quit])).toBe("26.0");
     expect(contexto.average([quit])).toBeNull();

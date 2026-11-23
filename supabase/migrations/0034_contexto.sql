@@ -1,8 +1,8 @@
 -- Contexto (contexto.me, English).
 --
 -- Numbered from #0 on 2022-09-18 and resets at local midnight, like Wordle.
--- Ranked by solving first (giving up can't win), then fewest guesses, then
--- fewest hints. Results keep the share's bars as [green, yellow, red] counts.
+-- Ranked by fewest guesses; hints don't count. Giving up is last place (all
+-- give-ups tie) and can't win. Results keep the share's bars as [green, yellow, red] counts.
 -- Keep in sync with src/games/contexto.ts.
 --
 -- Safe to run again.
@@ -277,10 +277,10 @@ language sql immutable as $$
       case when coalesce((p_result ->> 'solved')::boolean, false)
         then (p_result ->> 'mistakes')::numeric else 8 - (p_result ->> 'groups')::numeric end
     when 'strands' then (p_result ->> 'hints')::numeric
-    -- Solved first, then fewest guesses, then fewest hints (under 1,000).
+    -- Fewest guesses (hints don't count); giving up is last, all give-ups tied.
     when 'contexto' then
-      case when coalesce((p_result ->> 'solved')::boolean, false) then 0 else 1000000 end
-        + (p_result ->> 'guesses')::numeric + coalesce((p_result ->> 'hints')::numeric, 0) / 1000
+      case when coalesce((p_result ->> 'solved')::boolean, false)
+        then (p_result ->> 'guesses')::numeric else 1000000 end
     when 'krillion' then -(p_result ->> 'points')::numeric
   end
 $$;

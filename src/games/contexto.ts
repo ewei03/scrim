@@ -112,8 +112,9 @@ export const contexto: GameAdapter<ContextoResult> = {
   shareHint: "Find the word, click Share, then paste it here.",
   parseShareText: parseContexto,
 
-  // Solving beats giving up; then fewest guesses, then fewest hints.
-  compare: (a, b) => Number(!a.solved) - Number(!b.solved) || a.guesses - b.guesses || a.hints - b.hints,
+  // Fewest guesses wins (hints don't matter). Giving up is last place,
+  // tied with everyone else who gave up, however many guesses it took.
+  compare: (a, b) => (a.solved && b.solved ? a.guesses - b.guesses : Number(!a.solved) - Number(!b.solved)),
   canWin: (r) => r.solved,
   // "24" guesses, "24 +2💡" with hints, "🏳️" for giving up.
   formatScore: (r) => (!r.solved ? "🏳️" : r.hints ? `${r.guesses} +${r.hints}💡` : String(r.guesses)),

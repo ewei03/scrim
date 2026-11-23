@@ -636,7 +636,13 @@ describe("extension rankings", () => {
     ],
     krillion: [0, 15, 300, 700].map((p) => manualKrillion("1", p)),
     strands: [0, 1, 1, 4].map((h) => manualStrands("1", h)),
-    contexto: [manualContexto("1", 12, 1), manualContexto("1", 12), manualContexto("1", 40), manualContexto("1", null)],
+    contexto: [
+      manualContexto("1", 12, 1),
+      manualContexto("1", 12),
+      manualContexto("1", 40),
+      manualContexto("1", null),
+      { ...manualContexto("1", null), guesses: 3 },
+    ],
   };
 
   it("judges results the same way as the site", async () => {
