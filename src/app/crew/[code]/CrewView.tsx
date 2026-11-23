@@ -560,6 +560,12 @@ function CrewPage() {
             onGames={(next) => {
               // A game you just turned on opens expanded, even if you'd collapsed it before.
               for (const g of next) if (!games.includes(g)) setCardOpen(g, true);
+              // A game turned off loses its day in progress (the server deletes it too).
+              const removed = games.filter((g) => !next.includes(g));
+              if (removed.length) {
+                const at = Date.now();
+                setRounds((list) => list.filter((r) => !removed.includes(r.game) || isClosed(r, at)));
+              }
               setGames(next);
             }}
             onAddCustom={() => setEditing("new")}
@@ -1293,7 +1299,12 @@ function CrewGames({
 
   async function toggle(game: GameAdapter<unknown>) {
     const on = !games.includes(game.id);
-    if (!on && !(await confirmDialog(`Stop playing ${game.name} in ${crew.name}? Past days and rankings stay.`)))
+    if (
+      !on &&
+      !(await confirmDialog(
+        `Stop playing ${game.name} in ${crew.name}? Today's ${game.name} scores are deleted and won't come back if you add it again. Past days and rankings stay.`,
+      ))
+    )
       return;
     setBusy(game.id);
     setError(null);

@@ -470,10 +470,11 @@ describe("crew owner controls", () => {
     await as(BOB, "select join_crew($1)", [crew.invite_code]);
   });
 
-  it("keeps past rounds when a game is untracked", async () => {
+  it("drops today's round when a game is untracked (finished days stay: see \"removing a game\")", async () => {
+    expect(await as(ANN, "select * from rounds where crew_id = $1 and closes_at > now()", [crew.id])).toHaveLength(1);
     await as(ANN, "select set_crew_game($1, 'wordle', false)", [crew.id]);
     expect(await as(ANN, "select * from crew_games where crew_id = $1", [crew.id])).toHaveLength(0);
-    expect(await as(ANN, "select * from rounds where crew_id = $1", [crew.id])).toHaveLength(1);
+    expect(await as(ANN, "select * from rounds where crew_id = $1", [crew.id])).toHaveLength(0);
     await expect(submitEntry(BOB, crew.id, solve(T, 2))).rejects.toThrow(/doesn't play/);
   });
 
@@ -620,6 +621,53 @@ describe("connections and krillion", () => {
       [C, crew],
     );
     expect(rows).toEqual([{ ok: true }]);
+  });
+});
+
+describe("removing a game", () => {
+  it("throws away its day in progress, so re-adding it later doesn't bring that day back", async () => {
+    const { rows: n } = await db.query<{ s: number }>(
+      "select ((now() at time zone 'UTC')::date - date '2024-03-03') as s",
+    );
+    const S = String(n[0].s);
+    const crew = await createCrew(ANN, "Toggles", "strands");
+    const submit = (result: object) => submitEntry(ANN, crew.id, JSON.stringify(result), "paste", "strands");
+    const strandsRounds = () =>
+      as<{ puzzle_id: string; entries: number }>(
+        ANN,
+        `select r.puzzle_id, (select count(*) from entries e where e.round_id = r.id)::int as entries
+         from rounds r where r.crew_id = $1 and r.game = 'strands' order by r.puzzle_id`,
+        [crew.id],
+      );
+    // A finished day from before, and today's score.
+    const past = String(Number(S) - 3);
+    await db.query(
+      "insert into rounds (crew_id, game, puzzle_id, closes_at) values ($1, 'strands', $2, now() - interval '2 days')",
+      [crew.id, past],
+    );
+    await db.query(
+      `insert into entries (round_id, user_id, result, source)
+       select id, $2, $3, 'paste' from rounds where crew_id = $1 and puzzle_id = $4`,
+      [crew.id, ANN, JSON.stringify({ puzzle: past, hints: 1, words: 8, spangram: 1 }), past],
+    );
+    await submit({ puzzle: S, grid: "sbbb" });
+    expect(await strandsRounds()).toEqual([
+      { puzzle_id: past, entries: 1 },
+      { puzzle_id: S, entries: 1 },
+    ]);
+
+    // Removed: today's round goes, scores and all; the finished day stays.
+    await as(ANN, "select set_crew_game($1, 'strands', false)", [crew.id]);
+    expect(await strandsRounds()).toEqual([{ puzzle_id: past, entries: 1 }]);
+
+    // Added back: today's score is gone until it's sent again (today, it can be).
+    await as(ANN, "select set_crew_game($1, 'strands', true)", [crew.id]);
+    expect(await strandsRounds()).toEqual([{ puzzle_id: past, entries: 1 }]);
+    await submit({ puzzle: S, grid: "sbbb" });
+    expect(await strandsRounds()).toEqual([
+      { puzzle_id: past, entries: 1 },
+      { puzzle_id: S, entries: 1 },
+    ]);
   });
 });
 

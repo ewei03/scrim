@@ -1831,6 +1831,12 @@ select.input {
   border-top: 1px dashed color-mix(in srgb, var(--muted) 50%, transparent);
 }
 
+/* The "Your turn" panel already has the inset: its text lines up with its heading. */
+.game-card-body > .stack.card > p {
+  padding-left: 0;
+  padding-right: 0;
+}
+
 /* Not played yet: the scoreboard sits in shade, so the "Your turn" panel
    above it is what stands out. Darkened towards black, so it reads as shade in
    both themes. */

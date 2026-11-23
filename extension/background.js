@@ -270,6 +270,7 @@ function prune(results) {
 const CATCH_UP = [
   { game: "wordle", url: "https://www.nytimes.com/games/wordle/index.html", today: () => localDays(2021, 6, 19) },
   { game: "connections", url: "https://www.nytimes.com/games/connections", today: () => localDays(2023, 6, 11) },
+  { game: "strands", url: "https://www.nytimes.com/games/strands", today: () => localDays(2024, 3, 3) },
   { game: "krillion", url: "https://krillion.io/", today: () => newYorkDays(2026, 7, 15) },
   { game: "contexto", url: "https://contexto.me/en/", today: () => localDays(2022, 9, 18) },
 ];

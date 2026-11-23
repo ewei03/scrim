@@ -123,6 +123,9 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
   or four wrong guesses (the saved `puzzleComplete` can lag behind). Colours
   come from the day's puzzle file, `/svc/connections/v2/<date>.json`, where a
   card's level is its category's index.
+- `nyt-strands.js` does the same on the Strands page
+  (`localStorage["games-state-strands/…"]`). The saved `history` lists each
+  theme word, spangram and hint in order, which gives the share's dots.
 - `krillion.js` runs on krillion.io and reads finished Daily Dives from
   `localStorage["krillion:stats:v1"]` (prefixed `krillion:account:<id>:` when
   signed in). Archive, Unlimited and pack dives are ignored.

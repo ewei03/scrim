@@ -50,6 +50,17 @@
     },
     {
       "matches": [
+        "https://www.nytimes.com/games/strands*"
+      ],
+      "js": [
+        "scrim-content.js",
+        "strands-core.js",
+        "nyt-strands.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
         "https://krillion.io/*"
       ],
       "js": [
