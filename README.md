@@ -4,7 +4,7 @@ Daily puzzle showdowns with friends. Start a crew, pick the games it plays and
 share the invite. Everyone plays each day's puzzle on their own time, each day
 crowns a winner, and the crew keeps rankings and every past day.
 
-**Games:** Wordle, NYT Connections and Krillion, today's puzzle only. Desktop
+**Games:** Wordle, NYT Connections, NYT Strands, Krillion and Contexto, today's puzzle only. Desktop
 Chrome only. Only free-to-play games are supported (`GameAdapter.free` is typed
 `true`).
 
@@ -126,10 +126,14 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 - `krillion.js` runs on krillion.io and reads finished Daily Dives from
   `localStorage["krillion:stats:v1"]` (prefixed `krillion:account:<id>:` when
   signed in). Archive, Unlimited and pack dives are ignored.
+- `contexto.js` runs on contexto.me and reads finished English daily games
+  from `localStorage["contexto-games-en"]` (today's and yesterday's only, so
+  archive games don't count). Signing in to Contexto is optional, like NYT:
+  signed in, the player id comes from the Firebase uid in IndexedDB.
 - NYT games count whether or not you're signed in to NYT (saves under
   `…/<regiId>` or `…/ANON`). If a puzzle has both, the signed-in save wins.
 - One game, one Scrim account: each result carries a hashed player id (the
-  NYT/Krillion account it was played on, or a random per-install id when
+  NYT/Krillion/Contexto account it was played on, or a random per-install id when
   played signed out). The first Scrim account to send a game claims it
   (`game_claims`, kept a week); the same game from another account gets
   `not-yours` and the extension drops it.

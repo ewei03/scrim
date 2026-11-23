@@ -47,6 +47,7 @@ function todaysPuzzles() {
     wordle: days(local, Date.UTC(2021, 5, 19)),
     connections: days(local, Date.UTC(2023, 5, 11)),
     krillion: days(newYork, Date.UTC(2026, 6, 15)),
+    contexto: days(local, Date.UTC(2022, 8, 18)),
   };
 }
 
@@ -100,7 +101,7 @@ function renderResults(stored) {
 const CHECK_GAMES = false;
 
 /** Games the extension reads from their pages. */
-const AUTO_GAMES = ["wordle", "connections", "krillion"];
+const AUTO_GAMES = ["wordle", "connections", "krillion", "contexto"];
 
 /**
  * "Check my games": for games played elsewhere (e.g. on a phone) with the same
@@ -124,7 +125,7 @@ function setUpCheckGames() {
   });
 }
 
-const GAME_NAMES = { wordle: "Wordle", connections: "Connections", krillion: "Krillion" };
+const GAME_NAMES = { wordle: "Wordle", connections: "Connections", krillion: "Krillion", contexto: "Contexto" };
 
 /** Results / Rankings tabs. Remembers the last tab, crew and game. */
 function setUpTabs(view, scrimOrigin) {
@@ -240,5 +241,10 @@ function describe(game, result) {
     return { name: "Connections", score };
   }
   if (game === "krillion") return { name: "Krillion", score: result.points.toLocaleString("en-US") };
+  if (game === "contexto") {
+    // Same as the site: guesses, "+2💡" for hints, "🏳️" for giving up.
+    const score = !result.solved ? "🏳️" : result.hints ? `${result.guesses} +${result.hints}💡` : String(result.guesses);
+    return { name: "Contexto", score };
+  }
   return { name: "Wordle", score: `${result.solved ? result.guesses : "X"}/6` };
 }

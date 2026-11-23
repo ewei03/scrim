@@ -187,7 +187,7 @@ async function finishedBeforeSwitch(game, puzzle) {
  * so Scrim never sees the game account itself.
  */
 async function playerId(game, account) {
-  const family = game === "krillion" ? "krillion" : "nyt";
+  const family = game === "krillion" || game === "contexto" ? game : "nyt";
   const who = account ? `${family}:${account}` : `browser:${await installId()}`;
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`scrim-player:${who}`));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
@@ -271,6 +271,7 @@ const CATCH_UP = [
   { game: "wordle", url: "https://www.nytimes.com/games/wordle/index.html", today: () => localDays(2021, 6, 19) },
   { game: "connections", url: "https://www.nytimes.com/games/connections", today: () => localDays(2023, 6, 11) },
   { game: "krillion", url: "https://krillion.io/", today: () => newYorkDays(2026, 7, 15) },
+  { game: "contexto", url: "https://contexto.me/en/", today: () => localDays(2022, 9, 18) },
 ];
 const VISIT_TIMEOUT_MS = 20000;
 /** Tab id -> resolves the visit early once that tab reports a result. */

@@ -1048,6 +1048,36 @@ select.input {
   border: 2px solid var(--muted);
 }
 
+/* Contexto: close, near and far guesses, as bars. */
+.cchart {
+  display: grid;
+  gap: 2px;
+  width: 64px;
+}
+.cchart-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  line-height: 1;
+}
+.cbar {
+  height: 6px;
+  border-radius: 2px;
+}
+.cbar-0 {
+  background: #6aaa64;
+}
+.cbar-1 {
+  background: #c9b458;
+}
+.cbar-2 {
+  background: #d9534f;
+}
+.cchart-n {
+  color: var(--muted);
+}
+
 .ktiers {
   letter-spacing: 0.05em;
   white-space: nowrap;
@@ -1565,8 +1595,91 @@ select.input {
   grid-template-columns: auto 1fr auto;
 }
 
-.archive-pager {
+/* The archive is a month calendar; days with results open in a modal. */
+.archive-cal {
+  border: 1px dashed var(--muted);
+  padding: 10px 12px 12px;
+  max-width: 420px;
+}
+
+.archive-cal-head {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.archive-cal-month {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.85rem;
+}
+
+.archive-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.archive-cal-weekday {
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.archive-cal-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  min-height: 2.6rem;
+  padding: 4px 0;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+}
+
+.archive-cal-day.today {
+  border-color: var(--muted);
+  border-style: dotted;
+}
+
+.archive-cal-day.has-results {
+  cursor: pointer;
+  color: var(--ink);
+  background: var(--card);
+  border-color: var(--line);
+}
+
+.archive-cal-day.has-results:hover {
+  box-shadow: var(--shadow);
+}
+
+.archive-cal-day.has-results:focus-visible {
+  outline: 2px dashed var(--accent-text);
+  outline-offset: 1px;
+}
+
+.archive-cal-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 0 2px;
+}
+
+.archive-cal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--game);
+  border: 1px solid var(--line);
 }
 
 @media (max-width: 480px) {

@@ -5,6 +5,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
 import { manualConnections } from "@/games/connections";
+import { manualContexto } from "@/games/contexto";
 import { manualKrillion } from "@/games/krillion";
 import { manualStrands } from "@/games/strands";
 import { GAMES } from "@/games/registry";
@@ -590,6 +591,36 @@ describe("connections and krillion", () => {
     );
     expect(rows).toEqual([{ ok: true }]);
   });
+
+  it("checks Contexto's bars, and closes at the crew's midnight", async () => {
+    const { rows: n } = await db.query<{ c: number }>(
+      "select ((now() at time zone 'UTC')::date - date '2022-09-18') as c",
+    );
+    const C = String(n[0].c);
+    await as(ANN, "select set_crew_game($1, 'contexto', true)", [crew]);
+    await expect(
+      submit(EVE, "contexto", { puzzle: String(Number(C) - 5), solved: true, guesses: 9, chart: [1, 3, 5] }),
+    ).rejects.toThrow(/day is over/);
+    await expect(submit(EVE, "contexto", { puzzle: C, solved: true, guesses: 9 })).rejects.toThrow(/coloured grid/);
+    await expect(submit(EVE, "contexto", { puzzle: C, solved: true, guesses: 5, chart: [1, 3, 5] })).rejects.toThrow(
+      /don't match/,
+    );
+    await expect(submit(EVE, "contexto", { puzzle: C, solved: true, guesses: 9, chart: [0, 4, 5] })).rejects.toThrow(
+      /in green/,
+    );
+    await expect(submit(EVE, "contexto", { puzzle: C, solved: true, guesses: 9, hints: 10, chart: [1, 3, 5] })).rejects.toThrow(
+      /hints/,
+    );
+    await submit(ANN, "contexto", { puzzle: C, solved: true, guesses: 24, hints: 2, chart: [3, 8, 13], extra: 1 });
+    expect(await stored(ANN, "contexto")).toEqual({ puzzle: C, solved: true, guesses: 24, hints: 2, chart: [3, 8, 13] });
+
+    const { rows } = await db.query<{ ok: boolean }>(
+      `select closes_at = ((date '2022-09-18' + $1::int + 1)::timestamp at time zone 'UTC') as ok
+       from rounds where crew_id = $2 and game = 'contexto'`,
+      [C, crew],
+    );
+    expect(rows).toEqual([{ ok: true }]);
+  });
 });
 
 describe("extension rankings", () => {
@@ -605,6 +636,7 @@ describe("extension rankings", () => {
     ],
     krillion: [0, 15, 300, 700].map((p) => manualKrillion("1", p)),
     strands: [0, 1, 1, 4].map((h) => manualStrands("1", h)),
+    contexto: [manualContexto("1", 12, 1), manualContexto("1", 12), manualContexto("1", 40), manualContexto("1", null)],
   };
 
   it("judges results the same way as the site", async () => {

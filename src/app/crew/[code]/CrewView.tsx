@@ -176,6 +176,9 @@ function CrewPage() {
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [games, setGames] = useState<string[]>([]);
+  // The crew's games as the page first loaded them: the Games box puts these
+  // first. Toggling a game doesn't move it until the next page load.
+  const [loadedGames, setLoadedGames] = useState<{ crewId: string; games: string[] } | null>(null);
   const [customGames, setCustomGames] = useState<CustomGame[]>([]);
   const [rounds, setRounds] = useState<RoundWithEntries[]>([]);
   const [showManage, setShowManage] = useState(false);
@@ -258,6 +261,7 @@ function CrewPage() {
           setRequests(d.requests);
           setMembers(d.members);
           setGames(d.games);
+          setLoadedGames((prev) => (prev?.crewId === d.crew.id ? prev : { crewId: d.crew.id, games: d.games }));
           setCustomGames(d.customGames);
           setRounds(d.rounds);
           if (d.gameOrder !== undefined) setAccountOrder({ crewId: d.crew.id, games: d.gameOrder });
@@ -304,6 +308,14 @@ function CrewPage() {
   }, []);
   // Built-in games, then the crew's own custom games.
   const allGames = useMemo(() => [...gameList(), ...customGames.map(customAdapter)], [customGames]);
+  // The Games box: games the crew played when the page loaded first, then the
+  // rest (each group in the order above).
+  const boxGames = useMemo(() => {
+    const on = new Set(loadedGames?.games ?? []);
+    return [...allGames.filter((g) => on.has(g.id)), ...allGames.filter((g) => !on.has(g.id))];
+  }, [allGames, loadedGames]);
+  // The archive lists each day's games in the same order as the Games box.
+  const archiveOrder = useMemo(() => boxGames.map((g) => g.id), [boxGames]);
   const findGame = useCallback((id: string) => allGames.find((g) => g.id === id) ?? getGame(id), [allGames]);
 
   const today = crew ? `${crew.timezone}:${games.map((g) => crewPuzzle(findGame(g), crew, new Date(now))).join()}` : "";
@@ -543,7 +555,7 @@ function CrewPage() {
           <CrewGames
             crew={crew}
             games={games}
-            allGames={allGames}
+            allGames={boxGames}
             isOwner={isOwner}
             onGames={(next) => {
               // A game you just turned on opens expanded, even if you'd collapsed it before.
@@ -822,6 +834,7 @@ function CrewPage() {
           {finished.length > 0 && (
             <Archive
               rounds={finished}
+              order={archiveOrder}
               findGame={findGame}
               names={names}
               isOwner={isOwner}
@@ -1059,89 +1072,152 @@ function DayEndedNotice({
   );
 }
 
-const DAYS_PER_PAGE = 10;
 
 /** closes_at is the midnight that ended the day; this is a moment in the day itself. */
 const roundDay = (round: Round) => new Date(new Date(round.closes_at).getTime() - 60_000);
 
-/** Past rounds grouped by day, newest first, a page of days at a time. */
+/** Past rounds on a month calendar: a day with results opens its games in a modal. */
 function Archive({
   rounds,
+  order,
   findGame,
   names,
   isOwner,
   onVoid,
 }: {
   rounds: RoundWithEntries[];
+  /** Game ids in the order the crew's Games box lists them; each day's games follow it. */
+  order: string[];
   findGame: (id: string) => GameAdapter<unknown>;
   names: Map<string, string>;
   isOwner: boolean;
   onVoid: (row: BoardRow) => void;
 }) {
+  // Finished rounds by day ("2026-11-23", the viewer's calendar), each day's games in order.
   const days = useMemo(() => {
-    const byDay = new Map<string, { day: Date; rounds: RoundWithEntries[] }>();
+    const byDay = new Map<string, RoundWithEntries[]>();
     for (const r of rounds) {
-      const day = roundDay(r);
-      const key = day.toDateString();
-      const group = byDay.get(key);
-      if (group) group.rounds.push(r);
-      else byDay.set(key, { day, rounds: [r] });
+      const key = dayKey(roundDay(r));
+      byDay.set(key, [...(byDay.get(key) ?? []), r]);
     }
-    return [...byDay.entries()]
-      .map(([key, g]) => ({ key, ...g }))
-      .sort((a, b) => b.day.getTime() - a.day.getTime());
-  }, [rounds]);
+    for (const [key, list] of byDay) byDay.set(key, inSavedOrder(list, (r) => r.game, order));
+    return byDay;
+  }, [rounds, order]);
 
-  const pages = Math.max(1, Math.ceil(days.length / DAYS_PER_PAGE));
-  const [page, setPage] = useState(0);
-  const current = Math.min(page, pages - 1);
-  const shown = days.slice(current * DAYS_PER_PAGE, (current + 1) * DAYS_PER_PAGE);
+  // Months that have results, newest last: the calendar moves between them.
+  const months = useMemo(() => [...new Set([...days.keys()].map((k) => k.slice(0, 7)))].sort(), [days]);
+  const [month, setMonth] = useState<string | null>(null);
+  const shownMonth = month && months.includes(month) ? month : months[months.length - 1];
+  const at = months.indexOf(shownMonth);
+  const [openDay, setOpenDay] = useState<string | null>(null);
+  if (!shownMonth) return null;
+
+  const [y, m] = shownMonth.split("-").map(Number);
+  const first = new Date(y, m - 1, 1);
+  const length = new Date(y, m, 0).getDate();
+  // Blank cells before the 1st, so it lands on its weekday (weeks start on Sunday).
+  const cells: (string | null)[] = [
+    ...Array<null>(first.getDay()).fill(null),
+    ...Array.from({ length }, (_, i) => dayKey(new Date(y, m - 1, i + 1))),
+  ];
+  const weekdays = Array.from({ length: 7 }, (_, i) =>
+    new Date(2026, 10, 1 + i).toLocaleDateString(undefined, { weekday: "narrow" }),
+  );
+  const todayKey = dayKey(new Date());
+  const dayRounds = openDay ? (days.get(openDay) ?? []) : [];
 
   return (
-    <>
-      <ul className="list list-archive">
-        {shown.map(({ key, day, rounds: dayRounds }) => (
-          <li key={key}>
-            <details className="archive-day">
-              <summary className="list-row">
-                <span className="archive-date">{formatDay(day.toISOString())}</span>
-                <span className="archive-day-games">
-                  {dayRounds.map((r) => (
-                    <GameTag key={r.id} game={findGame(r.game)} />
-                  ))}
-                </span>
-              </summary>
-              <ul className="archive-day-rounds">
-                {dayRounds.map((r) => (
-                  <PastRound
-                    key={r.id}
-                    game={findGame(r.game)}
-                    round={r}
-                    names={names}
-                    isOwner={isOwner}
-                    onVoid={onVoid}
-                  />
-                ))}
-              </ul>
-            </details>
-          </li>
-        ))}
-      </ul>
-      {pages > 1 && (
-        <nav className="row between archive-pager" aria-label="Archive pages">
-          <button className="btn btn-small" disabled={current === 0} onClick={() => setPage(current - 1)}>
-            ← Newer
-          </button>
-          <span className="muted small">
-            Page {current + 1} of {pages}
+    <div className="archive-cal">
+      <nav className="archive-cal-head" aria-label="Archive months">
+        <button
+          type="button"
+          className="btn btn-small"
+          disabled={at <= 0}
+          aria-label="Earlier month"
+          onClick={() => setMonth(months[at - 1])}
+        >
+          ←
+        </button>
+        <span className="archive-cal-month">
+          {first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+        </span>
+        <button
+          type="button"
+          className="btn btn-small"
+          disabled={at >= months.length - 1}
+          aria-label="Later month"
+          onClick={() => setMonth(months[at + 1])}
+        >
+          →
+        </button>
+      </nav>
+      <div className="archive-cal-grid">
+        {weekdays.map((w, i) => (
+          <span key={`w${i}`} className="archive-cal-weekday" aria-hidden>
+            {w}
           </span>
-          <button className="btn btn-small" disabled={current >= pages - 1} onClick={() => setPage(current + 1)}>
-            Older →
-          </button>
-        </nav>
-      )}
-    </>
+        ))}
+        {cells.map((key, i) => {
+          if (!key) return <span key={`b${i}`} />;
+          const list = days.get(key);
+          const n = Number(key.slice(8));
+          if (!list) {
+            return (
+              <span key={key} className={`archive-cal-day ${key === todayKey ? "today" : ""}`}>
+                {n}
+              </span>
+            );
+          }
+          return (
+            <button
+              key={key}
+              type="button"
+              className="archive-cal-day has-results"
+              aria-label={`${formatDay(fromDayKey(key).toISOString())}: ${list.map((r) => findGame(r.game).name).join(", ")}`}
+              onClick={() => setOpenDay(key)}
+            >
+              <span>{n}</span>
+              <span className="archive-cal-dots" aria-hidden>
+                {list.map((r) => (
+                  <span key={r.id} className="archive-cal-dot" style={gameStyle(findGame(r.game))} />
+                ))}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <Modal
+        open={openDay !== null}
+        onClose={() => setOpenDay(null)}
+        title={openDay ? formatDay(fromDayKey(openDay).toISOString()) : ""}
+        size="large"
+      >
+        <ul className="list list-archive archive-day-rounds">
+          {dayRounds.map((r) => (
+            <PastRound
+              key={r.id}
+              game={findGame(r.game)}
+              round={r}
+              names={names}
+              isOwner={isOwner}
+              onVoid={onVoid}
+            />
+          ))}
+        </ul>
+      </Modal>
+    </div>
   );
+}
+
+/** "2026-11-23" for a date on the viewer's calendar. */
+function dayKey(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function fromDayKey(key: string): Date {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d, 12);
 }
 
 function PastRound({

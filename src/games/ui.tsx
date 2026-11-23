@@ -1,6 +1,7 @@
 "use client";
 
 import type { ConnectionsResult } from "./connections";
+import type { ContextoResult } from "./contexto";
 import { TIERS, type KrillionResult } from "./krillion";
 import type { StrandsResult } from "./strands";
 import type { WordleResult } from "./wordle";
@@ -23,6 +24,10 @@ export function ResultDetail({ gameId, result }: { gameId: string; result: unkno
   if (gameId === "krillion") {
     const tiers = (result as KrillionResult).tiers;
     return tiers ? <KrillionTiers tiers={tiers} /> : null;
+  }
+  if (gameId === "contexto") {
+    const chart = (result as ContextoResult).chart;
+    return chart ? <ContextoChart chart={chart} /> : null;
   }
   return null;
 }
@@ -87,3 +92,19 @@ function KrillionTiers({ tiers }: { tiers: string }) {
   );
 }
 
+
+/** Contexto's bars: how many guesses were close (green), near (yellow) and far (red). */
+function ContextoChart({ chart }: { chart: [number, number, number] }) {
+  const total = Math.max(1, chart[0] + chart[1] + chart[2]);
+  const labels = ["Close", "Near", "Far"];
+  return (
+    <div className="cchart" aria-label="Contexto guesses">
+      {chart.map((n, i) => (
+        <div key={i} className="cchart-row" title={`${labels[i]}: ${n}`}>
+          <span className={`cbar cbar-${i}`} style={{ width: `${Math.max(n ? 6 : 0, (n / total) * 100)}%` }} />
+          <span className="cchart-n">{n}</span>
+        </div>
+      ))}
+    </div>
+  );
+}

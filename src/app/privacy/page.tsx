@@ -70,7 +70,7 @@ export default function PrivacyPage() {
         </li>
         <li>
           With each result it also sends a scrambled (hashed) code for who played it: made from the game account it
-          was played on (your NYT or Krillion account ID), or from a random ID for this browser if you played signed
+          was played on (your NYT, Krillion or Contexto account ID), or from a random ID for this browser if you played signed
           out. Scrim can&apos;t turn it back into your game account. It&apos;s only used to stop one game being counted
           for two Scrim accounts, and is deleted after a week.
         </li>

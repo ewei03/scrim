@@ -75,7 +75,8 @@ async function submit(who: Signed, crewId: string, puzzle: number, guesses: numb
 
 const rankings = (page: Page) => page.locator("section", { has: page.getByRole("heading", { name: /^Rankings/ }) });
 const rankingRow = (page: Page, name: string) => rankings(page).locator("tbody tr", { hasText: name });
-const archived = (page: Page) => page.locator(".list-archive > *");
+// Days on the archive calendar that have results.
+const archived = (page: Page) => page.locator(".archive-cal-day.has-results");
 const wordleCard = (page: Page) => page.locator(".game-card", { hasText: "Wordle" });
 const openTab = (page: Page, name: string) => page.getByRole("tab", { name: new RegExp(`^${name}`) }).click();
 
