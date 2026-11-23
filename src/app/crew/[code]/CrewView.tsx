@@ -65,26 +65,6 @@ function inPeriod(round: Round, period: Period, zone: string, now: number): bool
   return day >= todayNum - sinceMonday && day <= todayNum;
 }
 
-/** The tab you last had open, per crew, in this browser. */
-const tabKey = (code: string) => `scrim-tab:${code.toLowerCase()}`;
-
-function rememberedTab(code: string): Tab {
-  try {
-    const saved = localStorage.getItem(tabKey(code)) ?? "";
-    return isTab(saved) ? saved : "today";
-  } catch {
-    return "today";
-  }
-}
-
-function rememberTab(code: string, tab: Tab) {
-  try {
-    localStorage.setItem(tabKey(code), tab);
-  } catch {
-    // Storage blocked: it just won't be remembered.
-  }
-}
-
 type Person = { user_id: string; profiles: { display_name: string; is_guest: boolean } };
 type Member = Person & { joined_at: string };
 /** Someone asking to join a crew that needs the owner's approval (only the owner sees these). */
@@ -225,15 +205,14 @@ function CrewPage() {
     [],
   );
 
-  // The tab comes from the link (#rankings), else the last one you had open in this crew.
+  // The tab comes from the link (#rankings); a plain link always opens on Today.
   useEffect(() => {
-    const fromHash = (first: boolean) => {
+    const onHash = () => {
       const hash = location.hash.slice(1);
       if (isTab(hash)) setTab(hash);
-      else if (!hash) setTab(first ? rememberedTab(code) : "today"); // Back to the plain link: Today
+      else if (!hash) setTab("today");
     };
-    fromHash(true);
-    const onHash = () => fromHash(false);
+    onHash();
     // Back/Forward over our pushState entries fires popstate; an edited or followed #link fires hashchange.
     window.addEventListener("hashchange", onHash);
     window.addEventListener("popstate", onHash);
@@ -246,7 +225,6 @@ function CrewPage() {
   function selectTab(next: Tab) {
     if (next === tab) return;
     setTab(next);
-    rememberTab(code, next);
     // A history entry, so Back returns to the previous tab.
     history.pushState(null, "", next === "today" ? location.pathname + location.search : `#${next}`);
   }
