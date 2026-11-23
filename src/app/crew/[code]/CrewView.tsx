@@ -44,7 +44,6 @@ const PERIODS = [
   { id: "year", label: "This year" },
   { id: "month", label: "This month" },
   { id: "week", label: "This week" },
-  { id: "today", label: "Today" },
 ] as const;
 type Period = (typeof PERIODS)[number]["id"];
 
@@ -60,7 +59,6 @@ function inPeriod(round: Round, period: Period, zone: string, now: number): bool
   if (period === "month") return y === today[0] && m === today[1];
   const day = dayNumber([y, m, d]);
   const todayNum = dayNumber(today);
-  if (period === "today") return day === todayNum;
   const sinceMonday = (new Date(todayNum * 86_400_000).getUTCDay() + 6) % 7;
   return day >= todayNum - sinceMonday && day <= todayNum;
 }
@@ -356,10 +354,6 @@ function CrewPage() {
 
   // Rankings count only days that end after the owner last reset them (the archive keeps them all).
   const resetAt = crew?.rankings_reset_at ?? null;
-  const sinceReset = useMemo(
-    () => (resetAt ? rounds.filter((r) => Date.parse(r.closes_at) > Date.parse(resetAt)) : rounds),
-    [rounds, resetAt],
-  );
   const finishedSinceReset = useMemo(
     () => (resetAt ? finished.filter((r) => Date.parse(r.closes_at) > Date.parse(resetAt)) : finished),
     [finished, resetAt],
@@ -369,18 +363,14 @@ function CrewPage() {
     const game = rankedGames.find((g) => g.id === rankingsGame) ?? rankedGames[0];
     if (!game || !crew) return null;
     const zone = crew.timezone ?? "UTC";
-    // Today is still being played; longer periods count finished days only.
-    const pool =
-      rankingsPeriod === "today"
-        ? sinceReset.filter((r) => r.entries.length > 0 && !isClosed(r, now))
-        : finishedSinceReset;
-    const played = pool.filter((r) => r.game === game.id && inPeriod(r, rankingsPeriod, zone, now));
+    // Finished days only: today's round is on the Today tab.
+    const played = finishedSinceReset.filter((r) => r.game === game.id && inPeriod(r, rankingsPeriod, zone, now));
     // Current members only: anyone who left or was removed (including guests
     // removed for being inactive) drops out of the rankings, though their
     // finished days stay in the archive. Matches the extension's rankings.
     const ids = members.map((m) => m.user_id);
     return { game, count: played.length, ...crewStats(game, played, ids, { byWinRate: crew.rank_by_win_rate }) };
-  }, [rankedGames, rankingsGame, rankingsPeriod, crew, sinceReset, finishedSinceReset, members, now]);
+  }, [rankedGames, rankingsGame, rankingsPeriod, crew, finishedSinceReset, members, now]);
 
   if (gone) {
     return (
@@ -788,9 +778,7 @@ function CrewPage() {
                 <Rankings game={ranked.game} players={ranked.players} names={names} guests={guests} />
               ) : (
                 <p className="muted">
-                  {rankingsPeriod === "today"
-                    ? `Nobody has played ${ranked.game.name} today yet.`
-                    : `No finished days for ${ranked.game.name} ${PERIODS.find((p) => p.id === rankingsPeriod)!.label.toLowerCase()}.`}
+                  {`No finished days for ${ranked.game.name} ${PERIODS.find((p) => p.id === rankingsPeriod)!.label.toLowerCase()}.`}
                 </p>
               )}
             </>
