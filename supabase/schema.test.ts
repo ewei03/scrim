@@ -6,6 +6,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
 import { manualConnections } from "@/games/connections";
 import { manualKrillion } from "@/games/krillion";
+import { manualStrands } from "@/games/strands";
 import { GAMES } from "@/games/registry";
 import { crewStats } from "@/lib/stats";
 import { manualWordle } from "@/games/wordle";
@@ -567,6 +568,28 @@ describe("connections and krillion", () => {
     );
     expect(rows).toEqual([{ ok: true }]);
   });
+
+  it("scores Strands from its dots, and closes at the crew's midnight", async () => {
+    const { rows: n } = await db.query<{ s: number }>(
+      "select ((now() at time zone 'UTC')::date - date '2024-03-03') as s",
+    );
+    const S = String(n[0].s);
+    await as(ANN, "select set_crew_game($1, 'strands', true)", [crew]);
+    await expect(submit(EVE, "strands", { puzzle: String(Number(S) - 5), grid: "sbbb" })).rejects.toThrow(/day is over/);
+    // Claimed no hints, but the dots have two: the dots win.
+    await submit(ANN, "strands", { puzzle: S, hints: 0, grid: "hbbbbshbb" });
+    expect(await stored(ANN, "strands")).toEqual({ puzzle: S, hints: 2, words: 7, spangram: 5, grid: "hbbbbshbb" });
+    await expect(submit(EVE, "strands", { puzzle: S, hints: 0 })).rejects.toThrow(/coloured grid/);
+    await expect(submit(EVE, "strands", { puzzle: S, grid: "bbbb" })).rejects.toThrow(/one spangram/);
+    await expect(submit(EVE, "strands", { puzzle: S, grid: "sbxb" })).rejects.toThrow(/Invalid result/);
+
+    const { rows } = await db.query<{ ok: boolean }>(
+      `select closes_at = ((date '2024-03-03' + $1::int + 1)::timestamp at time zone 'UTC') as ok
+       from rounds where crew_id = $2 and game = 'strands'`,
+      [S, crew],
+    );
+    expect(rows).toEqual([{ ok: true }]);
+  });
 });
 
 describe("extension rankings", () => {
@@ -581,6 +604,7 @@ describe("extension rankings", () => {
       manualConnections("1", null, 0),
     ],
     krillion: [0, 15, 300, 700].map((p) => manualKrillion("1", p)),
+    strands: [0, 1, 1, 4].map((h) => manualStrands("1", h)),
   };
 
   it("judges results the same way as the site", async () => {

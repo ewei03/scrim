@@ -1,5 +1,6 @@
 import { connections } from "./connections";
 import { krillion } from "./krillion";
+import { strands } from "./strands";
 import type { GameAdapter } from "./types";
 import { wordle } from "./wordle";
 
@@ -7,6 +8,7 @@ import { wordle } from "./wordle";
 export const GAMES: Record<string, GameAdapter<unknown>> = {
   [wordle.id]: wordle,
   [connections.id]: connections,
+  [strands.id]: strands,
   [krillion.id]: krillion,
 };
 

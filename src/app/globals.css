@@ -1031,6 +1031,23 @@ select.input {
   background: #ba81c5;
 }
 
+/* Strands: theme words, the spangram and hints, as dots. */
+.sdot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.sb {
+  background: #aedfee;
+}
+.ss {
+  background: #f8cd05;
+}
+.sh {
+  background: transparent;
+  border: 2px solid var(--muted);
+}
+
 .ktiers {
   letter-spacing: 0.05em;
   white-space: nowrap;

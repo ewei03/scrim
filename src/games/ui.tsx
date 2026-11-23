@@ -2,6 +2,7 @@
 
 import type { ConnectionsResult } from "./connections";
 import { TIERS, type KrillionResult } from "./krillion";
+import type { StrandsResult } from "./strands";
 import type { WordleResult } from "./wordle";
 
 /** Game-specific pieces of UI, keyed by game id. */
@@ -14,6 +15,10 @@ export function ResultDetail({ gameId, result }: { gameId: string; result: unkno
   if (gameId === "connections") {
     const grid = (result as ConnectionsResult).grid;
     return grid ? <ConnectionsGrid grid={grid} /> : null;
+  }
+  if (gameId === "strands") {
+    const grid = (result as StrandsResult).grid;
+    return grid ? <StrandsDots grid={grid} /> : null;
   }
   if (gameId === "krillion") {
     const tiers = (result as KrillionResult).tiers;
@@ -43,6 +48,26 @@ export function ConnectionsGrid({ grid }: { grid: string[] }) {
         <div key={i} className="wrow">
           {Array.from(row).map((c, j) => (
             <span key={j} className={`wtile c${c}`} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Strands' share, four to a row: theme words, the spangram and hints, in the order they came. */
+export function StrandsDots({ grid }: { grid: string }) {
+  const rows = Array.from(grid).reduce<string[][]>((acc, c, i) => {
+    if (i % 4 === 0) acc.push([]);
+    acc[acc.length - 1].push(c);
+    return acc;
+  }, []);
+  return (
+    <div className="wgrid" aria-label="Strands result">
+      {rows.map((row, i) => (
+        <div key={i} className="wrow">
+          {row.map((c, j) => (
+            <span key={j} className={`sdot s${c}`} title={c === "s" ? "Spangram" : c === "h" ? "Hint" : "Theme word"} />
           ))}
         </div>
       ))}
