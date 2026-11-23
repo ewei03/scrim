@@ -22,26 +22,41 @@ export function Rankings({
             <th>#</th>
             <th>Name</th>
             <th className="right">Wins</th>
-            <th className="right" title="Games played">Played</th>
+            <th className="right" title="Games played">
+              Played
+            </th>
             <th className="right">Win rate</th>
             <th className="right">{game.averageLabel}</th>
-            <th className="right hide-sm" title="Current win streak">Streak</th>
+            <th className="right hide-sm" title="Current win streak">
+              Streak
+            </th>
           </tr>
         </thead>
         <tbody>
-          {players.map((p) => (
-            <tr key={p.userId}>
-              <td>{p.played ? sharedRank(players, p) : "–"}</td>
-              <td>
-                <PlayerName name={names.get(p.userId) ?? "?"} guest={guests.has(p.userId)} />
-              </td>
-              <td className="right">{p.wins}</td>
-              <td className="right">{p.played}</td>
-              <td className="right">{p.played ? `${Math.round(p.winRate * 100)}%` : "–"}</td>
-              <td className="right">{p.average ?? "–"}</td>
-              <td className="right hide-sm">{p.streak ? `${p.streak}W` : "–"}</td>
-            </tr>
-          ))}
+          {players.map((p) => {
+            const rank = p.played ? sharedRank(players, p) : null;
+            const first = rank === 1;
+            return (
+              <tr key={p.userId} className={first ? "winner" : ""}>
+                <td className={first ? "rank-1" : ""}>{rank ?? "–"}</td>
+                <td>
+                  <PlayerName
+                    name={names.get(p.userId) ?? "?"}
+                    guest={guests.has(p.userId)}
+                  />
+                </td>
+                <td className="right">{p.wins}</td>
+                <td className="right">{p.played}</td>
+                <td className="right">
+                  {p.played ? `${Math.round(p.winRate * 100)}%` : "–"}
+                </td>
+                <td className="right">{p.average ?? "–"}</td>
+                <td className="right hide-sm">
+                  {p.streak ? `${p.streak}W` : "–"}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -50,5 +65,11 @@ export function Rankings({
 
 /** A player's place: players with identical records share a rank. */
 export function sharedRank(players: PlayerStats[], p: PlayerStats) {
-  return 1 + players.findIndex((o) => o.wins === p.wins && o.winRate === p.winRate && o.played === p.played);
+  return (
+    1 +
+    players.findIndex(
+      (o) =>
+        o.wins === p.wins && o.winRate === p.winRate && o.played === p.played,
+    )
+  );
 }

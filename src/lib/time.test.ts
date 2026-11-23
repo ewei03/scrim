@@ -4,7 +4,7 @@ import { ordinal, timeLeft } from "./time";
 describe("time helpers", () => {
   it("formats ordinals", () => {
     expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 101, 111].map(ordinal)).toEqual([
-      "1ST", "2ND", "3RD", "4TH", "11TH", "12TH", "13TH", "21ST", "22ND", "101ST", "111TH",
+      "1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "101st", "111th",
     ]);
   });
   it("formats time left", () => {

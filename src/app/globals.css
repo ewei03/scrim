@@ -970,6 +970,12 @@ select.input {
   color: var(--bronze);
 }
 
+/* First place in the rankings, highlighted like the scoreboard's winner. */
+.board tr .rank-1 {
+  color: var(--gold);
+  font-weight: 700;
+}
+
 .hidden-row td {
   color: var(--muted);
 }
