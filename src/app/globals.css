@@ -2454,8 +2454,7 @@ body:has(.reorder-row.lifted) {
   gap: 14px;
 }
 
-/* Hovering a part of the guide brings it forward: everything else dims and blurs.
-   Hover effects wait 1s before starting (delay sits on the hover rules, so leaving resets at once). */
+/* Hovering a part of the guide brings it forward: everything else dims and blurs. */
 .help-section {
   display: flex;
   flex-direction: column;
@@ -2469,7 +2468,6 @@ body:has(.reorder-row.lifted) {
 .help-body:has(.help-section:hover) > :not(:hover) {
   opacity: 0.3;
   filter: blur(1.5px);
-  transition-delay: 1s;
 }
 
 .help-section h3 {
@@ -2479,7 +2477,6 @@ body:has(.reorder-row.lifted) {
 
 .help-section:hover h3 {
   letter-spacing: 0.04em;
-  transition-delay: 1s;
 }
 
 .help-section > p {
@@ -2493,7 +2490,6 @@ body:has(.reorder-row.lifted) {
 .help-card:hover {
   transform: translate(-1px, -1px);
   box-shadow: calc(4px + var(--shadow-dx)) calc(4px + var(--shadow-dy)) 0 var(--line);
-  transition-delay: 1s;
 }
 
 @media (prefers-reduced-motion: reduce) {
