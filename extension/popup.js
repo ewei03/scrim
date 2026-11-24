@@ -256,8 +256,8 @@ function formatCents(cents) {
 
 function describe(game, result) {
   if (game === "connections") {
-    // Same as the site: "⭐" for no mistakes, "1❌" to "3❌" for mistakes, "💀" on the fourth.
-    const score = !result.solved ? "💀" : result.mistakes === 0 ? "⭐" : `${result.mistakes}❌`;
+    // Same as the site: "0❌" to "3❌" for mistakes, "DNF" (did not finish) on the fourth.
+    const score = !result.solved ? "DNF" : `${result.mistakes}❌`;
     return { name: "Connections", score };
   }
   if (game === "krillion") return { name: "Krillion", score: result.points.toLocaleString("en-US") };
@@ -265,7 +265,7 @@ function describe(game, result) {
   if (game === "strands") return { name: "Strands", score: result.hints === 0 ? "⭐" : `${result.hints}💡` };
   if (game === "contexto") {
     // Same as the site: guesses, "+2💡" for hints, "🏳️" for giving up.
-    const score = !result.solved ? "🏳️" : result.hints ? `${result.guesses} +${result.hints}💡` : String(result.guesses);
+    const score = !result.solved ? "DNF" : result.hints ? `${result.guesses} +${result.hints}💡` : String(result.guesses);
     return { name: "Contexto", score };
   }
   // Same as the site: the total off, e.g. "$12.40".

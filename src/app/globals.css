@@ -1352,6 +1352,7 @@ select.input {
 .today-head {
   margin: 0;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .today-head-actions {
@@ -1811,40 +1812,26 @@ select.input {
   color: inherit;
 }
 
-/* A game whose day ends at another time than the crew's (Poople, Krillion):
-   a note above its scoreboard, so the one countdown up top stays the main one. */
-.own-clock-note {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 16px;
-  font-size: 0.85rem;
-  color: var(--ink);
-  background: var(--warn-bg);
-  border-bottom: 2px solid var(--line);
-  border-left: 4px solid var(--warn);
+/* A game on its own clock (Poople, Krillion): when it ends, in your time. */
+.game-card-timer {
+  margin: 0;
 }
 
-.own-clock-note strong:first-child {
-  color: var(--warn);
+/* "Your turn" and, at the right of the same line, the round's countdown. */
+.turn-head {
+  align-items: center;
+  /* Clear of the dashed rule under it (the panel's parts have no gap). */
+  padding-bottom: 6px;
 }
 
-.own-clock-dismiss {
-  flex: none;
-  font: inherit;
-  font-size: 1.1rem;
-  line-height: 1;
-  padding: 0 2px;
-  color: var(--muted);
-  background: none;
-  border: 0;
-  cursor: pointer;
+/* Slimmer than the usual countdown pill, so the line stays close to the rule. */
+.turn-head .time-left {
+  padding: 0 8px;
+  line-height: 1.4;
 }
 
-.own-clock-dismiss:hover,
-.own-clock-dismiss:focus-visible {
-  color: var(--ink);
+.turn-head-right {
+  align-items: center;
 }
 
 /* Game names on the Today cards: set like the game buttons in the crew box
@@ -2210,6 +2197,25 @@ body:has(.reorder-row.lifted) {
 .join-requests-note {
   border: 2px solid var(--accent-text);
   box-shadow: none;
+  padding: 10px 14px;
+  display: grid;
+  gap: 4px;
+}
+
+/* Flush with the heading: no list indent or margins, and a tighter row. */
+.join-requests-note .manage-members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.join-requests-note .manage-members li {
+  padding: 4px 0;
+  gap: 12px;
+}
+
+.join-requests-note .error {
+  margin: 0;
 }
 
 .member-chips li.me {
@@ -2676,4 +2682,10 @@ body:has(.reorder-row.lifted) {
 
 .manual-note {
   color: var(--orange);
+}
+
+/* "DNF" and the like: spelled out on hover. No underline (browsers dot <abbr title>). */
+.score-abbr {
+  text-decoration: none;
+  cursor: help;
 }

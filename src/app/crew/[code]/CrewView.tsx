@@ -21,7 +21,7 @@ import { gameList, getGame } from "@/games/registry";
 import type { GameAdapter } from "@/games/types";
 import { useAuth } from "@/lib/auth";
 import { askExtension, useExtension, type ExtensionState } from "@/lib/extension";
-import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone } from "@/lib/rounds";
+import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone, roundZone } from "@/lib/rounds";
 import { useClock24h } from "@/lib/clock";
 import { inSavedOrder, saveGameOrder, savedGameOrder, syncGameOrder } from "@/lib/gameOrder";
 import { crewStats } from "@/lib/stats";
@@ -68,6 +68,8 @@ type Person = { user_id: string; profiles: { display_name: string; is_guest: boo
 type Member = Person & { joined_at: string };
 /** Someone asking to join a crew that needs the owner's approval (only the owner sees these). */
 type JoinRequest = Person & { created_at: string };
+/** A guest the cleanup took out of the crew for being inactive (0037). */
+type Removal = { id: string; display_name: string; removed_at: string };
 type RoundWithEntries = Round & {
   entries: {
     id: string;
@@ -114,7 +116,7 @@ async function fetchCrew(code: string, join: boolean) {
     if (!data) throw new CrewGoneError();
     crew = data as Crew;
   }
-  const [m, g, cg, r, jr, go] = await Promise.all([
+  const [m, g, cg, r, jr, go, rm] = await Promise.all([
     sb.from("crew_members").select("user_id, joined_at, profiles(display_name, is_guest)").eq("crew_id", crew.id).order("joined_at"),
     sb.from("crew_games").select("game").eq("crew_id", crew.id),
     sb.from("custom_games").select("*").eq("crew_id", crew.id).order("created_at"),
@@ -132,11 +134,15 @@ async function fetchCrew(code: string, join: boolean) {
       .order("created_at"),
     // Your own order for the crew's games (nobody else's is readable).
     sb.from("game_orders").select("games").eq("crew_id", crew.id).maybeSingle(),
+    // Guests removed for inactivity lately (the server keeps a week of them).
+    sb.from("crew_removals").select("id, display_name, removed_at").eq("crew_id", crew.id).order("removed_at"),
   ]);
   if (m.error || g.error || cg.error || r.error || jr.error) throw m.error ?? g.error ?? cg.error ?? r.error ?? jr.error;
   return {
     pending: null,
     requests: jr.data as unknown as JoinRequest[],
+    // Empty if it couldn't be read: only a notice.
+    removals: rm.error ? [] : (rm.data as Removal[]),
     crew,
     members: m.data as unknown as Member[],
     games: (g.data as { game: string }[]).map((x) => x.game),
@@ -156,6 +162,7 @@ function CrewPage() {
   // Asked to join a crew that needs approval; waiting for the owner.
   const [pending, setPending] = useState<Crew | null>(null);
   const [requests, setRequests] = useState<JoinRequest[]>([]);
+  const [removals, setRemovals] = useState<Removal[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [games, setGames] = useState<string[]>([]);
   // The crew's games as the page first loaded them: the Games box puts these
@@ -239,6 +246,7 @@ function CrewPage() {
           setPending(null);
           setCrew(d.crew);
           setRequests(d.requests);
+          setRemovals(d.removals);
           setMembers(d.members);
           setGames(d.games);
           setLoadedGames((prev) => (prev?.crewId === d.crew.id ? prev : { crewId: d.crew.id, games: d.games }));
@@ -585,7 +593,6 @@ function CrewPage() {
             <ManageCrew
               crew={crew}
               members={members}
-              requests={requests}
               onCrew={setCrew}
               onRemoved={() => {
                 setBoardsKey((k) => k + 1);
@@ -613,14 +620,21 @@ function CrewPage() {
       />
 
       {isOwner && requests.length > 0 && (
-        <p className="card small join-requests-note" role="status">
-          {requests.length === 1
-            ? `${requests[0].profiles.display_name} wants to join.`
-            : `${requests.length} people want to join.`}{" "}
-          <button type="button" className="link-btn" onClick={() => setShowManage(true)}>
-            Review in Manage crew
-          </button>
-        </p>
+        <div className="card small join-requests-note" role="status">
+          <strong>
+            {requests.length === 1
+              ? `${requests[0].profiles.display_name} wants to join.`
+              : `${requests.length} people want to join.`}
+          </strong>
+          <JoinRequestList
+            crew={crew}
+            requests={requests}
+            onAnswered={() => {
+              setBoardsKey((k) => k + 1);
+              load();
+            }}
+          />
+        </div>
       )}
 
 
@@ -672,6 +686,7 @@ function CrewPage() {
           hidden={tab !== "today"}
         >
           <h2 className="sr-only">Today</h2>
+          <RemovedGuestsNotice removals={removals} />
           <DayEndedNotice
             crew={crew}
             rounds={finished}
@@ -680,15 +695,9 @@ function CrewPage() {
             now={now}
             onRankings={() => selectTab("rankings")}
           />
-          {/* Every game's day ends together, at the crew's midnight (games on another clock say so on their card). */}
+          {/* Each card has its own countdown; games don't all end together. */}
           {tracked.length > 0 && (
-            <div className="row between today-head">
-              <span className="time-left">
-                <span className="live-dot" aria-hidden>
-                  ●
-                </span>
-                {timeLeft(crewDayEnd(crew, new Date(now)).toISOString(), now)} left
-              </span>
+            <div className="row today-head">
               <div className="row today-head-actions">
                 {tracked.length > 1 && (
                   <button type="button" className="link-btn" aria-haspopup="dialog" onClick={() => setShowReorder(true)}>
@@ -935,9 +944,24 @@ function TodayRound({
       </header>
       <div className="game-card-body stack" id={bodyId} hidden={!open}>
         {!submitted && (
-          <SubmitPanel crew={crew} game={game} puzzleId={puzzleId} extension={extension} onSubmitted={loadBoard} />
+          <SubmitPanel
+            crew={crew}
+            game={game}
+            puzzleId={puzzleId}
+            extension={extension}
+            onSubmitted={loadBoard}
+            // Time left only matters while it's still yours to play, so it lives in this panel.
+            timer={
+              <span className="time-left">
+                <span className="live-dot" aria-hidden>
+                  ●
+                </span>
+                {timeLeft(deadline, now)} left
+              </span>
+            }
+          />
         )}
-        {ownClock && <OwnClockNote game={game} deadline={deadline} now={now} />}
+        {ownClock && !submitted && <OwnClockNote deadline={deadline} />}
         <Scoreboard
           game={game}
           rows={board}
@@ -952,33 +976,63 @@ function TodayRound({
 }
 
 /**
- * On a game whose day doesn't end with the crew's (Poople, Krillion): when
- * this round closes instead, and why. Dismissing it lasts until the page reloads.
+ * On a game whose day doesn't end with the crew's (Poople, Krillion), until
+ * you've played: when its round closes, in your time. The countdown is in the
+ * "Your turn" panel.
  */
-function OwnClockNote({ game, deadline, now }: { game: GameAdapter<unknown>; deadline: string; now: number }) {
+function OwnClockNote({ deadline }: { deadline: string }) {
   const clock24h = useClock24h();
-  const [dismissed, setDismissed] = useState(false);
-  if (dismissed) return null;
-
   return (
-    <div className="own-clock-note" role="note">
-      <span>
-        <strong>⚠ NOTE:</strong> {game.name} switches to a new puzzle at <strong>{formatTime(deadline, clock24h)}</strong> your time, NOT at
-        midnight. You have{" "}
-        <span className="time-left">
-          {timeLeft(deadline, now)}
-        </span>{" "}
-        to complete it.
-      </span>
-      <button type="button" className="own-clock-dismiss" aria-label="Dismiss" title="Dismiss" onClick={() => setDismissed(true)}>
-        ×
-      </button>
+    <p className="game-card-timer muted small">
+      New puzzle at <strong>{formatTime(deadline, clock24h)}</strong> your time (NOT midnight).
+    </p>
+  );
+}
+
+/** Dismissing a "guest removed" notice, per removal, in this browser. */
+const removedKey = (id: string) => `scrim-guest-removed:${id}`;
+
+/**
+ * Guests the cleanup took out of the crew for 48 hours of inactivity, so they
+ * don't just vanish from the crew box and rankings. One card for all of them,
+ * until dismissed; a later removal brings it back with just the new ones.
+ */
+function RemovedGuestsNotice({ removals }: { removals: Removal[] }) {
+  // Only rendered once the crew has loaded in the browser, so storage is there to read.
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
+  const shown = removals.filter((r) => !dismissed.has(r.id) && !wasDismissed(removedKey(r.id)));
+  if (shown.length === 0) return null;
+
+  function dismiss() {
+    setDismissed((s) => new Set([...s, ...shown.map((r) => r.id)]));
+    try {
+      for (const r of shown) localStorage.setItem(removedKey(r.id), "1");
+    } catch {
+      // Storage blocked: it comes back next visit.
+    }
+  }
+
+  const names = joinNames(shown.map((r) => r.display_name));
+  return (
+    <div className="card day-ended" role="status">
+      <div className="row between day-ended-head">
+        <strong>
+          {names} {shown.length === 1 ? "was" : "were"} removed for inactivity.
+        </strong>
+        <button type="button" className="icon-btn" aria-label="Dismiss" title="Dismiss" onClick={dismiss}>
+          ×
+        </button>
+      </div>
+      <p className="muted small">
+        Guests are taken out of the crew after 48 hours without playing. Their finished days stay in the archive;
+        they can rejoin with the invite link.
+      </p>
     </div>
   );
 }
 
-/** Dismissing the "day has ended" notice, per crew and day, in this browser. */
-const endedKey = (crewId: string, day: string) => `scrim-day-ended:${crewId}:${day}`;
+/** Dismissing a "games have concluded" notice, per crew and closing time, in this browser. */
+const endedKey = (crewId: string, closesAt: string) => `scrim-day-ended:${crewId}:${closesAt}`;
 
 function wasDismissed(key: string): boolean {
   try {
@@ -994,8 +1048,9 @@ function joinNames(names: string[]): string {
 }
 
 /**
- * Once the crew's day rolls over: yesterday is over, here's who won each game,
- * and a nudge to the rankings. Shown on the Today tab until dismissed.
+ * Once a game's day rolls over: it's over, here's who won, and a nudge to the
+ * rankings. Games that closed together (the crew's midnight) share a card; a
+ * game on its own clock (Poople) gets its own. Each stays until dismissed.
  */
 function DayEndedNotice({
   crew,
@@ -1013,29 +1068,36 @@ function DayEndedNotice({
   now: number;
   onRankings: () => void;
 }) {
-  const zone = crew.timezone ?? "UTC";
-  const yesterday = dayNumber(dateIn(zone, new Date(now))) - 1;
-  const dayKey = String(yesterday);
-  const key = endedKey(crew.id, dayKey);
   // Only rendered once the crew has loaded in the browser, so storage is there to read.
-  const [dismissed, setDismissed] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
+  // `now` ticks every second; regrouping once a minute is plenty.
+  const minute = Math.floor(now / 60_000);
 
-  const results = useMemo(
-    () =>
-      rounds
-        .filter((r) => dayNumber(dateIn(zone, roundDay(r))) === yesterday)
-        .map((r) => {
-          const game = findGame(r.game);
-          const winners = rankEntries(game, r.entries).filter((e) => e.winner);
-          return { id: r.id, game, winners: winners.map((w) => names.get(w.user_id) ?? "?") };
-        }),
-    [rounds, zone, yesterday, findGame, names],
-  );
+  // Rounds from yesterday on their own game's clock, grouped by when they closed, latest first.
+  const groups = useMemo(() => {
+    const at = new Date(minute * 60_000);
+    const byClose = new Map<string, { id: string; game: GameAdapter<unknown>; winners: string[] }[]>();
+    for (const r of rounds) {
+      const game = findGame(r.game);
+      const zone = roundZone(game, crew);
+      if (dayNumber(dateIn(zone, roundDay(r))) !== dayNumber(dateIn(zone, at)) - 1) continue;
+      const winners = rankEntries(game, r.entries).filter((e) => e.winner);
+      byClose.set(r.closes_at, [
+        ...(byClose.get(r.closes_at) ?? []),
+        { id: r.id, game, winners: winners.map((w) => names.get(w.user_id) ?? "?") },
+      ]);
+    }
+    return [...byClose].sort(([a], [b]) => Date.parse(b) - Date.parse(a));
+  }, [rounds, crew, findGame, names, minute]);
 
-  if (results.length === 0 || dismissed === key || wasDismissed(key)) return null;
+  const shown = groups.filter(([closesAt]) => {
+    const key = endedKey(crew.id, closesAt);
+    return !dismissed.has(key) && !wasDismissed(key);
+  });
+  if (shown.length === 0) return null;
 
-  function dismiss() {
-    setDismissed(key);
+  function dismiss(key: string) {
+    setDismissed((s) => new Set(s).add(key));
     try {
       localStorage.setItem(key, "1");
     } catch {
@@ -1043,11 +1105,21 @@ function DayEndedNotice({
     }
   }
 
-  return (
-    <div className="card day-ended" role="status">
+  return shown.map(([closesAt, results]) => (
+    <div key={closesAt} className="card day-ended" role="status">
       <div className="row between day-ended-head">
-        <strong>Yesterday&apos;s games have ended!</strong>
-        <button type="button" className="icon-btn" aria-label="Dismiss" title="Dismiss" onClick={dismiss}>
+        <strong>
+          {results.length === 1
+            ? `${results[0].game.name} has concluded from yesterday:`
+            : "The following games have concluded from yesterday:"}
+        </strong>
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label="Dismiss"
+          title="Dismiss"
+          onClick={() => dismiss(endedKey(crew.id, closesAt))}
+        >
           ×
         </button>
       </div>
@@ -1065,7 +1137,7 @@ function DayEndedNotice({
         View rankings →
       </button>
     </div>
-  );
+  ));
 }
 
 
@@ -1364,6 +1436,60 @@ function CrewGames({
 }
 
 /**
+ * People asking to join, each with Approve and Decline (they're told when they
+ * next open the link). Shown to the owner on the crew page.
+ */
+function JoinRequestList({
+  crew,
+  requests,
+  onAnswered,
+}: {
+  crew: Crew;
+  requests: JoinRequest[];
+  onAnswered: () => void;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function answer(r: JoinRequest, approve: boolean) {
+    setBusy(`${approve ? "approve" : "decline"}:${r.user_id}`);
+    setError(null);
+    try {
+      await rpc("answer_join_request", { p_crew: crew.id, p_user: r.user_id, p_approve: approve });
+      onAnswered();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <>
+      <ul className="manage-members">
+        {requests.map((r) => (
+          <li key={r.user_id}>
+            <span>
+              {r.profiles.display_name}
+              {r.profiles.is_guest && <span className="guest-tag"> (guest)</span>}
+            </span>
+            <span className="row">
+              <button className="link-btn" disabled={busy !== null} onClick={() => answer(r, true)}>
+                {busy === `approve:${r.user_id}` ? "Approving…" : "Approve"}
+              </button>
+              <button className="link-btn danger" disabled={busy !== null} onClick={() => answer(r, false)}>
+                {busy === `decline:${r.user_id}` ? "Declining…" : "Decline"}
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+      {error && <p className="error small">{error}</p>}
+    </>
+  );
+}
+
+/**
  * Removes a member, after asking (with the option to delete their past
  * results too). Used by Manage crew and by a member's card. Resolves true if
  * they were removed, false if the owner cancelled; throws if it failed.
@@ -1382,7 +1508,6 @@ async function removeMember(crew: Crew, m: Person): Promise<boolean> {
 function ManageCrew({
   crew,
   members,
-  requests,
   onCrew,
   onRemoved,
   onDeleted,
@@ -1390,7 +1515,6 @@ function ManageCrew({
 }: {
   crew: Crew;
   members: Member[];
-  requests: JoinRequest[];
   onCrew: (crew: Crew) => void;
   /** Members changed (removed, or let in): reload. */
   onRemoved: () => void;
@@ -1429,14 +1553,6 @@ function ManageCrew({
     run("settings", async () => {
       onCrew(await rpc<Crew>("update_crew_settings", { p_crew: crew.id, ...settings }));
     });
-
-  // Let someone in, or turn them down (they're told when they next open the link).
-  async function answer(r: JoinRequest, approve: boolean) {
-    await run(`${approve ? "approve" : "decline"}:${r.user_id}`, async () => {
-      await rpc("answer_join_request", { p_crew: crew.id, p_user: r.user_id, p_approve: approve });
-      onRemoved();
-    });
-  }
 
   async function remove(m: Member) {
     await run(m.user_id, async () => {
@@ -1564,30 +1680,6 @@ function ManageCrew({
         </label>
         <p className="muted small">The day ends at midnight in this time zone.</p>
       </section>
-
-      {requests.length > 0 && (
-        <section className="manage-card">
-          <h3>Join requests</h3>
-          <ul className="manage-members">
-            {requests.map((r) => (
-              <li key={r.user_id}>
-                <span>
-                  {r.profiles.display_name}
-                  {r.profiles.is_guest && <span className="guest-tag"> (guest)</span>}
-                </span>
-                <span className="row">
-                  <button className="link-btn" disabled={busy !== null} onClick={() => answer(r, true)}>
-                    {busy === `approve:${r.user_id}` ? "Approving…" : "Approve"}
-                  </button>
-                  <button className="link-btn danger" disabled={busy !== null} onClick={() => answer(r, false)}>
-                    {busy === `decline:${r.user_id}` ? "Declining…" : "Decline"}
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       <section className="manage-card">
         <h3>Members (10 max)</h3>

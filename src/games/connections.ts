@@ -80,9 +80,9 @@ export function manualConnections(puzzle: string, mistakes: number | null, group
     : { puzzle, solved: true, mistakes, groups: 4 };
 }
 
-/** 0–3 for solves (mistakes); losses rank below, more groups found first. Lower is better. */
+/** 0–3 for solves (mistakes); every loss (DNF) ties below them. Lower is better. */
 function points(r: ConnectionsResult): number {
-  return r.solved ? r.mistakes : 8 - r.groups;
+  return r.solved ? r.mistakes : 4;
 }
 
 export const connections: GameAdapter<ConnectionsResult> = {
@@ -102,8 +102,8 @@ export const connections: GameAdapter<ConnectionsResult> = {
 
   compare: (a, b) => points(a) - points(b),
   canWin: (r) => r.solved,
-  // Compact: "⭐" for no mistakes, "1❌" to "3❌" for mistakes, "💀" on the fourth.
-  formatScore: (r) => (!r.solved ? "💀" : r.mistakes === 0 ? "⭐" : `${r.mistakes}❌`),
+  // Compact: "0❌" to "3❌" for mistakes, "DNF" (did not finish) on the fourth.
+  formatScore: (r) => (!r.solved ? "DNF" : `${r.mistakes}❌`),
   averageLabel: "Avg mistakes",
   average(results) {
     const solved = results.filter((r) => r.solved);

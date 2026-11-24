@@ -27,7 +27,7 @@ describe("parseContexto", () => {
   it("reads giving up", () => {
     const r = parseContexto("I played contexto.me 11/23/2026 but I gave up in 30 guesses.\n\n 0\n🟨 4\n🟥🟥🟥 26");
     expect(r.ok && r.result).toMatchObject({ solved: false, guesses: 30, chart: [0, 4, 26] });
-    expect(contexto.formatScore(r.ok ? r.result : ({} as never))).toBe("🏳️");
+    expect(contexto.formatScore(r.ok ? r.result : ({} as never))).toBe("DNF");
   });
 
   it("rejects anything else", () => {

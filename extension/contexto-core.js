@@ -90,7 +90,7 @@
   }
 
   function formatScore(result) {
-    if (!result.solved) return "🏳️";
+    if (!result.solved) return "DNF";
     return result.hints ? `${result.guesses} +${result.hints}💡` : String(result.guesses);
   }
 

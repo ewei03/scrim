@@ -101,10 +101,29 @@ describe("findBoardGame", () => {
     expect(core.findBoardGame([["games-state-wordleV2/1", WIN]], [tiles("clout", "ggggg")], TODAY)).toBeNull();
   });
 
-  it("needs a save for today's puzzle, not an archive one", () => {
+  it("with no save for today, counts it for the one signed-in account", () => {
+    // Signed in, NYT can keep today's game on its server only: the newest save here is older.
+    const win = [tiles("clout", "ggggg")];
+    expect(core.findBoardGame(inProgress, win, "2026-11-20")).toMatchObject({
+      signedIn: true,
+      account: "216849005",
+      puzzle: "1980",
+      solved: true,
+    });
+    const settings: [string, string][] = [["games-settings-wordleV2/42", '{"states":[{"data":{"hardMode":true}}]}']];
+    expect(core.findBoardGame(settings, win, TODAY)).toMatchObject({ account: "42", hardMode: true });
+  });
+
+  it("won't guess whose it is: signed out, or more than one account", () => {
     const win = [tiles("clout", "ggggg")];
     expect(core.findBoardGame([], win, TODAY)).toBeNull();
-    expect(core.findBoardGame(inProgress, win, "2026-11-20")).toBeNull();
+    expect(core.findBoardGame([["games-state-wordleV2/ANON", state("WIN")]], win, "2026-11-20")).toBeNull();
+    const two: [string, string][] = [...inProgress, ["games-settings-wordleV2/7", "{}"]];
+    expect(core.findBoardGame(two, win, "2026-11-20")).toBeNull();
+  });
+
+  it("ignores an archive puzzle on the board", () => {
+    const win = [tiles("clout", "ggggg")];
     const archive: [string, string][] = [["games-state-wordleV2/1", state("IN_PROGRESS", { isPlayingArchive: true })]];
     expect(core.findBoardGame(archive, win, TODAY)).toBeNull();
   });

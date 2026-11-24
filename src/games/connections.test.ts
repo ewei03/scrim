@@ -17,7 +17,7 @@ describe("parseConnections", () => {
       result: { puzzle: "403", solved: true, mistakes: 1, groups: 4, grid: ["yyyy", "gbgg", "gggg", "bbbb", "pppp"] },
     });
     expect(connections.formatScore(r.ok ? r.result : ({} as never))).toBe("1❌");
-    expect(connections.formatScore({ puzzle: "403", solved: true, mistakes: 0, groups: 4 })).toBe("⭐");
+    expect(connections.formatScore({ puzzle: "403", solved: true, mistakes: 0, groups: 4 })).toBe("0❌");
   });
 
   it("reads a loss and big puzzle numbers", () => {
@@ -25,7 +25,7 @@ describe("parseConnections", () => {
       "Connections \r\nPuzzle #1,257\r\n🟨🟨🟨🟨\r\n🟩🟦🟩🟩\r\n🟪🟦🟩🟩\r\n🟦🟦🟪🟦\r\n🟪🟩🟦🟪",
     );
     expect(r.ok && r.result).toMatchObject({ puzzle: "1257", solved: false, mistakes: 4, groups: 1 });
-    expect(connections.formatScore(r.ok ? r.result : ({} as never))).toBe("💀");
+    expect(connections.formatScore(r.ok ? r.result : ({} as never))).toBe("DNF");
   });
 
   it("rejects text that isn't a finished game", () => {
@@ -45,13 +45,22 @@ describe("parseConnections", () => {
   });
 });
 
-it("ranks solves by mistakes, then losses by groups found", () => {
+it("ranks solves by mistakes, then every loss tied last", () => {
   const e = (id: string, mistakes: number | null, groups = 0) => ({ id, result: manualConnections("1", mistakes, groups) });
   const ranked = rankEntries(connections, [e("lost2", null, 2), e("one", 1), e("perfect", 0), e("lost0", null)]);
   expect(ranked.map((r) => [r.id, r.place, r.winner])).toEqual([
     ["perfect", 1, true],
     ["one", 2, false],
     ["lost2", 3, false],
-    ["lost0", 4, false],
+    ["lost0", 3, false],
+  ]);
+});
+
+it("has no winner when everyone did not finish", () => {
+  const e = (id: string, groups: number) => ({ id, result: manualConnections("1", null, groups) });
+  const ranked = rankEntries(connections, [e("a", 2), e("b", 0)]);
+  expect(ranked.map((r) => [r.place, r.winner])).toEqual([
+    [1, false],
+    [1, false],
   ]);
 });

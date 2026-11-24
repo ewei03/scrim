@@ -4,6 +4,8 @@
   const EPOCH_UTC = Date.UTC(2021, 5, 19); // Wordle #0
   const DAY_MS = 86400000;
   const STATE_KEY = /^games-state-wordleV2\//;
+  /** NYT's Wordle keys that name an account: its saves and its settings. */
+  const ACCOUNT_KEY = /^games-(state|settings)-wordleV2\//;
   const TILE_STATE = { correct: "g", present: "y", absent: "." };
   const EMOJI = { g: "🟩", y: "🟨", ".": "⬛" };
 
@@ -54,14 +56,19 @@
    * its server and shows it, but this browser's save can stay "IN_PROGRESS".
    * The board is then the only place the result is.
    *
+   * Signed in, NYT may also keep today's game only on its server, with no
+   * save for today here at all. Then whose game it is comes from the one NYT
+   * account this browser's Wordle keys name.
+   *
    * `entries` is [key, value][] from localStorage, `rows` the board's rows of
-   * tiles ({ state: data-state, letter }), `today` today's print date. Only
-   * trusted when this browser has a save for today's (non-archive) puzzle, which
-   * says whose game it is; null otherwise, or when the board isn't finished.
+   * tiles ({ state: data-state, letter }), `today` today's print date. Null
+   * when the board isn't finished, when today's save is an archive puzzle, or
+   * when there's no save for today and not exactly one signed-in account.
    */
   function findBoardGame(entries, rows, today) {
     if (findFinishedGames(entries).some((g) => g.printDate === today)) return null; // the save has it
     let save = null;
+    let archive = false;
     for (const [key, value] of entries) {
       if (!STATE_KEY.test(key)) continue;
       let parsed;
@@ -70,12 +77,16 @@
       } catch {
         continue;
       }
-      const state = (parsed?.states ?? []).find((s) => s?.printDate === today && s.data && !s.data.isPlayingArchive);
+      const states = parsed?.states ?? [];
+      if (states.some((s) => s?.printDate === today && s.data?.isPlayingArchive)) archive = true;
+      const state = states.find((s) => s?.printDate === today && s.data && !s.data.isPlayingArchive);
       // A signed-in save wins over a signed-out one.
       if (state && (!save || (!save.signedIn && isSignedInKey(key)))) {
         save = { signedIn: isSignedInKey(key), account: accountOf(key), hardMode: Boolean(state.data.hardMode) };
       }
     }
+    // Playing an archive puzzle: the board isn't today's.
+    if (!save && !archive) save = onlyAccount(entries);
     if (!save) return null;
 
     const guesses = [];
@@ -92,6 +103,25 @@
     }
     if (!solved && guesses.length < 6) return null;
     return { ...save, puzzle: String(numberFromPrintDate(today)), printDate: today, solved, guesses: guesses.slice(0, 6) };
+  }
+
+  /**
+   * The one NYT account this browser's Wordle keys name, as a save would give
+   * it; null when there's none (signed out) or more than one (can't tell whose).
+   * A save for today that's an archive puzzle rules it out too.
+   */
+  function onlyAccount(entries) {
+    const accounts = new Set();
+    let hardMode = false;
+    for (const [key, value] of entries) {
+      if (!ACCOUNT_KEY.test(key)) continue;
+      const account = accountOf(key);
+      if (!account) continue;
+      accounts.add(account);
+      if (/^games-settings-/.test(key) && /"hardMode"\s*:\s*true/.test(String(value))) hardMode = true;
+    }
+    if (accounts.size !== 1) return null;
+    return { signedIn: true, account: [...accounts][0], hardMode };
   }
 
   /** NYT saves under ".../<regiId>" when signed in and ".../ANON" when not. */

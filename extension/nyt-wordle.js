@@ -32,6 +32,7 @@
     admire?.click();
   }
 
+  let warned = false;
   ScrimContent.watch({
     game: "wordle",
     find: () => {
@@ -39,7 +40,18 @@
       const saved = ScrimWordle.findFinishedGames(entries);
       // Finished on another device: NYT shows it, but may not save it here.
       showBoard();
-      const board = ScrimWordle.findBoardGame(entries, readBoard(), ScrimContent.localDate());
+      const today = ScrimContent.localDate();
+      const rows = readBoard();
+      const board = ScrimWordle.findBoardGame(entries, rows, today);
+      // The board looks won but neither the save nor the board check counts it:
+      // usually no save for today in this browser, which is what says whose game it is.
+      const looksWon = rows.some((r) => r.length === 5 && r.every((t) => t.state === "correct"));
+      if (looksWon && !board && !saved.some((g) => g.printDate === today) && !warned) {
+        warned = true;
+        console.debug("[Scrim] wordle: the board is finished, but there's no save for today here", {
+          keys: entries.map(([k]) => k).filter((k) => k.startsWith("games-state-wordle")),
+        });
+      }
       return board ? [...saved, board] : saved;
     },
     key: (g) => `${g.puzzle}:${g.guesses.join(",")}`,

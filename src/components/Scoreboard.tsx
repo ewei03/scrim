@@ -1,5 +1,6 @@
 "use client";
 
+import { Score } from "./Score";
 import { rankEntries } from "@/games/ranking";
 import { ResultDetail } from "@/games/ui";
 import { PlayerName } from "./PlayerName";
@@ -69,7 +70,9 @@ export function Scoreboard({
                 <td className="name">
                   <PlayerName name={r.display_name} guest={r.is_guest} />
                 </td>
-                <td className="score">{game.formatScore(r.result)}</td>
+                <td className="score">
+                  <Score text={game.formatScore(r.result)} />
+                </td>
                 <td className="result">
                   <ResultDetail gameId={game.id} result={r.result} />
                 </td>

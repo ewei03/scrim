@@ -3,6 +3,13 @@
 (function (root) {
   const POLL_MS = 1000;
   const AT_LOAD_MS = 5000;
+  /** A send that failed (e.g. the background worker was waking up) is retried this many times. */
+  const MAX_TRIES = 5;
+
+  /** Shows in the game page's console, filtered by "[Scrim]". */
+  function log(...args) {
+    console.debug("[Scrim]", ...args);
+  }
 
   /**
    * @param {object} opts
@@ -24,6 +31,9 @@
     if (root.__scrimWatching[opts.game]) return;
     root.__scrimWatching[opts.game] = true;
     const handled = new Set();
+    /** key -> failed sends so far, and when the next try may happen. */
+    const retries = new Map();
+    let lastSeen = "";
     // Games already finished when the page opened, as opposed to ones seen
     // finishing while it's open. After the extension switches Scrim accounts,
     // these are taken to be the previous person's. "When it opened" allows a
@@ -38,8 +48,14 @@
       let games;
       try {
         games = opts.find();
-      } catch {
+      } catch (e) {
+        log(opts.game, "couldn't read the page:", e);
         return;
+      }
+      const seen = games.map(opts.key).join(" | ");
+      if (seen !== lastSeen) {
+        lastSeen = seen;
+        log(opts.game, "finished games on the page:", seen || "none");
       }
       const atLoad = Date.now() - startedAt < AT_LOAD_MS;
       // Signed-out games count too. If a puzzle was played both ways, the
@@ -49,9 +65,32 @@
       for (const game of games) {
         const key = opts.key(game);
         if (handled.has(key)) continue;
+        const retry = retries.get(key);
+        if (retry && Date.now() < retry.at) continue;
         handled.add(key);
-        if (opts.delayMs) await new Promise((r) => setTimeout(r, opts.delayMs));
-        const result = await opts.toResult(game);
+        // Once a send fails it's retried, with a growing wait, before giving up.
+        const failed = (why, result) => {
+          const tries = (retry?.tries ?? 0) + 1;
+          log(opts.game, `send ${tries}/${MAX_TRIES} failed for ${key}:`, why);
+          if (tries >= MAX_TRIES) {
+            retries.delete(key);
+            if (result && isToday(opts, result.puzzle)) {
+              showToast({ ok: false, error: String(why) }, opts.label(result), opts.score(result));
+            }
+            return;
+          }
+          retries.set(key, { tries, at: Date.now() + 1000 * 2 ** tries });
+          handled.delete(key);
+        };
+        if (opts.delayMs && !retry) await new Promise((r) => setTimeout(r, opts.delayMs));
+        let result;
+        try {
+          result = await opts.toResult(game);
+        } catch (e) {
+          failed(e?.message ?? e, null);
+          continue;
+        }
+        log(opts.game, "sending", key, result);
         try {
           const reply = await chrome.runtime.sendMessage({
             type: "result",
@@ -63,12 +102,18 @@
             account: game.account ?? null,
             atLoad,
           });
+          log(opts.game, "reply for", key, reply);
+          // No reply, or the server couldn't be reached: try again shortly.
+          // (Not connected won't fix itself, so that's shown straight away.)
+          if (!reply || (!reply.ok && reply.error !== "not-connected")) {
+            failed(reply?.error ?? "no reply from the extension", result);
+            continue;
+          }
+          retries.delete(key);
           if (isToday(opts, result.puzzle)) showToast(reply, opts.label(result), opts.score(result));
         } catch (e) {
           if (!alive()) return clearInterval(timer);
-          if (isToday(opts, result.puzzle)) {
-            showToast({ ok: false, error: String(e?.message ?? e) }, opts.label(result), opts.score(result));
-          }
+          failed(e?.message ?? e, result);
         }
       }
     }

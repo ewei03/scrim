@@ -116,8 +116,8 @@ export const contexto: GameAdapter<ContextoResult> = {
   // tied with everyone else who gave up, however many guesses it took.
   compare: (a, b) => (a.solved && b.solved ? a.guesses - b.guesses : Number(!a.solved) - Number(!b.solved)),
   canWin: (r) => r.solved,
-  // "24" guesses, "24 +2💡" with hints, "🏳️" for giving up.
-  formatScore: (r) => (!r.solved ? "🏳️" : r.hints ? `${r.guesses} +${r.hints}💡` : String(r.guesses)),
+  // "24" guesses, "24 +2💡" with hints, "DNF" for giving up.
+  formatScore: (r) => (!r.solved ? "DNF" : r.hints ? `${r.guesses} +${r.hints}💡` : String(r.guesses)),
   averageLabel: "Avg guesses",
   average(results) {
     const solved = results.filter((r) => r.solved);

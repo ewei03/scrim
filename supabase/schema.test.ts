@@ -1233,6 +1233,18 @@ describe("inactive guests", () => {
     expect((await db.query("select 1 from crew_members where user_id = $1", [OWNS])).rows).toHaveLength(1);
   });
 
+  it("logs the removal for the crew's members to read, and nobody else", async () => {
+    const seen = await as(REGULAR, "select display_name from crew_removals where crew_id = $1", [crew.id]);
+    expect(seen).toEqual([{ display_name: "Quiet" }]);
+    expect(await as(OWNS, "select 1 from crew_removals where crew_id = $1", [crew.id])).toHaveLength(0);
+  });
+
+  it("clears removals older than a week", async () => {
+    await db.query("update crew_removals set removed_at = now() - interval '8 days' where crew_id = $1", [crew.id]);
+    await db.query("select remove_expired_guests()");
+    expect((await db.query("select 1 from crew_removals where crew_id = $1", [crew.id])).rows).toHaveLength(0);
+  });
+
   it("lets a removed guest rejoin with the invite link", async () => {
     await as(QUIET, "select join_crew($1)", [crew.invite_code]);
     expect(await inCrew(QUIET)).toBe(true);

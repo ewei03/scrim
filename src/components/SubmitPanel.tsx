@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Score } from "./Score";
+import { useState, type ReactNode } from "react";
 import { customOf, failLabel, parseTime, type CustomGame, type CustomResult } from "@/games/custom";
 import type { GameAdapter } from "@/games/types";
 import { ResultDetail } from "@/games/ui";
@@ -10,12 +11,19 @@ import type { Crew } from "@/lib/types";
 import Link from "next/link";
 import { ExternalArrow } from "./ExternalArrow";
 
-type Target = { crew: Crew; game: GameAdapter<unknown>; puzzleId: string };
+type Target = {
+  crew: Crew;
+  game: GameAdapter<unknown>;
+  puzzleId: string;
+  /** Shown at the right of the "Your turn" line: the round's countdown. */
+  timer?: ReactNode;
+};
 
 export function SubmitPanel({
   crew,
   game,
   puzzleId,
+  timer,
   extension,
   onSubmitted,
 }: Target & {
@@ -23,14 +31,27 @@ export function SubmitPanel({
   onSubmitted: () => void;
 }) {
   const custom = customOf(game);
-  if (custom) return <CustomSubmit crew={crew} game={game} custom={custom} puzzleId={puzzleId} onSubmitted={onSubmitted} />;
-  return <AutoOrPaste crew={crew} game={game} puzzleId={puzzleId} extension={extension} onSubmitted={onSubmitted} />;
+  if (custom)
+    return (
+      <CustomSubmit crew={crew} game={game} custom={custom} puzzleId={puzzleId} timer={timer} onSubmitted={onSubmitted} />
+    );
+  return (
+    <AutoOrPaste
+      crew={crew}
+      game={game}
+      puzzleId={puzzleId}
+      timer={timer}
+      extension={extension}
+      onSubmitted={onSubmitted}
+    />
+  );
 }
 
 function AutoOrPaste({
   crew,
   game,
   puzzleId,
+  timer,
   extension,
   onSubmitted,
 }: Target & {
@@ -45,7 +66,10 @@ function AutoOrPaste({
 
   return (
     <section className="card stack">
-      <strong>Your turn</strong>
+      <div className="row between wrap turn-head">
+        <strong>Your turn</strong>
+        {timer}
+      </div>
 
       {auto ? (
         <p>
@@ -145,7 +169,9 @@ function PasteSubmit({ crew, game, puzzleId, onSubmitted }: Target & { onSubmitt
       )}
       {parsed?.ok && !wrongPuzzle && (
         <div className="row preview">
-          <span className="score">{game.formatScore(parsed.result)}</span>
+          <span className="score">
+            <Score text={game.formatScore(parsed.result)} />
+          </span>
           <ResultDetail gameId={game.id} result={parsed.result} />
         </div>
       )}
@@ -165,6 +191,7 @@ function CustomSubmit({
   game,
   custom,
   puzzleId,
+  timer,
   onSubmitted,
 }: Target & { custom: CustomGame; onSubmitted: () => void }) {
   const [text, setText] = useState("");
@@ -223,13 +250,16 @@ function CustomSubmit({
 
   return (
     <section className="card stack">
-      <div className="row between wrap">
+      <div className="row between wrap turn-head">
         <strong>Your turn</strong>
-        {game.url && (
-          <a className="btn btn-primary btn-small" href={game.url} target="_blank" rel="noreferrer">
-            Play {game.name} <ExternalArrow />
-          </a>
-        )}
+        <div className="row turn-head-right">
+          {timer}
+          {game.url && (
+            <a className="btn btn-primary btn-small" href={game.url} target="_blank" rel="noreferrer">
+              Play {game.name} <ExternalArrow />
+            </a>
+          )}
+        </div>
       </div>
       {custom.instructions && <p>{custom.instructions}</p>}
       <form className="stack" onSubmit={submit}>
@@ -255,7 +285,7 @@ function CustomSubmit({
         {problem && <p className="error small">{problem}</p>}
         {result && (
           <p className="muted small">
-            Shows as <strong>{game.formatScore(result)}</strong>
+            Shows as <strong><Score text={game.formatScore(result)} /></strong>
           </p>
         )}
       </form>

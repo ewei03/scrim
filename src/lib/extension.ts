@@ -108,39 +108,58 @@ export function ExtensionAutoConnect() {
   return null;
 }
 
+/**
+ * The extension's status. An error reply (e.g. the extension was just reloaded
+ * and hasn't settled) isn't "disconnected": ask again a couple of times first.
+ */
+async function readStatus(): Promise<StatusReply | null> {
+  let reply: StatusReply | null = null;
+  for (let tries = 0; tries < 3; tries++) {
+    reply = await askExtension<StatusReply>("status");
+    if (!reply || reply.ok) return reply;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return reply;
+}
+
+function stateOf(reply: StatusReply | null, userId: string | undefined): ExtensionState {
+  if (!reply) return "missing";
+  if (!reply.connected) return "disconnected";
+  if (reply.userId !== userId) return "other-account";
+  return "connected";
+}
+
 export function useExtension() {
   const { user } = useAuth();
   const [state, setState] = useState<ExtensionState>("checking");
   const userId = user?.id;
 
   const refresh = useCallback(async () => {
-    const reply = await askExtension<StatusReply>("status");
-    if (!reply) setState("missing");
-    else if (!reply.connected) setState("disconnected");
-    else if (reply.userId !== userId) setState("other-account");
-    else setState("connected");
+    setState(stateOf(await readStatus(), userId));
   }, [userId]);
 
   useEffect(() => {
     let cancelled = false;
     // The bridge marks <html> at document_start, but give it a beat on first load.
     const timer = setTimeout(() => {
-      askExtension<StatusReply>("status").then((reply) => {
-        if (cancelled) return;
-        if (!reply) setState("missing");
-        else if (!reply.connected) setState("disconnected");
-        else if (reply.userId !== userId) setState("other-account");
-        else setState("connected");
+      readStatus().then((reply) => {
+        if (!cancelled) setState(stateOf(reply, userId));
       });
     }, 50);
     // Connected or disconnected elsewhere on the page, or just installed.
     window.addEventListener(CHANGED, refresh);
     const seen = new MutationObserver(() => refresh());
     seen.observe(document.documentElement, { attributes: true, attributeFilter: ["data-scrim-extension"] });
+    // Back from a game's tab: check again, so a passing hiccup doesn't stick.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
       clearTimeout(timer);
       window.removeEventListener(CHANGED, refresh);
+      document.removeEventListener("visibilitychange", onVisible);
       seen.disconnect();
     };
   }, [userId, refresh]);

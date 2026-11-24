@@ -182,9 +182,9 @@
   }
 
   function formatScore(result) {
-    // Same as the site: "⭐" for no mistakes, "1❌" to "3❌" for mistakes, "💀" on the fourth.
-    if (!result.solved) return "💀";
-    return result.mistakes === 0 ? "⭐" : `${result.mistakes}❌`;
+    // Same as the site: "0❌" to "3❌" for mistakes, "DNF" (did not finish) on the fourth.
+    if (!result.solved) return "DNF";
+    return `${result.mistakes}❌`;
   }
 
   const api = {
