@@ -16,7 +16,7 @@ import { Loading, RequireAuth } from "@/components/RequireAuth";
 import { Scoreboard } from "@/components/Scoreboard";
 import { SubmitPanel } from "@/components/SubmitPanel";
 import { rankEntries } from "@/games/ranking";
-import { customAdapter, customGameId, customOf, type CustomGame } from "@/games/custom";
+import { customAdapter, customGameId, customOf, isCustomGameId, type CustomGame } from "@/games/custom";
 import { gameList, getGame } from "@/games/registry";
 import type { GameAdapter } from "@/games/types";
 import { useAuth } from "@/lib/auth";
@@ -78,6 +78,9 @@ type RoundWithEntries = Round & {
     profiles: { display_name: string; is_guest: boolean } | null;
   }[];
 };
+
+/** How many of today's cards start expanded; the rest start collapsed. */
+const OPEN_CARDS = 3;
 
 export function CrewView() {
   return (
@@ -174,7 +177,7 @@ function CrewPage() {
   const [tab, setTab] = useState<Tab>("today");
   const tabsId = useId();
   // Which of today's cards you've collapsed or opened this visit. Every visit
-  // starts with them all open.
+  // starts with the first OPEN_CARDS open and the rest collapsed.
   const [openCards, setOpenCards] = useState<Record<string, boolean>>({});
   const setCardOpen = useCallback((gameId: string, open: boolean) => {
     setOpenCards((p) => (p[gameId] === open ? p : { ...p, [gameId]: open }));
@@ -419,7 +422,7 @@ function CrewPage() {
     (g) => g.id,
     gameOrder,
   );
-  const isOpen = (gameId: string) => openCards[gameId] ?? true;
+  const isOpen = (gameId: string) => openCards[gameId] ?? tracked.findIndex((g) => g.id === gameId) < OPEN_CARDS;
   const anyCollapsed = tracked.some((g) => !isOpen(g.id));
   const toPlay = tracked.filter((g) => played[g.id] === false).length;
   // Custom games with scores in them have their scoring locked.
@@ -1282,14 +1285,13 @@ function CrewGames({
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const tracked = allGames.filter((g) => games.includes(g.id));
 
   async function toggle(game: GameAdapter<unknown>) {
     const on = !games.includes(game.id);
     if (
       !on &&
       !(await confirmDialog(
-        `Stop playing ${game.name} in ${crew.name}? Today's ${game.name} scores are deleted and won't come back if you add it again. Past days and rankings stay.`,
+        `Stop playing ${game.name} in ${crew.name}? You can bring it back later - archived rankings stay.`,
       ))
     )
       return;
@@ -1337,16 +1339,25 @@ function CrewGames({
           </ul>
           {error && <p className="error small">{error}</p>}
         </>
-      ) : tracked.length ? (
-        <ul className="game-toggles">
-          {tracked.map((g) => (
-            <li key={g.id}>
-              <GameTag game={g} />
-            </li>
-          ))}
-        </ul>
       ) : (
-        <span className="muted small">None yet</span>
+        // Everyone else sees the same list, read-only: what's played is filled in.
+        <ul className="game-toggles">
+          {allGames
+            // A custom game the crew isn't playing is the owner's business.
+            .filter((g) => games.includes(g.id) || !isCustomGameId(g.id))
+            .map((g) => {
+              const on = games.includes(g.id);
+              return (
+                <li key={g.id}>
+                  <span className={`game-toggle static${on ? " on" : ""}`} style={gameStyle(g)}>
+                    {on && <span aria-hidden>✓ </span>}
+                    {g.name}
+                    {!on && <span className="sr-only"> (not played)</span>}
+                  </span>
+                </li>
+              );
+            })}
+        </ul>
       )}
     </div>
   );

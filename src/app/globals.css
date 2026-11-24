@@ -546,8 +546,8 @@ textarea.input:focus {
 
 input.input:focus,
 textarea.input:focus,
-.game-toggle:hover:not(:disabled),
-.game-toggle:focus-visible:not(:disabled) {
+.game-toggle:hover:not(:disabled, .static),
+.game-toggle:focus-visible:not(:disabled, .static) {
   outline: none;
   border-color: transparent;
   background:
@@ -581,8 +581,8 @@ input.input.input-plain:focus {
 @media (prefers-reduced-motion: reduce) {
   input.input:focus,
   textarea.input:focus,
-  .game-toggle:hover:not(:disabled),
-  .game-toggle:focus-visible:not(:disabled) {
+  .game-toggle:hover:not(:disabled, .static),
+  .game-toggle:focus-visible:not(:disabled, .static) {
     animation: none;
   }
 }
@@ -2268,16 +2268,31 @@ body:has(.reorder-row.lifted) {
   transition: transform 60ms, box-shadow 60ms;
 }
 
-.game-toggle[aria-pressed="true"] {
+.game-toggle[aria-pressed="true"],
+.game-toggle.on {
   --ants-fill: var(--game);
   color: #1c1b19;
   background: var(--game);
   border: 2px solid var(--line);
 }
 
-.game-toggle:hover:not(:disabled) {
+.game-toggle:hover:not(:disabled, .static) {
   transform: translate(-1px, -1px);
   box-shadow: calc(4px + var(--shadow-dx)) calc(4px + var(--shadow-dy)) 0 var(--game);
+}
+
+/* Read-only chips for non-owners: a span, so match a button's box and line
+   height. Games the crew doesn't play are greyed out. */
+.game-toggle.static {
+  display: inline-block;
+  line-height: normal;
+  cursor: default;
+}
+
+.game-toggle.static:not(.on) {
+  color: var(--muted);
+  border-color: color-mix(in srgb, var(--muted) 50%, transparent);
+  opacity: 0.6;
 }
 
 .game-toggle:disabled {

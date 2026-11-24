@@ -138,7 +138,7 @@ const GAME_NAMES = {
   contexto: "Contexto",
   costcodle: "Costcodle",
   poople: "Poople",
-  minicrossword: "Mini Crossword",
+  minicrossword: "Mini Crossword (Easy)",
 };
 
 /** Results / Rankings tabs. Remembers the last tab, crew and game. */
@@ -280,7 +280,7 @@ function describe(game, result) {
     const m = Math.floor(result.seconds / 60);
     const s = result.seconds % 60;
     const time = m === 0 ? `${s}s` : `${m}:${String(s).padStart(2, "0")}`;
-    return { name: "Mini Crossword", score: result.reveals ? `${time} +${result.reveals}💡` : time };
+    return { name: "Mini Crossword (Easy)", score: result.reveals ? `${time} +${result.reveals}💡` : time };
   }
   return { name: "Wordle", score: `${result.solved ? result.guesses : "X"}/6` };
 }

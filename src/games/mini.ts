@@ -71,7 +71,7 @@ export function parseMini(text: string): ParseResult<MiniResult> {
 
 export const mini: GameAdapter<MiniResult> = {
   id: "minicrossword",
-  name: "Mini Crossword",
+  name: "Mini Crossword (Easy)",
   url: "https://minicrossword.com/",
   source: "minicrossword.com",
   color: "#8fcfbf",
