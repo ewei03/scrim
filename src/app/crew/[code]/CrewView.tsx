@@ -24,6 +24,7 @@ import { askExtension, useExtension, type ExtensionState } from "@/lib/extension
 import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone, roundZone } from "@/lib/rounds";
 import { useClock24h } from "@/lib/clock";
 import { inSavedOrder, saveGameOrder, savedGameOrder, syncGameOrder } from "@/lib/gameOrder";
+import { saveOpenCards, savedOpenCards } from "@/lib/cardState";
 import { crewStats } from "@/lib/stats";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
 import { dateIn, formatDay, formatTime, timeLeft } from "@/lib/time";
@@ -80,9 +81,6 @@ type RoundWithEntries = Round & {
     profiles: { display_name: string; is_guest: boolean } | null;
   }[];
 };
-
-/** How many of today's cards start expanded; the rest start collapsed. */
-const OPEN_CARDS = 3;
 
 export function CrewView() {
   return (
@@ -183,12 +181,6 @@ function CrewPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<Tab>("today");
   const tabsId = useId();
-  // Which of today's cards you've collapsed or opened this visit. Every visit
-  // starts with the first OPEN_CARDS open and the rest collapsed.
-  const [openCards, setOpenCards] = useState<Record<string, boolean>>({});
-  const setCardOpen = useCallback((gameId: string, open: boolean) => {
-    setOpenCards((p) => (p[gameId] === open ? p : { ...p, [gameId]: open }));
-  }, []);
   // Your own order for today's cards (set in the Reorder games modal): this
   // browser's copy until your account's has loaded, and what you've dragged
   // this visit over both.
@@ -204,6 +196,27 @@ function CrewPage() {
   useEffect(() => {
     if (userId && accountOrder) syncGameOrder(userId, accountOrder.crewId, accountOrder.games);
   }, [userId, accountOrder]);
+  // Which of today's cards you've collapsed or expanded, kept in this browser
+  // so they stay that way next visit. Games with nothing saved (like one just
+  // added) are expanded.
+  const [openCards, setOpenCards] = useState<{ key: string; cards: Record<string, boolean> } | null>(null);
+  const cardsNow = useMemo(
+    () => (openCards?.key === orderKey ? openCards.cards : userId && crewId ? savedOpenCards(userId, crewId) : {}),
+    [openCards, orderKey, userId, crewId],
+  );
+  const setCardOpen = useCallback(
+    (gameId: string, open: boolean) => {
+      if (!userId || !crewId) return;
+      setOpenCards((p) => {
+        const cards = p?.key === orderKey ? p.cards : savedOpenCards(userId, crewId);
+        if (cards[gameId] === open && p?.key === orderKey) return p;
+        const next = { ...cards, [gameId]: open };
+        saveOpenCards(userId, crewId, next);
+        return { key: orderKey, cards: next };
+      });
+    },
+    [userId, crewId, orderKey],
+  );
   const [showReorder, setShowReorder] = useState(false);
   // Whose card is open (from their name in the crew box).
   const [viewing, setViewing] = useState<string | null>(null);
@@ -430,7 +443,7 @@ function CrewPage() {
     (g) => g.id,
     gameOrder,
   );
-  const isOpen = (gameId: string) => openCards[gameId] ?? tracked.findIndex((g) => g.id === gameId) < OPEN_CARDS;
+  const isOpen = (gameId: string) => cardsNow[gameId] ?? true;
   const anyCollapsed = tracked.some((g) => !isOpen(g.id));
   const toPlay = tracked.filter((g) => played[g.id] === false).length;
   // Custom games with scores in them have their scoring locked.
@@ -698,6 +711,7 @@ function CrewPage() {
           {/* Each card has its own countdown; games don't all end together. */}
           {tracked.length > 0 && (
             <div className="row today-head">
+              <p className="today-head-hint muted small">Click on a game to expand its rankings.</p>
               <div className="row today-head-actions">
                 {tracked.length > 1 && (
                   <button type="button" className="link-btn" aria-haspopup="dialog" onClick={() => setShowReorder(true)}>
