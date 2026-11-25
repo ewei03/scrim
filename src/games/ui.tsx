@@ -4,7 +4,7 @@ import type { ConnectionsResult } from "./connections";
 import type { ContextoResult } from "./contexto";
 import { closeness, money, shortMoney, type CostcodleResult } from "./costcodle";
 import { TIERS, type KrillionResult } from "./krillion";
-import type { PoopleResult } from "./poople";
+import { foldPath, type PoopleResult } from "./poople";
 import type { StrandsResult } from "./strands";
 import type { WordleResult } from "./wordle";
 
@@ -132,17 +132,28 @@ function CostcodleItems({ offs }: { offs: number[] }) {
   );
 }
 
-/** Poople's share: a row per word, brown where a letter matches POOP. */
+/**
+ * Poople's share: a row per word, brown where a letter matches POOP. A long
+ * path shows its start and finish with "+N" for the rows in between.
+ */
 function PoopleGrid({ grid }: { grid: string[] }) {
-  return (
-    <div className="wgrid" aria-label="Poople path">
-      {grid.map((row, i) => (
-        <div key={i} className="wrow">
-          {Array.from(row).map((c, j) => (
-            <span key={j} className={`wtile ${c === "p" ? "pp" : "wx"}`} />
-          ))}
-        </div>
+  const { head, hidden, tail } = foldPath(grid);
+  const row = (r: string, key: string) => (
+    <div key={key} className="wrow">
+      {Array.from(r).map((c, j) => (
+        <span key={j} className={`wtile ${c === "p" ? "pp" : "wx"}`} />
       ))}
+    </div>
+  );
+  return (
+    <div className="wgrid" aria-label={`Poople path, ${grid.length} words`}>
+      {head.map((r, i) => row(r, `h${i}`))}
+      {hidden > 0 && (
+        <span className="wfold" title={`${hidden} more words`}>
+          +{hidden}
+        </span>
+      )}
+      {tail.map((r, i) => row(r, `t${i}`))}
     </div>
   );
 }

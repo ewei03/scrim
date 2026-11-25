@@ -76,6 +76,25 @@ export function parsePoople(text: string): ParseResult<PoopleResult> {
   return problem ? { ok: false, error: problem } : { ok: true, result };
 }
 
+/** Most rows of a path the scoreboard draws before it folds the middle away. */
+export const SHOWN_ROWS = 8;
+/** Rows kept at each end of a folded path. */
+const KEPT_ROWS = 3;
+
+/**
+ * The rows to draw for a path: all of them if it's short, otherwise the first
+ * and last few with the count of rows left out between them (so a 99-step
+ * wander doesn't make its scoreboard row a screen tall).
+ */
+export function foldPath(grid: string[]): { head: string[]; hidden: number; tail: string[] } {
+  if (grid.length <= SHOWN_ROWS) return { head: grid, hidden: 0, tail: [] };
+  return {
+    head: grid.slice(0, KEPT_ROWS),
+    hidden: grid.length - 2 * KEPT_ROWS,
+    tail: grid.slice(-KEPT_ROWS),
+  };
+}
+
 /** A result without its grid, e.g. for tests. */
 export function manualPoople(puzzle: string, guesses: number, best?: number): PoopleResult {
   return best === undefined ? { puzzle, guesses } : { puzzle, guesses, best };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePoople, poople, poopleNumberFor } from "./poople";
+import { foldPath, parsePoople, poople, poopleNumberFor, SHOWN_ROWS } from "./poople";
 
 // Laid out the way poople.io builds it: a row per word, starting word first.
 const SHARE = "Poople #466 5/4\n⬜⬜⬜⬜\n🟫⬜⬜⬜\n🟫🟫⬜⬜\n🟫🟫🟫⬜\n🟫🟫🟫⬜\n🟫🟫🟫🟫\n\nhttps://poople.io/";
@@ -48,4 +48,23 @@ it("ranks fewest steps first, and averages steps over the shortest path", () => 
   expect(poople.compare(a, b)).toBeLessThan(0);
   expect(poople.canWin(b)).toBe(true);
   expect(poople.average([a, b])).toBe("1.5");
+});
+
+describe("foldPath", () => {
+  it("draws a short path whole", () => {
+    const grid = ["....", "p...", "pp..", "ppp.", "pppp"];
+    expect(foldPath(grid)).toEqual({ head: grid, hidden: 0, tail: [] });
+    const full = Array.from({ length: SHOWN_ROWS }, () => "....");
+    expect(foldPath(full).hidden).toBe(0);
+  });
+
+  it("keeps the start and finish of a long path and counts the rest", () => {
+    const grid = [...Array.from({ length: 99 }, (_, i) => (i % 2 ? "p..." : "....")), "pppp"];
+    const { head, hidden, tail } = foldPath(grid);
+    expect(head).toEqual(grid.slice(0, 3));
+    expect(tail).toEqual(grid.slice(-3));
+    expect(tail.at(-1)).toBe("pppp");
+    expect(head.length + hidden + tail.length).toBe(100);
+    expect(foldPath(grid.slice(-(SHOWN_ROWS + 1))).hidden).toBe(SHOWN_ROWS + 1 - 6);
+  });
 });
