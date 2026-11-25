@@ -1122,11 +1122,7 @@ function DayEndedNotice({
   return shown.map(([closesAt, results]) => (
     <div key={closesAt} className="card day-ended" role="status">
       <div className="row between day-ended-head">
-        <strong>
-          {results.length === 1
-            ? `${results[0].game.name} has concluded from yesterday:`
-            : "The following games have concluded from yesterday:"}
-        </strong>
+        <strong>The following games have concluded from yesterday:</strong>
         <button
           type="button"
           className="icon-btn"
