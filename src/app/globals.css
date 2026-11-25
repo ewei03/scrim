@@ -982,6 +982,18 @@ select.input {
   font-weight: 700;
 }
 
+/* A best streak that's still going. */
+.streak-live {
+  color: var(--orange);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.streak-fire {
+  font-family: var(--emoji);
+  margin-left: 0.2em;
+}
+
 .hidden-row td {
   color: var(--muted);
 }
@@ -1916,6 +1928,11 @@ select.input {
 .game-card-body > .stack.card > p {
   padding-left: 0;
   padding-right: 0;
+}
+
+/* The paste box opens under the Play buttons; the panel has no gap of its own. */
+.game-card-body > .stack.card > .paste-entry {
+  margin-top: 12px;
 }
 
 /* Not played yet: the scoreboard sits in shade, so the "Your turn" panel

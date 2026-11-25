@@ -153,6 +153,14 @@
         background: #1c1b19;
         color: #f3efe6;
       }
+      td.streak-live {
+        color: #c2570c;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      tr.me td.streak-live {
+        color: #ff8a3d;
+      }
       a {
         color: inherit;
       }
@@ -188,7 +196,7 @@
           </div>
           <table>
             <thead>
-              <tr><th>#</th><th>Name</th><th>Wins</th><th>Played</th><th>Streak</th></tr>
+              <tr><th>#</th><th>Name</th><th>Wins</th><th>Played</th><th title="Longest win streak (orange = still going)">Best</th></tr>
             </thead>
             <tbody id="rankings-body"></tbody>
           </table>

@@ -198,6 +198,9 @@ end $$;
 -- Extension rankings: in the crew's order (mirrors src/lib/stats.ts)
 -- ---------------------------------------------------------------------------
 
+-- Dropped first so this file runs again after 0039 changed the columns.
+drop function if exists public.extension_rankings(text);
+
 create or replace function public.extension_rankings(p_token text)
 returns table (
   crew_code    text,
@@ -276,5 +279,8 @@ grant execute on function
   public.update_crew_settings(uuid, text, boolean, text, boolean, boolean, boolean),
   public.answer_join_request(uuid, uuid, boolean)
 to authenticated;
+
+revoke execute on function public.extension_rankings(text) from public, anon, authenticated;
+grant execute on function public.extension_rankings(text) to anon, authenticated;
 
 notify pgrst, 'reload schema';

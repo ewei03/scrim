@@ -213,10 +213,19 @@ async function loadRankings(view, scrimOrigin) {
       ...players.map((p) => {
         const tr = document.createElement("tr");
         if (p.is_me) tr.className = "me";
-        const cells = [sharedRank(players, p), p.display_name, p.wins, p.played, p.streak ? `${p.streak}W` : "–"];
+        // Longest streak, lit up while it's still going. (Older servers only send the current one.)
+        const best = p.max_streak ?? p.streak;
+        const live = best > 0 && p.streak === best;
+        const cells = [sharedRank(players, p), p.display_name, p.wins, p.played, best ? `${best}W` : "–"];
         for (const [i, value] of cells.entries()) {
           const td = document.createElement("td");
           if (i === 1) td.className = "name";
+          if (i === 4 && live) {
+            td.className = "streak-live";
+            td.title = "Longest streak, still going";
+          } else if (i === 4 && p.streak) {
+            td.title = `Current streak: ${p.streak}W`;
+          }
           td.textContent = String(value);
           tr.append(td);
         }

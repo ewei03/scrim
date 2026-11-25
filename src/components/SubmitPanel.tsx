@@ -151,7 +151,7 @@ function PasteSubmit({ crew, game, puzzleId, onSubmitted }: Target & { onSubmitt
   }
 
   return (
-    <div className="stack">
+    <div className="stack paste-entry">
       <p className="muted small">{game.shareHint}</p>
       <textarea
         className="input mono"

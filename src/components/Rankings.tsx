@@ -27,8 +27,11 @@ export function Rankings({
             </th>
             <th className="right">Win rate</th>
             <th className="right">{game.averageLabel}</th>
-            <th className="right hide-sm" title="Current win streak">
-              Streak
+            <th
+              className="right hide-sm"
+              title="Longest win streak (🔥 = still going)"
+            >
+              Best streak
             </th>
           </tr>
         </thead>
@@ -52,7 +55,7 @@ export function Rankings({
                 </td>
                 <td className="right">{p.average ?? "–"}</td>
                 <td className="right hide-sm">
-                  {p.streak ? `${p.streak}W` : "–"}
+                  <StreakCell stats={p} />
                 </td>
               </tr>
             );
@@ -71,5 +74,22 @@ export function sharedRank(players: PlayerStats[], p: PlayerStats) {
       (o) =>
         o.wins === p.wins && o.winRate === p.winRate && o.played === p.played,
     )
+  );
+}
+
+/** Longest win streak, lit up while it's still going. */
+export function StreakCell({ stats }: { stats: PlayerStats }) {
+  if (!stats.maxStreak) return <>–</>;
+  if (stats.streak === stats.maxStreak) {
+    return (
+      <span className="streak-live" title="Longest streak, still going">
+        {stats.maxStreak}W<span className="streak-fire" aria-hidden="true">🔥</span>
+      </span>
+    );
+  }
+  return (
+    <span title={stats.streak ? `Current streak: ${stats.streak}W` : undefined}>
+      {stats.maxStreak}W
+    </span>
   );
 }

@@ -805,7 +805,7 @@ describe("extension rankings", () => {
       .create_extension_token;
     await expect(as(null, "select * from extension_rankings('nope')")).rejects.toThrow(/not connected/);
     const rows = (
-      await as<{ crew_name: string; user_id: string; is_me: boolean; played: number; wins: number; streak: number }>(
+      await as<{ crew_name: string; user_id: string; is_me: boolean; played: number; wins: number; streak: number; max_streak: number }>(
         null,
         "select * from extension_rankings($1)",
         [token],
@@ -813,8 +813,16 @@ describe("extension rankings", () => {
     ).filter((r) => r.crew_name === "Ranked");
 
     const { players } = crewStats(GAMES.wordle, rounds, [ANN, BOB, EVE]);
-    expect(rows.map(({ user_id, played, wins, streak }) => ({ user_id, played, wins, streak }))).toEqual(
-      players.map(({ userId, played, wins, streak }) => ({ user_id: userId, played, wins, streak })),
+    expect(
+      rows.map(({ user_id, played, wins, streak, max_streak }) => ({ user_id, played, wins, streak, max_streak })),
+    ).toEqual(
+      players.map(({ userId, played, wins, streak, maxStreak }) => ({
+        user_id: userId,
+        played,
+        wins,
+        streak,
+        max_streak: maxStreak,
+      })),
     );
     expect(rows.find((r) => r.is_me)?.user_id).toBe(ANN);
 

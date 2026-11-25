@@ -5,7 +5,7 @@ import type { GameAdapter } from "@/games/types";
 import { crewStats, type StatRound } from "@/lib/stats";
 import { ordinal } from "@/lib/time";
 import { Modal } from "./Modal";
-import { sharedRank } from "./Rankings";
+import { sharedRank, StreakCell } from "./Rankings";
 
 export type MemberInfo = {
   userId: string;
@@ -82,7 +82,7 @@ export function MemberStats({
                     <th className="right">Wins</th>
                     <th className="right">Win rate</th>
                     <th className="right">Avg</th>
-                    <th className="right">Streak</th>
+                    <th className="right" title="Longest win streak (🔥 = still going)">Best streak</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -98,7 +98,9 @@ export function MemberStats({
                       <td className="right nowrap" title={game.averageLabel}>
                         {stats.average ?? "–"}
                       </td>
-                      <td className="right">{stats.streak ? `${stats.streak}W` : "–"}</td>
+                      <td className="right nowrap">
+                        <StreakCell stats={stats} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>

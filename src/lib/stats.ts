@@ -17,6 +17,8 @@ export type PlayerStats = {
   average: string | null;
   /** Consecutive wins, counting back from the most recent round they played. */
   streak: number;
+  /** Longest run of consecutive wins in the rounds they played. */
+  maxStreak: number;
 };
 
 export type RankOptions = {
@@ -53,6 +55,12 @@ export function crewStats<R>(
     const wins = won.filter(Boolean).length;
     let streak = 0;
     while (streak < won.length && won[streak]) streak++;
+    let maxStreak = 0;
+    let run = 0;
+    for (const w of won) {
+      run = w ? run + 1 : 0;
+      maxStreak = Math.max(maxStreak, run);
+    }
     return {
       userId,
       played: won.length,
@@ -60,6 +68,7 @@ export function crewStats<R>(
       winRate: won.length ? wins / won.length : 0,
       average: game.average(results.get(userId)!),
       streak,
+      maxStreak,
     };
   });
 

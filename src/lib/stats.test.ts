@@ -26,6 +26,19 @@ describe("crewStats", () => {
     expect(get("dan")).toMatchObject({ played: 0, wins: 0, average: null });
   });
 
+  it("finds the longest streak, even when it has ended", () => {
+    const rounds = [
+      round(1, { ann: 2, bob: 3 }),
+      round(2, { ann: 2, bob: 3 }),
+      round(3, { ann: 2, bob: 3 }),
+      round(4, { ann: 4, bob: 3 }),
+      round(5, { ann: 2, bob: 3 }),
+    ];
+    const { players } = crewStats(wordle, rounds, ["ann", "bob"]);
+    expect(players.find((p) => p.userId === "ann")).toMatchObject({ streak: 1, maxStreak: 3 });
+    expect(players.find((p) => p.userId === "bob")).toMatchObject({ streak: 0, maxStreak: 1 });
+  });
+
   it("orders by wins, then win rate", () => {
     expect(players.map((p) => p.userId)).toEqual(["ann", "bob", "cat", "dan"]);
   });

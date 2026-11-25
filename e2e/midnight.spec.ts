@@ -120,7 +120,7 @@ test("at midnight, today's results move to the archive and the rankings update",
   await expect(ownerRow.locator("td").nth(0)).toHaveText("1"); // place
   await expect(ownerRow.locator("td").nth(2)).toHaveText("2"); // wins
   await expect(ownerRow.locator("td").nth(3)).toHaveText("2"); // played
-  await expect(ownerRow.locator("td").nth(6)).toHaveText("2W"); // streak
+  await expect(ownerRow.locator("td").nth(6)).toHaveText("2W🔥"); // best streak, still going
   await expect(rankingRow(page, accounts.friend.name).locator("td").nth(2)).toHaveText("0");
 
   // And a new day has started, with nobody in it yet.
