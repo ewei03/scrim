@@ -850,6 +850,37 @@ select.input {
   text-align: center;
 }
 
+/* Rankings: click a column's header to sort by it. */
+.board th.sortable {
+  padding: 0;
+}
+
+.sort-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  width: 100%;
+  padding: 8px 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+
+.sort-btn:hover {
+  text-decoration: underline;
+}
+
+.sort-btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
 .board td {
   padding: 8px 12px;
   border-top: 1px dashed color-mix(in srgb, var(--muted) 50%, transparent);
@@ -1860,7 +1891,47 @@ select.input {
 }
 
 .past-round-board {
-  padding: 10px 12px 14px;
+  padding: 10px 0 14px;
+}
+
+/* In the archive's modal each scoreboard column has a set width (not hugging
+   its content), so it fits the modal and every game's columns sit in the same
+   places; the last column (the void button) takes what's left. Long names are
+   cut short with "…". On phones it still scrolls sideways. */
+.past-round-board .scoreboard {
+  table-layout: fixed;
+  min-width: 37rem;
+}
+
+.past-round-board .scoreboard th,
+.past-round-board .scoreboard td {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.past-round-board .scoreboard th:nth-child(1) {
+  width: 3.5rem;
+}
+
+.past-round-board .scoreboard th:nth-child(2) {
+  width: 13rem;
+}
+
+.past-round-board .scoreboard th:nth-child(3) {
+  width: 8rem;
+}
+
+.past-round-board .scoreboard th:nth-child(4):not(:last-child) {
+  width: 11rem;
+}
+
+.past-round-board .scoreboard th:last-child,
+.past-round-board .scoreboard td:last-child {
+  width: auto;
+}
+
+.past-round-board .scoreboard td.name {
+  min-width: 0;
 }
 
 /* ---------- games: colour-coded ---------- */
@@ -2745,6 +2816,7 @@ body:has(.reorder-row.lifted) {
 .dialog:has(.help-grid) {
   width: min(700px, calc(100vw - 32px));
 }
+
 
 .help-body {
   gap: 14px;

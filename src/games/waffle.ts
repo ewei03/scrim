@@ -72,6 +72,7 @@ export const waffle: GameAdapter<WaffleResult> = {
   canWin: (r) => r.solved,
   formatScore: (r) => (r.solved ? `${r.stars}⭐` : "X"),
   averageLabel: "Avg stars",
+  averageHigherIsBetter: true,
   average(results) {
     const solved = results.filter((r) => r.solved);
     if (solved.length === 0) return null;

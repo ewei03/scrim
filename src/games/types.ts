@@ -48,4 +48,6 @@ export interface GameAdapter<R = unknown> {
   /** Headline average for the rankings table, e.g. average guesses. */
   average(results: R[]): string | null;
   averageLabel: string;
+  /** True if a higher average is better (points, stars); otherwise lower is (guesses, time). */
+  averageHigherIsBetter?: boolean;
 }

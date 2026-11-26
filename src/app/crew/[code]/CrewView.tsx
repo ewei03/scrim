@@ -387,7 +387,8 @@ function CrewPage() {
     const id = group.modes[0].id;
     const ids = group.modes.map((m) => m.id).filter((m) => games.includes(m));
     if (ids.length < 2 || cardModes[id] || ids.some((m) => played[m] === undefined)) continue;
-    unsettled[id] = ids.find((m) => played[m] === false) ?? cardShows(id, ids);
+    // The first mode still to play, or the first mode if you've played them all.
+    unsettled[id] = ids.find((m) => played[m] === false) ?? ids[0];
   }
   if (Object.keys(unsettled).length) setCardModes((m) => ({ ...unsettled, ...m }));
   useEffect(() => {
@@ -563,7 +564,8 @@ function CrewPage() {
   const shown = toPlayFirstNow ? unplayedFirst(cards, stillToPlay) : cards;
   const isOpen = (cardId: string) => cardsNow[cardId] ?? true;
   const anyCollapsed = cards.some((c) => !isOpen(c.id));
-  const toPlay = cards.filter(stillToPlay).length;
+  // The badge counts each mode still to play, not each card.
+  const toPlay = cards.reduce((n, c) => n + (c.modes ?? [c.game]).filter((m) => played[m.id] === false).length, 0);
   // Custom games with scores in them have their scoring locked.
   const playedGames = new Set(rounds.filter((rd) => rd.entries.length > 0).map((rd) => rd.game));
 
@@ -1542,7 +1544,7 @@ function PastRound({
           </span>
         </summary>
         <div className="past-round-board">
-          <Scoreboard game={game} rows={rows} closed canVoid={isOwner} onVoid={onVoid} />
+          <Scoreboard game={game} rows={rows} closed canVoid={isOwner} onVoid={onVoid} showTime={false} />
         </div>
       </details>
     </li>

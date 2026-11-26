@@ -140,6 +140,7 @@ export function customAdapter(g: CustomGame): GameAdapter<CustomResult> & { cust
     canWin: (r) => !r.failed && r.value !== undefined,
     formatScore: (r) => formatCustomScore(g, r),
     averageLabel: g.score_type === "time" ? "Avg time" : g.score_type === "attempts" ? "Avg tries" : "Avg score",
+    averageHigherIsBetter: g.higher_is_better,
     average(results) {
       const values = results.filter((r) => !r.failed && r.value !== undefined).map((r) => r.value as number);
       if (values.length === 0) return null;

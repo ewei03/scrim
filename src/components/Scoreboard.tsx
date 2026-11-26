@@ -15,6 +15,7 @@ export function Scoreboard({
   closed,
   canVoid,
   onVoid,
+  showTime = true,
 }: {
   game: GameAdapter<unknown>;
   rows: BoardRow[];
@@ -22,6 +23,8 @@ export function Scoreboard({
   /** The crew owner can void entries. */
   canVoid: boolean;
   onVoid: (row: BoardRow) => void;
+  /** The "Completed at" column (left out in the archive). */
+  showTime?: boolean;
 }) {
   const ranked = rankEntries(
     game,
@@ -45,17 +48,23 @@ export function Scoreboard({
               <th>Name</th>
               <th>Score</th>
               {withResult && <th>Result</th>}
-              <th>
-                <button
-                  type="button"
-                  className="th-toggle"
-                  onClick={toggleClock}
-                  title={clock24h ? "Switch to 12-hour time" : "Switch to 24-hour time"}
-                  aria-label={`Time, ${clock24h ? "24" : "12"}-hour. Switch to ${clock24h ? "12" : "24"}-hour`}
-                >
-                  Completed at
-                </button>
-              </th>
+              {showTime && (
+                <th>
+                  <button
+                    type="button"
+                    className="th-toggle"
+                    onClick={toggleClock}
+                    title={
+                      clock24h
+                        ? "Switch to 12-hour time"
+                        : "Switch to 24-hour time"
+                    }
+                    aria-label={`Time, ${clock24h ? "24" : "12"}-hour. Switch to ${clock24h ? "12" : "24"}-hour`}
+                  >
+                    Completed at
+                  </button>
+                </th>
+              )}
               <th>
                 <span className="sr-only">Actions</span>
               </th>
@@ -80,9 +89,13 @@ export function Scoreboard({
                     <ResultDetail gameId={game.id} result={r.result} />
                   </td>
                 )}
-                <td className="time muted small">
-                  <time dateTime={r.submitted_at}>{formatTime(r.submitted_at, clock24h)}</time>
-                </td>
+                {showTime && (
+                  <td className="time muted small">
+                    <time dateTime={r.submitted_at}>
+                      {formatTime(r.submitted_at, clock24h)}
+                    </time>
+                  </td>
+                )}
                 <td className="right nowrap">
                   {canVoid && <VoidButton onClick={() => onVoid(r)} />}
                 </td>
@@ -104,14 +117,21 @@ export function Scoreboard({
                 </td>
                 {withResult && (
                   <td className="result">
-                    <span className="pill hidden-pill" title="Submit your own result to see this">
+                    <span
+                      className="pill hidden-pill"
+                      title="Submit your own result to see this"
+                    >
                       Hidden
                     </span>
                   </td>
                 )}
-                <td className="time muted small">
-                  <time dateTime={r.submitted_at}>{formatTime(r.submitted_at, clock24h)}</time>
-                </td>
+                {showTime && (
+                  <td className="time muted small">
+                    <time dateTime={r.submitted_at}>
+                      {formatTime(r.submitted_at, clock24h)}
+                    </time>
+                  </td>
+                )}
                 <td className="right">
                   {canVoid && <VoidButton onClick={() => onVoid(r)} />}
                 </td>
@@ -119,7 +139,10 @@ export function Scoreboard({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={withResult ? 6 : 5} className="muted center">
+                <td
+                  colSpan={4 + (withResult ? 1 : 0) + (showTime ? 1 : 0)}
+                  className="muted center"
+                >
                   Nobody has submitted yet{closed ? "" : " - be the first"}!
                 </td>
               </tr>

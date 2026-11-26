@@ -90,6 +90,7 @@ export const krillion: GameAdapter<KrillionResult> = {
   canWin: (r) => r.points > 0,
   formatScore: (r) => r.points.toLocaleString("en-US"),
   averageLabel: "Avg score",
+  averageHigherIsBetter: true,
   average(results) {
     if (results.length === 0) return null;
     const avg = results.reduce((sum, r) => sum + r.points, 0) / results.length;
