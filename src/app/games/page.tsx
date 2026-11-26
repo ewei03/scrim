@@ -7,7 +7,8 @@ export const metadata: Metadata = { title: "Games - Scrim" };
 
 /** Every game Scrim supports, credited to whoever makes it. */
 export default function GamesPage() {
-  const games = gameList();
+  // Alphabetical, so a newly added game lands in its place without any upkeep.
+  const games = [...gameList()].sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
   return (
     <article className="stack prose">
       <h1>Games</h1>

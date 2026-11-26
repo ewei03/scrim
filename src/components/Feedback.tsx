@@ -164,8 +164,8 @@ export function Feedback({ initialKind = "game" }: { initialKind?: FeedbackKind 
           </label>
           <p className="muted small">
             {kind === "problem"
-              ? "Your browser and extension version are sent along to help us look into it. Leave an email if you'd like a reply."
-              : "Leave an email if you'd like a reply."}
+              ? "Your browser and extension version are sent along to help us look into it. Leave an email if you'd like a reply!"
+              : "Leave an email if you'd like a reply!"}
           </p>
           <button className="btn btn-primary" disabled={busy || !ready}>
             {busy ? "Sending…" : kind === "game" ? "Send suggestion" : "Send"}
