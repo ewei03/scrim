@@ -119,7 +119,7 @@ export const poople: GameAdapter<PoopleResult> = {
   // Everyone starts from the same word, so fewest steps wins.
   compare: (a, b) => a.guesses - b.guesses,
   canWin: () => true,
-  // "6/4": six steps where four was the shortest. "⭐" for matching it.
+  // The number of steps.
   formatScore: (r) => String(r.guesses),
   // Steps over the shortest path, so days with long and short ladders compare.
   averageLabel: "Avg extra steps",

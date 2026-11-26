@@ -5,7 +5,8 @@ share the invite. Everyone plays each day's puzzle on their own time, each day
 crowns a winner, and the crew keeps rankings and every past day.
 
 **Games:** Wordle, NYT Connections, NYT Strands, Krillion, Contexto, Costcodle (Checkout),
-Poople and the Mini Crossword (Easy), today's puzzle only. Desktop
+Poople, the Mini Crossword (Easy), Worldle, Globle, Waffle (daily) and Nerdle (classic),
+today's puzzle only. Desktop
 Chrome only. Only free-to-play games are supported (`GameAdapter.free` is typed
 `true`).
 
@@ -32,7 +33,7 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 | Concept | Lifetime | Notes |
 |---|---|---|
 | **Crew** | permanent | Friend group. The owner picks its games, time zone and spoiler setting. Rankings and past days. Link: `/crew/<code>` |
-| **Round** | one crew, one game, one puzzle | Nobody creates it: the first result for that puzzle starts it. Closes at midnight in the crew's time zone (New York time for Krillion, UTC−8 for Poople) |
+| **Round** | one crew, one game, one puzzle | Nobody creates it: the first result for that puzzle starts it. Closes at midnight in the crew's time zone (New York time for Krillion, UTC−8 for Poople, UTC for Waffle and Nerdle) |
 | **Entry** | one per player per round | Validated server-side. Source is `extension`, or `paste` as the fallback |
 
 - **Joining:** opening a crew's invite link joins it, unless someone in the
@@ -146,6 +147,22 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
   `localStorage["crosswordMini_daily_daily-easy"]` once `isComplete`
   (today's and yesterday's only). Hard, archive and Unlimited puzzles are
   ignored. Signed in, the player id comes from `heygg_user`.
+- `worldle.js` runs on worldle.teuteuf.fr and reads the main country round
+  from `localStorage["guesses"]` (keyed by local date; today's and
+  yesterday's only). Each guess's closeness squares are worked out from its
+  distance, as the share draws them. Bonus and archive rounds are ignored.
+- `globle.js` runs on globle-game.com and reads today's win from
+  `localStorage["statistics"]` (`lastWin`, and the last of `usedGuesses`).
+  Globle has no puzzle numbers: Scrim numbers its days from 2022-01-01.
+- `waffle.js` runs on wafflegame.net and reads the daily from
+  `localStorage["state"]`: solved once `puzzle` matches `solution`, with the
+  swaps left (at most 5) as stars. The solution itself isn't sent. Deluxe and
+  Royale are ignored.
+- `nerdle.js` runs on nerdlegame.com and reads classic Nerdle from
+  `localStorage["gameState"]` (#`solutionIndex` + 1); other modes are
+  ignored. The grid is worked out from the guesses; the solution isn't sent.
+- Waffle and Nerdle change at midnight UTC. A player who switched either to
+  local time can be a day off from everyone else for part of the day.
 - NYT games count whether or not you're signed in to NYT (saves under
   `…/<regiId>` or `…/ANON`). If a puzzle has both, the signed-in save wins.
 - One game, one Scrim account: each result carries a hashed player id (the

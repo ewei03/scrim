@@ -311,10 +311,11 @@ function CrewPage() {
   // Built-in games, then the crew's own custom games.
   const allGames = useMemo(() => [...gameList(), ...customGames.map(customAdapter)], [customGames]);
   // The Games box: games the crew played when the page loaded first, then the
-  // rest (each group in the order above).
+  // rest, each group in alphabetical order.
   const boxGames = useMemo(() => {
     const on = new Set(loadedGames?.games ?? []);
-    return [...allGames.filter((g) => on.has(g.id)), ...allGames.filter((g) => !on.has(g.id))];
+    const sorted = [...allGames].sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
+    return [...sorted.filter((g) => on.has(g.id)), ...sorted.filter((g) => !on.has(g.id))];
   }, [allGames, loadedGames]);
   // The archive lists each day's games in the same order as the Games box.
   const archiveOrder = useMemo(() => boxGames.map((g) => g.id), [boxGames]);

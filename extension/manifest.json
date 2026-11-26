@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Scrim",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "A daily puzzle showdown between you and your friends.",
   "icons": {
     "16": "icons/icon-16.png",
@@ -23,6 +23,12 @@
     "https://poople.io/*",
     "https://minicrossword.com/*",
     "https://www.minicrossword.com/*",
+    "https://worldle.teuteuf.fr/*",
+    "https://globle-game.com/*",
+    "https://www.globle-game.com/*",
+    "https://wafflegame.net/*",
+    "https://www.wafflegame.net/*",
+    "https://nerdlegame.com/*",
     "https://daily-scrim.vercel.app/*",
     "http://localhost/*",
     "http://127.0.0.1/*"
@@ -118,6 +124,52 @@
         "scrim-content.js",
         "mini-core.js",
         "mini.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://worldle.teuteuf.fr/*"
+      ],
+      "js": [
+        "scrim-content.js",
+        "worldle-core.js",
+        "worldle.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://globle-game.com/*",
+        "https://www.globle-game.com/*"
+      ],
+      "js": [
+        "scrim-content.js",
+        "globle-core.js",
+        "globle.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://wafflegame.net/*",
+        "https://www.wafflegame.net/*"
+      ],
+      "js": [
+        "scrim-content.js",
+        "waffle-core.js",
+        "waffle.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://nerdlegame.com/*"
+      ],
+      "js": [
+        "scrim-content.js",
+        "nerdle-core.js",
+        "nerdle.js"
       ],
       "run_at": "document_idle"
     },

@@ -42,6 +42,7 @@ function todaysPuzzles() {
   const local = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
   const [y, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(now).split("-").map(Number);
   const newYork = Date.UTC(y, m - 1, d);
+  const utc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const days = (from, start) => String(Math.round((from - start) / 86400000));
   return {
     wordle: days(local, Date.UTC(2021, 5, 19)),
@@ -53,6 +54,11 @@ function todaysPuzzles() {
     // One puzzle worldwide, changing at 08:00 UTC.
     poople: String(Math.floor((now.getTime() - 8 * 3600000 - Date.UTC(2025, 7, 14)) / 86400000)),
     minicrossword: days(local, Date.UTC(2026, 5, 21)),
+    worldle: days(local, Date.UTC(2022, 0, 21)),
+    globle: days(local, Date.UTC(2022, 0, 1)),
+    // One puzzle worldwide each, changing at midnight UTC.
+    waffle: days(utc, Date.UTC(2022, 0, 21)),
+    nerdle: days(utc, Date.UTC(2022, 1, 2)),
   };
 }
 
@@ -106,7 +112,20 @@ function renderResults(stored) {
 const CHECK_GAMES = false;
 
 /** Games the extension reads from their pages. */
-const AUTO_GAMES = ["wordle", "connections", "strands", "krillion", "contexto", "costcodle", "poople", "minicrossword"];
+const AUTO_GAMES = [
+  "wordle",
+  "connections",
+  "strands",
+  "krillion",
+  "contexto",
+  "costcodle",
+  "poople",
+  "minicrossword",
+  "worldle",
+  "globle",
+  "waffle",
+  "nerdle",
+];
 
 /**
  * "Check my games": for games played elsewhere (e.g. on a phone) with the same
@@ -138,6 +157,10 @@ const GAME_NAMES = {
   contexto: "Contexto",
   costcodle: "Costcodle",
   poople: "Poople",
+  worldle: "Worldle",
+  globle: "Globle",
+  waffle: "Waffle",
+  nerdle: "Nerdle",
   minicrossword: "Mini Crossword (Easy)",
 };
 
@@ -279,11 +302,13 @@ function describe(game, result) {
   }
   // Same as the site: the total off, e.g. "$12.40".
   if (game === "costcodle") return { name: "Costcodle", score: formatCents(result.total) };
-  // Same as the site: "⭐" for the shortest path, otherwise "6/4".
-  if (game === "poople") {
-    const score = result.best === undefined ? String(result.guesses) : result.guesses === result.best ? "⭐" : `${result.guesses}/${result.best}`;
-    return { name: "Poople", score };
-  }
+  // Same as the site: the number of steps.
+  if (game === "poople") return { name: "Poople", score: String(result.guesses) };
+  if (game === "worldle") return { name: "Worldle", score: `${result.solved ? result.guesses : "X"}/6` };
+  if (game === "globle") return { name: "Globle", score: String(result.guesses) };
+  // Same as the site: "3⭐" for three swaps left, "X" for running out.
+  if (game === "waffle") return { name: "Waffle", score: result.solved ? `${result.stars}⭐` : "X" };
+  if (game === "nerdle") return { name: "Nerdle", score: `${result.solved ? result.guesses : "X"}/6` };
   // Same as the site: "1:23", "45s", "+2💡" for reveals.
   if (game === "minicrossword") {
     const m = Math.floor(result.seconds / 60);

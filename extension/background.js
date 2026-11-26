@@ -6,7 +6,8 @@ const CONFIG_KEYS = ["token", "supabaseUrl", "supabaseKey", "scrimOrigin", "user
  * played signed out of the game), "lastUserId" and "switchedAt" (see "pair").
  */
 const ACCOUNT_KEYS = [...CONFIG_KEYS, "results"];
-const MAX_RESULTS = 14;
+/** About two days of every game. */
+const MAX_RESULTS = 30;
 
 // What this build may talk to, read from the manifest (the store build drops
 // localhost). Chrome's "http://localhost/*" matches any port, so hosts are
@@ -276,6 +277,10 @@ const CATCH_UP = [
   { game: "costcodle", url: "https://costcodle.com/", today: () => localDays(2026, 11, 9) },
   { game: "poople", url: "https://poople.io/", today: () => poopleDays() },
   { game: "minicrossword", url: "https://minicrossword.com/", today: () => localDays(2026, 6, 21) },
+  { game: "worldle", url: "https://worldle.teuteuf.fr/", today: () => localDays(2022, 1, 21) },
+  { game: "globle", url: "https://globle-game.com/", today: () => localDays(2022, 1, 1) },
+  { game: "waffle", url: "https://wafflegame.net/daily", today: () => utcDays(2022, 1, 21) },
+  { game: "nerdle", url: "https://nerdlegame.com/", today: () => utcDays(2022, 2, 2) },
 ];
 const VISIT_TIMEOUT_MS = 20000;
 /** Tab id -> resolves the visit early once that tab reports a result. */
@@ -354,11 +359,18 @@ function localDays(y, m, d) {
   return String(Math.round((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(y, m - 1, d)) / 86400000));
 }
 
-/** Today's puzzle number for games numbered by the New York date. */
+/** Today's puzzle number for games numbered by the UTC date. */
+function utcDays(y, m, d) {
+  const now = new Date();
+  return String(Math.round((Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - Date.UTC(y, m - 1, d)) / 86400000));
+}
+
 /** Poople has one puzzle worldwide, changing at 08:00 UTC; #0 was 2025-08-14. */
 function poopleDays() {
   return String(Math.floor((Date.now() - 8 * 3600000 - Date.UTC(2025, 7, 14)) / 86400000));
 }
+
+/** Today's puzzle number for games numbered by the New York date. */
 function newYorkDays(y, m, d) {
   const [ny, nm, nd] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date()).split("-").map(Number);
   return String(Math.round((Date.UTC(ny, nm - 1, nd) - Date.UTC(y, m - 1, d)) / 86400000));

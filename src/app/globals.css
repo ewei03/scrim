@@ -1134,6 +1134,11 @@ select.input {
   background: #ee9a96;
 }
 
+/* Nerdle: right character, wrong place. */
+.np {
+  background: #820458;
+}
+
 /* Poople: letters that match POOP. */
 .pp {
   background: #8b5a2b;

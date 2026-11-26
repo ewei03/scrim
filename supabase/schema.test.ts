@@ -8,11 +8,14 @@ import { manualConnections } from "@/games/connections";
 import { manualContexto } from "@/games/contexto";
 import { costcodleResult } from "@/games/costcodle";
 import { manualKrillion } from "@/games/krillion";
+import { manualNerdle } from "@/games/nerdle";
 import { manualPoople } from "@/games/poople";
 import { manualStrands } from "@/games/strands";
 import { GAMES } from "@/games/registry";
 import { crewStats } from "@/lib/stats";
+import { manualWaffle } from "@/games/waffle";
 import { manualWordle } from "@/games/wordle";
+import { manualWorldle } from "@/games/worldle";
 
 const MIGRATIONS_DIR = new URL("./migrations/", import.meta.url);
 const MIGRATIONS = readdirSync(MIGRATIONS_DIR)
@@ -681,6 +684,59 @@ describe("connections and krillion", () => {
     await submit(ANN, "minicrossword", { puzzle: M, seconds: 83, extra: true });
     expect(await stored(ANN, "minicrossword")).toEqual({ puzzle: M, seconds: 83, reveals: 0 });
   });
+
+  it("checks Worldle's closeness squares", async () => {
+    const { rows: n } = await db.query<{ w: number }>("select ((now() at time zone 'UTC')::date - date '2022-01-21') as w");
+    const W = String(n[0].w);
+    await as(ANN, "select set_crew_game($1, 'worldle', true)", [crew]);
+    await expect(submit(EVE, "worldle", { puzzle: W, solved: true, guesses: 2 })).rejects.toThrow(/coloured grid/);
+    await expect(submit(EVE, "worldle", { puzzle: W, solved: true, guesses: 2, grid: ["gyg..", "ggggg"] })).rejects.toThrow(
+      /Invalid grid row/,
+    );
+    await expect(submit(EVE, "worldle", { puzzle: W, solved: true, guesses: 2, grid: ["ggggg", "ggggg"] })).rejects.toThrow(
+      /does not match/,
+    );
+    await submit(ANN, "worldle", { puzzle: W, solved: true, guesses: 3, grid: ["gy...", "gggg.", "ggggg"] });
+    expect(await stored(ANN, "worldle")).toEqual({ puzzle: W, solved: true, guesses: 3, grid: ["gy...", "gggg.", "ggggg"] });
+  });
+
+  it("takes Globle's guesses", async () => {
+    const { rows: n } = await db.query<{ g: number }>("select ((now() at time zone 'UTC')::date - date '2022-01-01') as g");
+    const G = String(n[0].g);
+    await as(ANN, "select set_crew_game($1, 'globle', true)", [crew]);
+    await expect(submit(EVE, "globle", { puzzle: G, guesses: 0 })).rejects.toThrow(/between 1 and 199/);
+    await submit(ANN, "globle", { puzzle: G, guesses: 7, extra: 1 });
+    expect(await stored(ANN, "globle")).toEqual({ puzzle: G, guesses: 7 });
+  });
+
+  it("counts Waffle's stars, and closes at midnight UTC", async () => {
+    const { rows: n } = await db.query<{ w: number }>("select ((now() at time zone 'UTC')::date - date '2022-01-21') as w");
+    const W = String(n[0].w);
+    await as(ANN, "select set_crew_game($1, 'waffle', true)", [crew]);
+    await expect(submit(EVE, "waffle", { puzzle: String(Number(W) - 1), solved: true, stars: 3 })).rejects.toThrow(/day is over/);
+    await expect(submit(EVE, "waffle", { puzzle: W, solved: true, stars: 6 })).rejects.toThrow(/Stars/);
+    await submit(ANN, "waffle", { puzzle: W, solved: false, stars: 5 });
+    expect(await stored(ANN, "waffle")).toEqual({ puzzle: W, solved: false });
+
+    const { rows } = await db.query<{ ok: boolean }>(
+      `select closes_at = ((date '2022-01-21' + $1::int + 1)::timestamp at time zone 'UTC') as ok
+       from rounds where crew_id = $2 and game = 'waffle'`,
+      [W, crew],
+    );
+    expect(rows).toEqual([{ ok: true }]);
+  });
+
+  it("checks Nerdle's grid", async () => {
+    const { rows: n } = await db.query<{ e: number }>("select ((now() at time zone 'UTC')::date - date '2022-02-02') as e");
+    const E = String(n[0].e);
+    await as(ANN, "select set_crew_game($1, 'nerdle', true)", [crew]);
+    await expect(submit(EVE, "nerdle", { puzzle: E, solved: true, guesses: 2 })).rejects.toThrow(/coloured grid/);
+    await expect(submit(EVE, "nerdle", { puzzle: E, solved: true, guesses: 2, grid: ["gp.g.", "ggggg"] })).rejects.toThrow(
+      /Invalid grid row/,
+    );
+    await submit(ANN, "nerdle", { puzzle: E, solved: true, guesses: 2, grid: ["gp..p.g.", "gggggggg"] });
+    expect(await stored(ANN, "nerdle")).toEqual({ puzzle: E, solved: true, guesses: 2, grid: ["gp..p.g.", "gggggggg"] });
+  });
 });
 
 describe("removing a game", () => {
@@ -763,6 +819,10 @@ describe("extension rankings", () => {
       { puzzle: "1", seconds: 30, reveals: 1 },
       { puzzle: "1", seconds: 20, reveals: 2 },
     ],
+    worldle: [1, 3, 6, null, null].map((g) => manualWorldle("1", g)),
+    globle: [1, 4, 4, 30].map((guesses) => ({ puzzle: "1", guesses })),
+    waffle: [5, 3, 0, null, null].map((s) => manualWaffle("1", s)),
+    nerdle: [2, 6, null].map((g) => manualNerdle("1", g)),
   };
 
   it("judges results the same way as the site", async () => {

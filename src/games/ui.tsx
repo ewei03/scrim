@@ -4,9 +4,11 @@ import type { ConnectionsResult } from "./connections";
 import type { ContextoResult } from "./contexto";
 import { closeness, money, shortMoney, type CostcodleResult } from "./costcodle";
 import { TIERS, type KrillionResult } from "./krillion";
+import type { NerdleResult } from "./nerdle";
 import { foldPath, type PoopleResult } from "./poople";
 import type { StrandsResult } from "./strands";
 import type { WordleResult } from "./wordle";
+import type { WorldleResult } from "./worldle";
 
 /** Game-specific pieces of UI, keyed by game id. */
 
@@ -35,6 +37,14 @@ export function ResultDetail({ gameId, result }: { gameId: string; result: unkno
     const offs = (result as CostcodleResult).offs;
     return offs ? <CostcodleItems offs={offs} /> : null;
   }
+  if (gameId === "worldle") {
+    const grid = (result as WorldleResult).grid;
+    return grid ? <WordleGrid grid={grid} label="Worldle grid" /> : null;
+  }
+  if (gameId === "nerdle") {
+    const grid = (result as NerdleResult).grid;
+    return grid ? <WordleGrid grid={grid} label="Nerdle grid" /> : null;
+  }
   if (gameId === "poople") {
     const grid = (result as PoopleResult).grid;
     return grid ? <PoopleGrid grid={grid} /> : null;
@@ -42,13 +52,22 @@ export function ResultDetail({ gameId, result }: { gameId: string; result: unkno
   return null;
 }
 
-export function WordleGrid({ grid, size = "small" }: { grid: string[]; size?: "small" | "large" }) {
+/** Wordle's grid, and others drawn the same way (Worldle's closeness, Nerdle's purple "p" for present). */
+export function WordleGrid({
+  grid,
+  size = "small",
+  label = "Wordle grid",
+}: {
+  grid: string[];
+  size?: "small" | "large";
+  label?: string;
+}) {
   return (
-    <div className={`wgrid wgrid-${size}`} aria-label="Wordle grid">
+    <div className={`wgrid wgrid-${size}`} aria-label={label}>
       {grid.map((row, i) => (
         <div key={i} className="wrow">
           {Array.from(row).map((c, j) => (
-            <span key={j} className={`wtile ${c === "g" ? "wg" : c === "y" ? "wy" : "wx"}`} />
+            <span key={j} className={`wtile ${c === "g" ? "wg" : c === "y" ? "wy" : c === "p" ? "np" : "wx"}`} />
           ))}
         </div>
       ))}
