@@ -37,6 +37,16 @@ describe("findFinishedGames", () => {
     ]);
   });
 
+  it("leaves hints out of the bars, as numberOfAttempts does", () => {
+    const withHint = [...history([3000, 900]), { word: "hinted", distance: 40, hint: true }, ...history([0])];
+    const entries: [string, string][] = [
+      ["contexto-games-en", save({ "1527": game({ foundWord: "x", guessHistory: withHint, numberOfAttempts: 3, numberOfTips: 1 }) })],
+    ];
+    expect(core.findFinishedGames(entries, 1527)).toEqual([
+      { puzzle: "1527", solved: true, guesses: 3, hints: 1, chart: [1, 1, 1], account: null },
+    ]);
+  });
+
   it("ignores games still being played, and bad saves", () => {
     expect(core.findFinishedGames([["contexto-games-en", save({ "1527": game({}) })]], 1527)).toEqual([]);
     expect(core.findFinishedGames([["contexto-games-en", "{oops"]], 1527)).toEqual([]);

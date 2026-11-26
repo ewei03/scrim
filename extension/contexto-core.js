@@ -27,10 +27,15 @@
     return `${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}/${d.getUTCFullYear()}`;
   }
 
-  /** [green, yellow, red]: guesses closer than 300, closer than 1,500, further (as the share counts them). */
+  /**
+   * [green, yellow, red]: guesses closer than 300, closer than 1,500, further
+   * (as the share counts them). Hints are in the history too, marked
+   * `hint: true`, but numberOfAttempts leaves them out, so the bars do as well.
+   */
   function chartOf(history) {
     const chart = [0, 0, 0];
     for (const g of history) {
+      if (!Array.isArray(g) && g?.hint) continue;
       const distance = Array.isArray(g) ? g[1] : g?.distance;
       if (typeof distance !== "number") continue;
       chart[distance < 300 ? 0 : distance < 1500 ? 1 : 2] += 1;
