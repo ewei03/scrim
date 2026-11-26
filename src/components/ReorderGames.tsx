@@ -122,7 +122,7 @@ function ReorderList({
 
   return (
     <>
-      <p className="muted small">Only you see this order.</p>
+      <p className="muted small">This order is only visible to you.</p>
       <ol className={`reorder-list ${drag ? "sorting" : ""}`} ref={list}>
         {order.map((id, i) => {
           const game = byId.get(id);
