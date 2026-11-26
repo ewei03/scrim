@@ -5,9 +5,9 @@ export type FinishedGame = MiniResult & { account: string | null };
 
 declare const core: {
   numberFromDate(date: string): number;
-  findFinishedGames(entries: [string, string][], today: number): FinishedGame[];
+  findFinishedGames(entries: [string, string][], today: number, level?: "easy" | "hard"): FinishedGame[];
   toResult(game: FinishedGame): MiniResult;
-  shareText(result: MiniResult): string;
+  shareText(result: MiniResult, level?: "easy" | "hard"): string;
   formatScore(result: MiniResult): string;
 };
 export default core;

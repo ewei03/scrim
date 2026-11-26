@@ -7,6 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { manualConnections } from "@/games/connections";
 import { manualContexto } from "@/games/contexto";
 import { costcodleResult } from "@/games/costcodle";
+import { manualCostcodleClassic } from "@/games/costcodle-classic";
 import { manualKrillion } from "@/games/krillion";
 import { manualNerdle } from "@/games/nerdle";
 import { manualPoople } from "@/games/poople";
@@ -685,6 +686,40 @@ describe("connections and krillion", () => {
     expect(await stored(ANN, "minicrossword")).toEqual({ puzzle: M, seconds: 83, reveals: 0 });
   });
 
+  it("turns a game's modes on and off together", async () => {
+    await as(ANN, "select set_crew_game($1, 'costcodleclassic', true)", [crew]);
+    await as(ANN, "select set_crew_game($1, 'minicrossword', true)", [crew]);
+    const games = async () =>
+      (await db.query<{ game: string }>("select game from crew_games where crew_id = $1 order by game", [crew])).rows.map(
+        (r) => r.game,
+      );
+    expect(await games()).toEqual(expect.arrayContaining(["costcodle", "costcodleclassic", "minicrossword", "minicrosswordhard"]));
+    await as(ANN, "select set_crew_game($1, 'costcodle', false)", [crew]);
+    expect(await games()).not.toEqual(expect.arrayContaining(["costcodle"]));
+    expect(await games()).not.toEqual(expect.arrayContaining(["costcodleclassic"]));
+  });
+
+  it("checks Costcodle Classic's guesses and the Mini's Hard daily", async () => {
+    const { rows: n } = await db.query<{ c: number; m: number }>(
+      "select ((now() at time zone 'UTC')::date - date '2023-09-19') as c, ((now() at time zone 'UTC')::date - date '2026-06-21') as m",
+    );
+    const C = String(n[0].c);
+    const M = String(n[0].m);
+    await as(ANN, "select set_crew_game($1, 'costcodle', true)", [crew]);
+    await as(ANN, "select set_crew_game($1, 'minicrosswordhard', true)", [crew]);
+    await expect(submit(EVE, "costcodleclassic", { puzzle: C, solved: true, guesses: 2 })).rejects.toThrow(/coloured grid/);
+    await expect(
+      submit(EVE, "costcodleclassic", { puzzle: C, solved: true, guesses: 2, grid: ["ux", "w"] }),
+    ).rejects.toThrow(/Invalid grid row/);
+    await expect(submit(EVE, "costcodleclassic", { puzzle: C, solved: true, guesses: 2, grid: ["w", "w"] })).rejects.toThrow(
+      /does not match/,
+    );
+    await submit(ANN, "costcodleclassic", { puzzle: C, solved: true, guesses: 3, grid: ["ur", "dy", "w"] });
+    expect(await stored(ANN, "costcodleclassic")).toEqual({ puzzle: C, solved: true, guesses: 3, grid: ["ur", "dy", "w"] });
+    await submit(ANN, "minicrosswordhard", { puzzle: M, seconds: 200, reveals: 1 });
+    expect(await stored(ANN, "minicrosswordhard")).toEqual({ puzzle: M, seconds: 200, reveals: 1 });
+  });
+
   it("checks Worldle's closeness squares", async () => {
     const { rows: n } = await db.query<{ w: number }>("select ((now() at time zone 'UTC')::date - date '2022-01-21') as w");
     const W = String(n[0].w);
@@ -820,6 +855,12 @@ describe("extension rankings", () => {
       { puzzle: "1", seconds: 20, reveals: 2 },
     ],
     worldle: [1, 3, 6, null, null].map((g) => manualWorldle("1", g)),
+    costcodleclassic: [1, 3, 6, null, null].map((g) => manualCostcodleClassic("1", g)),
+    minicrosswordhard: [
+      { puzzle: "1", seconds: 300, reveals: 0 },
+      { puzzle: "1", seconds: 30, reveals: 1 },
+      { puzzle: "1", seconds: 20, reveals: 2 },
+    ],
     globle: [1, 4, 4, 30].map((guesses) => ({ puzzle: "1", guesses })),
     waffle: [5, 3, 0, null, null].map((s) => manualWaffle("1", s)),
     nerdle: [2, 6, null].map((g) => manualNerdle("1", g)),

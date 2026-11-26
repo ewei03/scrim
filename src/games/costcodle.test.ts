@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { closeness, costcodle, costcodleNumberFor, parseCostcodle, shortMoney } from "./costcodle";
+import { closeness, costcodle, costcodleNumberFor, money, parseCostcodle } from "./costcodle";
 
 // Laid out the way costcodle.com's share.js builds it.
 const SHARE = [
@@ -67,14 +67,7 @@ describe("ranking", () => {
   });
 });
 
-it("shortens amounts for the chips", () => {
-  expect([0, 320, 1250, 34049, 123456, 1_250_000_00].map(shortMoney)).toEqual([
-    "$0.00",
-    "$3.20",
-    "$13",
-    "$340",
-    "$1.2k",
-    "$1.3M",
-  ]);
+it("writes every amount in dollars and cents, chips included", () => {
+  expect([0, 320, 1250, 34049, 123456].map(money)).toEqual(["$0.00", "$3.20", "$12.50", "$340.49", "$1,234.56"]);
   expect([200, 201, 1000, 1001].map(closeness)).toEqual(["near", "mid", "mid", "far"]);
 });

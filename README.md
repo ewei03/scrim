@@ -4,8 +4,8 @@ Daily puzzle showdowns with friends. Start a crew, pick the games it plays and
 share the invite. Everyone plays each day's puzzle on their own time, each day
 crowns a winner, and the crew keeps rankings and every past day.
 
-**Games:** Wordle, NYT Connections, NYT Strands, Krillion, Contexto, Costcodle (Checkout),
-Poople, the Mini Crossword (Easy), Worldle, Globle, Waffle (daily) and Nerdle (classic),
+**Games:** Wordle, NYT Connections, NYT Strands, Krillion, Contexto, Costcodle (Checkout and Classic),
+Poople, the Mini Crossword (Easy and Hard), Worldle, Globle, Waffle (daily) and Nerdle (classic),
 today's puzzle only. Desktop
 Chrome only. Only free-to-play games are supported (`GameAdapter.free` is typed
 `true`).
@@ -139,13 +139,17 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
   five-item mode) from `localStorage["checkoutState"]` and
   `["checkoutStats"].history`, today's and yesterday's only. Each round's
   `diffCents` is checked against its guess and price; the total is worked out
-  from the five misses, on the server too. Classic mode is ignored.
+  from the five misses, on the server too. It also reads Classic games (one
+  item in six guesses, its own game in Scrim) from `localStorage["state"]`
+  and `["stats"].history`, today's and yesterday's only; each guess keeps its
+  arrow and colour from the share. Archive days saved without their guesses
+  are skipped.
 - `poople.js` runs on poople.io and reads today's path from
   `localStorage["guesses"]` once it ends at POOP. The shortest path isn't
   saved, so it's read from the results on the page.
-- `mini.js` runs on minicrossword.com and reads the Easy daily from
-  `localStorage["crosswordMini_daily_daily-easy"]` once `isComplete`
-  (today's and yesterday's only). Hard, archive and Unlimited puzzles are
+- `mini.js` runs on minicrossword.com and reads the Easy and Hard dailies from
+  `localStorage["crosswordMini_daily_daily-easy"]` and `["…-daily-hard"]` once
+  `isComplete` (today's and yesterday's only). Archive and Unlimited puzzles are
   ignored. Signed in, the player id comes from `heygg_user`.
 - `worldle.js` runs on worldle.teuteuf.fr and reads the main country round
   from `localStorage["guesses"]` (keyed by local date; today's and

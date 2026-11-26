@@ -1,17 +1,16 @@
 // Pure Mini Crossword helpers shared by the content script and the tests.
 // Loaded as a classic content script, so it exposes a global.
 //
-// From minicrossword.com's code (checked 2026-11-23): the Easy daily in
-// progress or done is in localStorage "crosswordMini_daily_daily-easy":
-// { puzzleId: "mini-daily-easy-<n>", elapsedMs, timerSeconds, revealedCells:
-// [...], isComplete }. Archive plays are saved under other keys and ignored.
-// Numbered from #1 on 2026-06-22, by local date. Signing in is optional (the
+// From minicrossword.com's code (checked 2026-11-26): each daily in progress
+// or done is in localStorage "crosswordMini_daily_daily-<level>" (easy, hard):
+// { puzzleId: "mini-daily-<level>-<n>", elapsedMs, timerSeconds,
+// revealedCells: [...], isComplete }. Archive plays are saved under other
+// keys and ignored. Both are numbered from #1 on 2026-06-22, by local date. Signing in is optional (the
 // user is cached in "heygg_user"); the save itself isn't per account.
 (function (root) {
   const EPOCH_UTC = Date.UTC(2026, 5, 21); // #0
   const DAY_MS = 86400000;
-  const KEY = "crosswordMini_daily_daily-easy";
-  const ID = /^mini-daily-easy-(\d+)$/;
+  const ID = /^mini-daily-(easy|hard)-(\d+)$/;
   const MAX_SECONDS = 86400;
   const MAX_REVEALS = 49;
 
@@ -37,14 +36,15 @@
   }
 
   /**
-   * Today's or yesterday's finished Easy daily (`today` is its number), as a
-   * list. `entries` is [key, value][] from localStorage.
+   * Today's or yesterday's finished daily at `level` ("easy" or "hard";
+   * `today` is its number), as a list. `entries` is [key, value][] from
+   * localStorage.
    */
-  function findFinishedGames(entries, today) {
-    const save = parse(entries.find(([k]) => k === KEY)?.[1]);
+  function findFinishedGames(entries, today, level = "easy") {
+    const save = parse(entries.find(([k]) => k === `crosswordMini_daily_daily-${level}`)?.[1]);
     if (!save?.isComplete) return [];
     const m = ID.exec(String(save.puzzleId ?? ""));
-    const puzzle = m ? Number(m[1]) : NaN;
+    const puzzle = m && m[1] === level ? Number(m[2]) : NaN;
     if (!Number.isInteger(puzzle) || puzzle < today - 1 || puzzle > today) return [];
     const ms = Number.isFinite(save.elapsedMs)
       ? save.elapsedMs
@@ -70,9 +70,9 @@
   }
 
   /** Laid out like minicrossword.com's own share text (without the title and grid). */
-  function shareText(result) {
+  function shareText(result, level = "easy") {
     const reveals = result.reveals === 0 ? "No reveals!" : `Reveals: ${result.reveals}`;
-    return `Mini Crossword Easy #${result.puzzle}\n${formatTime(result.seconds)} | ${reveals}\n\nPlay free at minicrossword.com/`;
+    return `Mini Crossword ${level === "hard" ? "Hard" : "Easy"} #${result.puzzle}\n${formatTime(result.seconds)} | ${reveals}\n\nPlay free at minicrossword.com/`;
   }
 
   function formatScore(result) {

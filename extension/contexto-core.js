@@ -95,8 +95,8 @@
   }
 
   function formatScore(result) {
-    if (!result.solved) return "DNF";
-    return result.hints ? `${result.guesses} +${result.hints}💡` : String(result.guesses);
+    // Hints aren't shown: they're already counted in the guesses.
+    return result.solved ? String(result.guesses) : "DNF";
   }
 
   const api = { numberFromDate, shareDate, chartOf, findFinishedGames, toResult, shareText, formatScore };

@@ -1,9 +1,10 @@
 import { connections } from "./connections";
 import { contexto } from "./contexto";
 import { costcodle } from "./costcodle";
+import { costcodleClassic } from "./costcodle-classic";
 import { globle } from "./globle";
 import { krillion } from "./krillion";
-import { mini } from "./mini";
+import { mini, miniHard } from "./mini";
 import { nerdle } from "./nerdle";
 import { poople } from "./poople";
 import { strands } from "./strands";
@@ -20,8 +21,10 @@ export const GAMES: Record<string, GameAdapter<unknown>> = {
   [krillion.id]: krillion,
   [contexto.id]: contexto,
   [costcodle.id]: costcodle,
+  [costcodleClassic.id]: costcodleClassic,
   [poople.id]: poople,
   [mini.id]: mini,
+  [miniHard.id]: miniHard,
   [worldle.id]: worldle,
   [globle.id]: globle,
   [waffle.id]: waffle,

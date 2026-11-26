@@ -51,9 +51,11 @@ function todaysPuzzles() {
     krillion: days(newYork, Date.UTC(2026, 6, 15)),
     contexto: days(local, Date.UTC(2022, 8, 18)),
     costcodle: days(local, Date.UTC(2026, 10, 9)),
+    costcodleclassic: days(local, Date.UTC(2023, 8, 19)),
     // One puzzle worldwide, changing at 08:00 UTC.
     poople: String(Math.floor((now.getTime() - 8 * 3600000 - Date.UTC(2025, 7, 14)) / 86400000)),
     minicrossword: days(local, Date.UTC(2026, 5, 21)),
+    minicrosswordhard: days(local, Date.UTC(2026, 5, 21)),
     worldle: days(local, Date.UTC(2022, 0, 21)),
     globle: days(local, Date.UTC(2022, 0, 1)),
     // One puzzle worldwide each, changing at midnight UTC.
@@ -119,8 +121,10 @@ const AUTO_GAMES = [
   "krillion",
   "contexto",
   "costcodle",
+  "costcodleclassic",
   "poople",
   "minicrossword",
+  "minicrosswordhard",
   "worldle",
   "globle",
   "waffle",
@@ -155,13 +159,15 @@ const GAME_NAMES = {
   strands: "Strands",
   krillion: "Krillion",
   contexto: "Contexto",
-  costcodle: "Costcodle",
+  costcodle: "Costcodle Checkout",
+  costcodleclassic: "Costcodle Classic",
   poople: "Poople",
   worldle: "Worldle",
   globle: "Globle",
   waffle: "Waffle",
   nerdle: "Nerdle",
   minicrossword: "Mini Crossword (Easy)",
+  minicrosswordhard: "Mini Crossword (Hard)",
 };
 
 /** Results / Rankings tabs. Remembers the last tab, crew and game. */
@@ -296,12 +302,15 @@ function describe(game, result) {
   // Same as the site: "⭐" for no hints, "2💡" for two.
   if (game === "strands") return { name: "Strands", score: result.hints === 0 ? "⭐" : `${result.hints}💡` };
   if (game === "contexto") {
-    // Same as the site: guesses, "+2💡" for hints, "🏳️" for giving up.
-    const score = !result.solved ? "DNF" : result.hints ? `${result.guesses} +${result.hints}💡` : String(result.guesses);
+    // Same as the site: guesses (hints are counted in them), "DNF" for giving up.
+    const score = !result.solved ? "DNF" : String(result.guesses);
     return { name: "Contexto", score };
   }
   // Same as the site: the total off, e.g. "$12.40".
-  if (game === "costcodle") return { name: "Costcodle", score: formatCents(result.total) };
+  if (game === "costcodle") return { name: "Costcodle Checkout", score: formatCents(result.total) };
+  if (game === "costcodleclassic") {
+    return { name: "Costcodle Classic", score: `${result.solved ? result.guesses : "X"}/6` };
+  }
   // Same as the site: the number of steps.
   if (game === "poople") return { name: "Poople", score: String(result.guesses) };
   if (game === "worldle") return { name: "Worldle", score: `${result.solved ? result.guesses : "X"}/6` };
@@ -310,11 +319,11 @@ function describe(game, result) {
   if (game === "waffle") return { name: "Waffle", score: result.solved ? `${result.stars}⭐` : "X" };
   if (game === "nerdle") return { name: "Nerdle", score: `${result.solved ? result.guesses : "X"}/6` };
   // Same as the site: "1:23", "45s", "+2💡" for reveals.
-  if (game === "minicrossword") {
+  if (game === "minicrossword" || game === "minicrosswordhard") {
     const m = Math.floor(result.seconds / 60);
     const s = result.seconds % 60;
     const time = m === 0 ? `${s}s` : `${m}:${String(s).padStart(2, "0")}`;
-    return { name: "Mini Crossword (Easy)", score: result.reveals ? `${time} +${result.reveals}💡` : time };
+    return { name: GAME_NAMES[game], score: result.reveals ? `${time} +${result.reveals}💡` : time };
   }
   return { name: "Wordle", score: `${result.solved ? result.guesses : "X"}/6` };
 }

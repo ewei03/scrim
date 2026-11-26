@@ -46,6 +46,22 @@ describe("findFinishedGames", () => {
   });
 });
 
+it("reads the Hard daily on its own", () => {
+  const hard: [string, string][] = [
+    [
+      "crosswordMini_daily_daily-hard",
+      JSON.stringify({ puzzleId: "mini-daily-hard-155", elapsedMs: 200_000, revealedCells: [1], isComplete: true }),
+    ],
+  ];
+  expect(core.findFinishedGames(hard, 155)).toEqual([]);
+  const [g] = core.findFinishedGames(hard, 155, "hard");
+  expect(g).toMatchObject({ puzzle: "155", seconds: 200, reveals: 1 });
+  // An Easy save is never taken for Hard.
+  expect(core.findFinishedGames(save({}), 155, "hard")).toEqual([]);
+  const result = core.toResult(g);
+  expect(parseMini(core.shareText(result, "hard"), "hard")).toEqual({ ok: true, result });
+});
+
 it("builds results whose share text the app can parse", () => {
   for (const [seconds, reveals] of [
     [83, 0],

@@ -2,7 +2,8 @@
 
 import type { ConnectionsResult } from "./connections";
 import type { ContextoResult } from "./contexto";
-import { closeness, money, shortMoney, type CostcodleResult } from "./costcodle";
+import { closeness, money, type CostcodleResult } from "./costcodle";
+import type { CostcodleClassicResult } from "./costcodle-classic";
 import { TIERS, type KrillionResult } from "./krillion";
 import type { NerdleResult } from "./nerdle";
 import { foldPath, type PoopleResult } from "./poople";
@@ -11,6 +12,24 @@ import type { WordleResult } from "./wordle";
 import type { WorldleResult } from "./worldle";
 
 /** Game-specific pieces of UI, keyed by game id. */
+
+/** Games whose results have something to draw (ResultDetail): the rest get no Result column. */
+const WITH_DETAIL: ReadonlySet<string> = new Set([
+  "wordle",
+  "connections",
+  "strands",
+  "krillion",
+  "contexto",
+  "costcodle",
+  "costcodleclassic",
+  "worldle",
+  "nerdle",
+  "poople",
+]);
+
+export function hasResultDetail(gameId: string): boolean {
+  return WITH_DETAIL.has(gameId);
+}
 
 export function ResultDetail({ gameId, result }: { gameId: string; result: unknown }) {
   if (gameId === "wordle") {
@@ -36,6 +55,10 @@ export function ResultDetail({ gameId, result }: { gameId: string; result: unkno
   if (gameId === "costcodle") {
     const offs = (result as CostcodleResult).offs;
     return offs ? <CostcodleItems offs={offs} /> : null;
+  }
+  if (gameId === "costcodleclassic") {
+    const grid = (result as CostcodleClassicResult).grid;
+    return grid ? <ClassicGuesses grid={grid} /> : null;
   }
   if (gameId === "worldle") {
     const grid = (result as WorldleResult).grid;
@@ -144,7 +167,29 @@ function CostcodleItems({ offs }: { offs: number[] }) {
     <span className="citems" aria-label={`Off by ${offs.map(money).join(", ")}`}>
       {offs.map((c, i) => (
         <span key={i} className={`citem citem-${closeness(c)}`} title={`Item ${i + 1}: off ${money(c)}`}>
-          {shortMoney(c)}
+          {money(c)}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * Costcodle Classic: a chip per guess, as its share draws them: red (more than
+ * 25% off) or yellow (within 25%) with the way to go, green for the price.
+ */
+function ClassicGuesses({ grid }: { grid: string[] }) {
+  const say = (row: string) =>
+    row === "w" ? "got it" : `${row[0] === "u" ? "higher" : "lower"}, ${row[1] === "y" ? "within 25%" : "over 25% off"}`;
+  return (
+    <span className="citems citems-classic" aria-label={`Guesses: ${grid.map(say).join("; ")}`}>
+      {grid.map((row, i) => (
+        <span
+          key={i}
+          className={`citem ${row === "w" ? "citem-near" : row[1] === "y" ? "citem-mid" : "citem-far"}`}
+          title={`Guess ${i + 1}: ${say(row)}`}
+        >
+          {row === "w" ? "✓" : row[0] === "u" ? "↑" : "↓"}
         </span>
       ))}
     </span>

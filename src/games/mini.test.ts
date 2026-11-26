@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mini, miniNumberFor, parseMini } from "./mini";
+import { mini, miniHard, miniNumberFor, parseMini } from "./mini";
 
 // Laid out the way minicrossword.com builds it.
 const SHARE = "Mini Crossword Easy #155: Fall Things\n⬛⬜⬜⬜⬜\n⬜⬜⬜⬜⬜\n⬜⬜⬜⬜⬜\n⬜⬜⬜⬜⬜\n⬜⬜⬜⬜⬛\n1:23 | No reveals!\nTop 12% time!\n\nPlay free at minicrossword.com/";
@@ -36,6 +36,16 @@ describe("parseMini", () => {
       error: /Archive/,
     });
     expect(parseMini("Mini Crossword Easy #155")).toMatchObject({ ok: false, error: /time/ });
+  });
+});
+
+describe("the Hard daily", () => {
+  it("is read by its own game, numbered like Easy", () => {
+    const hard = SHARE.replace("Easy", "Hard");
+    expect(parseMini(hard, "hard")).toEqual(parseMini(SHARE));
+    expect(miniHard.parseShareText(hard)).toEqual(parseMini(SHARE));
+    expect(miniHard.parseShareText(SHARE)).toMatchObject({ ok: false, error: /Easy/ });
+    expect(miniHard.puzzleForDate([2026, 11, 23])).toBe(mini.puzzleForDate([2026, 11, 23]));
   });
 });
 

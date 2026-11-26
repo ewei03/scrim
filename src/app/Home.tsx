@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth";
 import { useExtension } from "@/lib/extension";
 import { inviteCode } from "@/lib/invite";
 import { inSavedOrder, savedGameOrder, syncGameOrder } from "@/lib/gameOrder";
+import { mainId } from "@/games/modes";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
 import { crewDeadline, crewPuzzle, localTimeZone } from "@/lib/rounds";
 import type { Crew, Round } from "@/lib/types";
@@ -95,6 +96,7 @@ function Dashboard() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [invite, setInvite] = useState("");
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [joining, setJoining] = useState(false);
   const nameInput = useRef<HTMLInputElement>(null);
 
   // Runs after the Modal's own effect has opened the dialog, so focus sticks
@@ -144,8 +146,10 @@ function Dashboard() {
     }
   }
 
-  // Opening the invite link is what joins (or asks to join), so this just goes there.
-  function joinCrew(e: React.FormEvent) {
+  // Joins (or asks to join) here first, so a bad link, a full crew and the
+  // like show under the box; then opens the crew. (Opening the link joins
+  // too, which does nothing once you're in.)
+  async function joinCrew(e: React.FormEvent) {
     e.preventDefault();
     // The crew limit comes first, as on the server.
     if (crews && crews.length >= MAX_CREWS) return;
@@ -155,6 +159,18 @@ function Dashboard() {
       return;
     }
     setInviteError(null);
+    setJoining(true);
+    try {
+      await rpc<Crew>("join_crew", { p_code: code });
+    } catch (err) {
+      const message = errorMessage(err);
+      setInviteError(
+        message === "Crew not found" ? "Invalid link. It may have been deleted or changed." : message,
+      );
+      return;
+    } finally {
+      setJoining(false);
+    }
     // This page is kept (hidden) after navigating, so reset it for next time.
     setInvite("");
     router.push(`/crew/${code}`);
@@ -176,7 +192,7 @@ function Dashboard() {
         [...gameList(), ...crew.custom_games.map(customAdapter)].filter((game) =>
           crew.crew_games.some((g) => g.game === game.id),
         ),
-        (game) => game.id,
+        (game) => mainId(game.id),
         orders.get(crew.id) ?? (user ? savedGameOrder(user.id, crew.id) : []),
       ).map((game) => {
           const puzzleId = crewPuzzle(game, crew, now);
@@ -326,8 +342,8 @@ function Dashboard() {
             aria-invalid={inviteError !== null}
             aria-describedby={inviteError ? "invite-error" : atLimit ? "join-note" : undefined}
           />
-          <button className="btn" disabled={atLimit || !invite.trim()}>
-            Join
+          <button className="btn" disabled={atLimit || joining || !invite.trim()}>
+            {joining ? "Joining…" : "Join"}
           </button>
         </form>
         {inviteError && (

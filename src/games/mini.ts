@@ -2,10 +2,12 @@ import { normalizeShareText } from "./share";
 import type { GameAdapter, ParseResult } from "./types";
 
 /**
- * The Mini Crossword (minicrossword.com), its Easy daily. Fewest reveals
- * wins, then the fastest time. Its Hard, archive and Unlimited puzzles aren't
- * supported.
+ * The Mini Crossword (minicrossword.com), its Easy and Hard dailies, each its
+ * own game in Scrim (shown together, with a switch). Fewest reveals wins,
+ * then the fastest time. Archive and Unlimited puzzles aren't supported.
  */
+export type MiniLevel = "easy" | "hard";
+
 export type MiniResult = {
   puzzle: string;
   /** Solve time, in whole seconds (as the share shows it). */
@@ -14,7 +16,7 @@ export type MiniResult = {
   reveals: number;
 };
 
-/** Mini Crossword (Easy) #1 was 2026-06-22. Resets at local midnight, like Wordle. */
+/** Both dailies' #1 was 2026-06-22. Resets at local midnight, like Wordle. */
 const EPOCH_UTC = Date.UTC(2026, 5, 21);
 const DAY_MS = 86_400_000;
 /** A day: longer than that and the timer can't be right. */
@@ -48,14 +50,17 @@ export function checkMini(r: Omit<MiniResult, "puzzle">): string | null {
   return null;
 }
 
-export function parseMini(text: string): ParseResult<MiniResult> {
+export function parseMini(text: string, level: MiniLevel = "easy"): ParseResult<MiniResult> {
   const clean = normalizeShareText(text);
   if (/Mini\s+Crossword\s*-\s*Unlimited/iu.test(clean)) {
     return { ok: false, error: "Unlimited puzzles don't count: play the daily one." };
   }
   const header = clean.match(HEADER);
   if (!header) return { ok: false, error: "Invalid format for Mini Crossword score." };
-  if (header[1].toLowerCase() !== "easy") return { ok: false, error: "Only the Easy daily counts." };
+  if (header[1].toLowerCase() !== level) {
+    const other = level === "easy" ? "Hard" : "Easy";
+    return { ok: false, error: `That's the ${other} puzzle. Switch this card to ${other} and paste it there.` };
+  }
   if (/archive\//iu.test(clean)) return { ok: false, error: "Archive puzzles don't count: play today's." };
   const puzzle = String(Number(header[2].replace(/\D/g, "")));
 
@@ -69,10 +74,12 @@ export function parseMini(text: string): ParseResult<MiniResult> {
   return problem ? { ok: false, error: problem } : { ok: true, result };
 }
 
-export const mini: GameAdapter<MiniResult> = {
-  id: "minicrossword",
-  name: "Mini Crossword (Easy)",
-  url: "https://minicrossword.com/",
+function miniAdapter(level: MiniLevel): GameAdapter<MiniResult> {
+  const label = level === "easy" ? "Easy" : "Hard";
+  return {
+  id: level === "easy" ? "minicrossword" : "minicrosswordhard",
+  name: `Mini Crossword (${label})`,
+  url: level === "easy" ? "https://minicrossword.com/" : "https://minicrossword.com/hard",
   source: "minicrossword.com",
   color: "#8fcfbf",
   free: true,
@@ -81,8 +88,8 @@ export const mini: GameAdapter<MiniResult> = {
   puzzleLabel: (id) => `#${Number(id).toLocaleString("en-US")}`,
   autoSubmit: true,
 
-  shareHint: "Solve today's Easy puzzle, click Share, then paste it here.",
-  parseShareText: parseMini,
+  shareHint: `Solve today's ${label} puzzle, click Share, then paste it here.`,
+  parseShareText: (text) => parseMini(text, level),
 
   // Fewest reveals, then fastest.
   compare: (a, b) => a.reveals - b.reveals || a.seconds - b.seconds,
@@ -94,4 +101,8 @@ export const mini: GameAdapter<MiniResult> = {
     if (results.length === 0) return null;
     return formatTime(Math.round(results.reduce((sum, r) => sum + r.seconds, 0) / results.length));
   },
-};
+  };
+}
+
+export const mini = miniAdapter("easy");
+export const miniHard = miniAdapter("hard");

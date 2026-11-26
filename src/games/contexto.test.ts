@@ -15,7 +15,7 @@ describe("parseContexto", () => {
       "I played contexto.me 11/23/2026 and got it in 24 guesses and 2 hints.\n\n🟩🟩 3\n🟨🟨🟨🟨 8\n🟥🟥🟥🟥🟥🟥 13",
     );
     expect(r).toEqual({ ok: true, result: { puzzle: "1527", solved: true, guesses: 24, hints: 2, chart: [3, 8, 13] } });
-    expect(contexto.formatScore(r.ok ? r.result : ({} as never))).toBe("24 +2💡");
+    expect(contexto.formatScore(r.ok ? r.result : ({} as never))).toBe("24");
   });
 
   it("reads an older numbered share, Windows line breaks and empty bars", () => {

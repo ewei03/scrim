@@ -4,7 +4,8 @@ import type { GameAdapter, ParseResult } from "./types";
 /**
  * Costcodle Checkout (costcodle.com, the default mode): guess the price of
  * five Costco products, one guess each. The score is how far off the guesses
- * were in total, so lower is better. Classic mode isn't supported.
+ * were in total, so lower is better. Classic mode is its own game
+ * (costcodle-classic.ts).
  */
 export type CostcodleResult = {
   puzzle: string;
@@ -38,17 +39,6 @@ export function money(cents: number): string {
   return `$${usd.format(cents / 100)}`;
 }
 
-/** A short amount for the per-item chips: "$3.20", "$12", "$340", "$1.2k". */
-export function shortMoney(cents: number): string {
-  const dollars = cents / 100;
-  if (dollars < 10) return `$${dollars.toFixed(2)}`;
-  if (dollars < 1000) return `$${Math.round(dollars)}`;
-  const k = dollars / 1000;
-  if (k < 1000) return `$${k < 10 ? k.toFixed(1).replace(/\.0$/, "") : Math.round(k)}k`;
-  const m = k / 1000;
-  return `$${m < 10 ? m.toFixed(1).replace(/\.0$/, "") : Math.round(m)}M`;
-}
-
 /** How close one guess was, for colouring its chip: within $2, within $10, further. */
 export function closeness(cents: number): "near" | "mid" | "far" {
   return cents <= 200 ? "near" : cents <= 1000 ? "mid" : "far";
@@ -80,7 +70,7 @@ export function parseCostcodle(text: string): ParseResult<CostcodleResult> {
   const header = clean.match(HEADER);
   if (!header) {
     if (/Costcodle\s+(?:Classic\s+)?#/iu.test(clean)) {
-      return { ok: false, error: "That's Costcodle Classic. Play Checkout, the five-item game." };
+      return { ok: false, error: "That's Costcodle Classic. Paste it under Costcodle Classic instead." };
     }
     return { ok: false, error: "Invalid format for Costcodle score." };
   }
@@ -106,7 +96,7 @@ export function parseCostcodle(text: string): ParseResult<CostcodleResult> {
 
 export const costcodle: GameAdapter<CostcodleResult> = {
   id: "costcodle",
-  name: "Costcodle",
+  name: "Costcodle Checkout",
   url: "https://costcodle.com/",
   source: "costcodle.com",
   color: "#e8908c",

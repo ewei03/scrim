@@ -10,6 +10,7 @@ import { ExternalArrow } from "@/components/ExternalArrow";
 import { GearIcon } from "@/components/GearIcon";
 import { GameTag, gameStyle } from "@/components/GameTag";
 import { Modal } from "@/components/Modal";
+import { ModeSwitch } from "@/components/ModeSwitch";
 import { MemberStats } from "@/components/MemberStats";
 import { ReorderGames } from "@/components/ReorderGames";
 import { Rankings } from "@/components/Rankings";
@@ -18,6 +19,7 @@ import { Scoreboard } from "@/components/Scoreboard";
 import { SubmitPanel } from "@/components/SubmitPanel";
 import { rankEntries } from "@/games/ranking";
 import { customAdapter, customGameId, customOf, isCustomGameId, type CustomGame } from "@/games/custom";
+import { MODE_GROUPS, groupItems, groupName, groupOf, mainId, modeLabel, saveMode, savedModes } from "@/games/modes";
 import { gameList, getGame } from "@/games/registry";
 import type { GameAdapter } from "@/games/types";
 import { useAuth } from "@/lib/auth";
@@ -227,6 +229,18 @@ function CrewPage() {
     [userId, crewId, orderKey],
   );
   const [showReorder, setShowReorder] = useState(false);
+  // Which mode you're looking at for games that have them (Costcodle's
+  // Checkout or Classic, the Mini's Easy or Hard), kept in this browser. The
+  // same choice on the card, in Rankings and in the archive.
+  const [modes, setModes] = useState<Record<string, string>>(() => savedModes());
+  const pickMode = useCallback((group: string, mode: string) => {
+    setModes((m) => ({ ...m, [group]: mode }));
+    saveMode(group, mode);
+  }, []);
+  // The mode each Today card shows this visit (by its main mode's id). It
+  // starts on the one you've still to play (the first, if both), settled once
+  // whether you've played each is known; switching it picks it from then on.
+  const [cardModes, setCardModes] = useState<Record<string, string>>({});
   // Whether games you've still to play go on top (set in the same modal).
   const [toPlayFirst, setToPlayFirst] = useState<{ key: string; on: boolean } | null>(null);
   const toPlayFirstNow =
@@ -235,6 +249,13 @@ function CrewPage() {
   const [viewing, setViewing] = useState<string | null>(null);
   // Whether you've submitted each of today's games, as their boards report it.
   const [played, setPlayed] = useState<Record<string, boolean>>({});
+  // The last board seen for each mode of a game with modes ("game:puzzle"),
+  // so switching a card's mode shows it straight away rather than an empty one.
+  const [modeBoards, setModeBoards] = useState<Record<string, BoardRow[]>>({});
+  const keepBoard = useCallback(
+    (key: string, rows: BoardRow[]) => setModeBoards((b) => (b[key] === rows ? b : { ...b, [key]: rows })),
+    [],
+  );
   const onPlayed = useCallback(
     (gameId: string, done: boolean) => setPlayed((p) => (p[gameId] === done ? p : { ...p, [gameId]: done })),
     [],
@@ -323,15 +344,71 @@ function CrewPage() {
   // Built-in games, then the crew's own custom games.
   const allGames = useMemo(() => [...gameList(), ...customGames.map(customAdapter)], [customGames]);
   // The Games box: games the crew played when the page loaded first, then the
-  // rest, each group in alphabetical order.
+  // rest, each group in alphabetical order. A game with modes is listed once,
+  // as its main mode.
   const boxGames = useMemo(() => {
-    const on = new Set(loadedGames?.games ?? []);
-    const sorted = [...allGames].sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
+    const on = new Set((loadedGames?.games ?? []).map(mainId));
+    const name = (g: GameAdapter<unknown>) => groupName(g.id, g.name);
+    const sorted = allGames
+      .filter((g) => mainId(g.id) === g.id)
+      .sort((a, b) => name(a).localeCompare(name(b), "en", { sensitivity: "base" }));
     return [...sorted.filter((g) => on.has(g.id)), ...sorted.filter((g) => !on.has(g.id))];
   }, [allGames, loadedGames]);
   // The archive lists each day's games in the same order as the Games box.
   const archiveOrder = useMemo(() => boxGames.map((g) => g.id), [boxGames]);
   const findGame = useCallback((id: string) => allGames.find((g) => g.id === id) ?? getGame(id), [allGames]);
+
+  // A card shows one of a game's modes; whether you've played the others is
+  // checked here (as often as the boards), so a game with any mode still to
+  // play stays with the unplayed ones whichever mode is on show.
+  /** The mode a card shows, of the crew's modes `ids` for the game `group` (in the game's order). */
+  const cardShows = useCallback(
+    (group: string, ids: string[]) => {
+      const pick = cardModes[group] ?? modes[group];
+      return ids.find((id) => id === pick) ?? ids[0];
+    },
+    [cardModes, modes],
+  );
+  const otherModes = useMemo(() => {
+    if (!crew) return "";
+    const out: string[] = [];
+    for (const group of MODE_GROUPS) {
+      const ids = group.modes.map((m) => m.id).filter((id) => games.includes(id));
+      const onShow = cardShows(group.modes[0].id, ids);
+      for (const id of ids) if (id !== onShow) out.push(`${id}:${crewPuzzle(findGame(id), crew, new Date(now))}`);
+    }
+    return out.join(",");
+  }, [crew, games, cardShows, findGame, now]);
+  // Settle each card's starting mode once you're known to have played, or
+  // not, every one of them (adjusted while rendering, so it's never shown
+  // the other way first; each card is settled only once).
+  const unsettled: Record<string, string> = {};
+  for (const group of MODE_GROUPS) {
+    const id = group.modes[0].id;
+    const ids = group.modes.map((m) => m.id).filter((m) => games.includes(m));
+    if (ids.length < 2 || cardModes[id] || ids.some((m) => played[m] === undefined)) continue;
+    unsettled[id] = ids.find((m) => played[m] === false) ?? cardShows(id, ids);
+  }
+  if (Object.keys(unsettled).length) setCardModes((m) => ({ ...unsettled, ...m }));
+  useEffect(() => {
+    if (!crewId || !userId || !otherModes) return;
+    const check = () => {
+      if (document.visibilityState !== "visible") return;
+      for (const item of otherModes.split(",")) {
+        const [game, puzzle] = item.split(":");
+        rpc<BoardRow[]>("get_round_board", { p_crew: crewId, p_game: game, p_puzzle: puzzle }).then(
+          (rows) => {
+            keepBoard(item, rows);
+            onPlayed(game, rows.some((r) => r.user_id === userId));
+          },
+          () => {},
+        );
+      }
+    };
+    check();
+    const poll = setInterval(check, POLL_MS);
+    return () => clearInterval(poll);
+  }, [crewId, userId, otherModes, boardsKey, onPlayed, keepBoard]);
 
   const today = crew ? `${crew.timezone}:${games.map((g) => crewPuzzle(findGame(g), crew, new Date(now))).join()}` : "";
   const lastToday = useRef(today);
@@ -385,11 +462,13 @@ function CrewPage() {
     () =>
       inSavedOrder(
         allGames.filter((g) => rounds.some((r) => r.game === g.id && r.entries.length > 0)),
-        (g) => g.id,
+        (g) => mainId(g.id),
         gameOrder,
       ),
     [rounds, allGames, gameOrder],
   );
+  // One choice per game: a game's modes share one, with a switch between them.
+  const rankedGroups = useMemo(() => groupItems(rankedGames, (g) => g.id), [rankedGames]);
 
   // Rankings count only days that end after the owner last reset them (the archive keeps them all).
   const resetAt = crew?.rankings_reset_at ?? null;
@@ -399,8 +478,14 @@ function CrewPage() {
   );
 
   const ranked = useMemo(() => {
-    const game = rankedGames.find((g) => g.id === rankingsGame) ?? rankedGames[0];
-    if (!game || !crew) return null;
+    const group = rankedGroups.find((g) => g.id === rankingsGame) ?? rankedGroups[0];
+    if (!group || !crew) return null;
+    // A game with modes shows the one you picked (even if nobody has played
+    // it yet), or else the first one played.
+    const modeGroup = groupOf(group.id);
+    const picked = modes[group.id];
+    const game =
+      modeGroup && picked && modeGroup.modes.some((m) => m.id === picked) ? findGame(picked) : group.items[0];
     const zone = crew.timezone ?? "UTC";
     // Finished days only: today's round is on the Today tab.
     const played = finishedSinceReset.filter((r) => r.game === game.id && inPeriod(r, rankingsPeriod, zone, now));
@@ -408,8 +493,13 @@ function CrewPage() {
     // removed for being inactive) drops out of the rankings, though their
     // finished days stay in the archive. Matches the extension's rankings.
     const ids = members.map((m) => m.user_id);
-    return { game, count: played.length, ...crewStats(game, played, ids, { byWinRate: crew.rank_by_win_rate }) };
-  }, [rankedGames, rankingsGame, rankingsPeriod, crew, finishedSinceReset, members, now]);
+    return {
+      group: group.id,
+      game,
+      count: played.length,
+      ...crewStats(game, played, ids, { byWinRate: crew.rank_by_win_rate }),
+    };
+  }, [rankedGroups, rankingsGame, modes, findGame, rankingsPeriod, crew, finishedSinceReset, members, now]);
 
   if (gone) {
     return (
@@ -454,15 +544,26 @@ function CrewPage() {
   const rankedIds = members.map((m) => m.user_id);
   const tracked = inSavedOrder(
     allGames.filter((g) => games.includes(g.id)),
-    (g) => g.id,
+    (g) => mainId(g.id),
     gameOrder,
   );
+  // One card per game (`id` is its main mode's): a game with modes shows the
+  // one you picked, with a switch to the crew's others.
+  const cards = groupItems(tracked, (g) => g.id).map(({ id, items }) => ({
+    id,
+    game: findGame(cardShows(id, items.map((g) => g.id))),
+    modes: items.length > 1 ? items.map((g) => ({ id: g.id, label: modeLabel(g.id) ?? g.name })) : null,
+  }));
   // The cards as shown: your order, with games still to play moved up if you
   // asked for that (each falls back into its place once you've played it).
-  const shown = toPlayFirstNow ? unplayedFirst(tracked, (g) => played[g.id] === false) : tracked;
-  const isOpen = (gameId: string) => cardsNow[gameId] ?? true;
-  const anyCollapsed = tracked.some((g) => !isOpen(g.id));
-  const toPlay = tracked.filter((g) => played[g.id] === false).length;
+  // A game with modes counts as still to play while any of them is, so it
+  // doesn't move when you switch between them.
+  const stillToPlay = (c: (typeof cards)[number]) =>
+    (c.modes ?? [c.game]).some((m) => played[m.id] === false);
+  const shown = toPlayFirstNow ? unplayedFirst(cards, stillToPlay) : cards;
+  const isOpen = (cardId: string) => cardsNow[cardId] ?? true;
+  const anyCollapsed = cards.some((c) => !isOpen(c.id));
+  const toPlay = cards.filter(stillToPlay).length;
   // Custom games with scores in them have their scoring locked.
   const playedGames = new Set(rounds.filter((rd) => rd.entries.length > 0).map((rd) => rd.game));
 
@@ -571,7 +672,7 @@ function CrewPage() {
             isOwner={isOwner}
             onGames={(next) => {
               // A game you just turned on opens expanded, even if you'd collapsed it before.
-              for (const g of next) if (!games.includes(g)) setCardOpen(g, true);
+              for (const g of next) if (!games.includes(g)) setCardOpen(mainId(g), true);
               // A game turned off loses its day in progress (the server deletes it too).
               const removed = games.filter((g) => !next.includes(g));
               if (removed.length) {
@@ -728,11 +829,11 @@ function CrewPage() {
             onRankings={() => selectTab("rankings")}
           />
           {/* Each card has its own countdown; games don't all end together. */}
-          {tracked.length > 0 && (
+          {cards.length > 0 && (
             <div className="row today-head">
               <p className="today-head-hint muted small">Click on a game to expand its rankings.</p>
               <div className="row today-head-actions">
-                {tracked.length > 1 && (
+                {cards.length > 1 && (
                   <button type="button" className="link-btn" aria-haspopup="dialog" onClick={() => setShowReorder(true)}>
                     reorder
                   </button>
@@ -740,21 +841,22 @@ function CrewPage() {
                 <button
                   type="button"
                   className="link-btn"
-                  onClick={() => tracked.forEach((g) => setCardOpen(g.id, anyCollapsed))}
+                  onClick={() => cards.forEach((c) => setCardOpen(c.id, anyCollapsed))}
                 >
                   {anyCollapsed ? "expand all" : "collapse all"}
                 </button>
               </div>
               <ReorderGames
                 open={showReorder}
-                games={tracked}
+                // Each card as one game, under its main mode's id and the game's own name.
+                games={cards.map((c) => ({ ...c.game, id: c.id, name: groupName(c.id, c.game.name) }))}
                 unplayedFirst={toPlayFirstNow}
                 onSave={reorder}
                 onClose={() => setShowReorder(false)}
               />
             </div>
           )}
-          {tracked.length === 0 ? (
+          {cards.length === 0 ? (
             isOwner ? (
               <p className="card">
                 Click on a game in the Crew tab to get started.
@@ -763,11 +865,19 @@ function CrewPage() {
               <p className="muted">The crew owner hasn&apos;t picked any games yet.</p>
             )
           ) : (
-            shown.map((game) => (
+            shown.map(({ id, game, modes: cardModes }) => (
               <TodayRound
+                // A new mode is a new board: start it afresh.
                 key={game.id}
                 crew={crew}
                 game={game}
+                modes={cardModes}
+                cachedBoard={cardModes ? modeBoards[`${game.id}:${crewPuzzle(game, crew, new Date(now))}`] : undefined}
+                onBoard={cardModes ? keepBoard : undefined}
+                onMode={(mode) => {
+                  setCardModes((m) => ({ ...m, [id]: mode }));
+                  pickMode(id, mode);
+                }}
                 now={now}
                 isOwner={isOwner}
                 memberCount={members.length}
@@ -776,8 +886,8 @@ function CrewPage() {
                 onEdit={isOwner && customOf(game) ? () => setEditing(customOf(game)) : undefined}
                 onVoid={(row) => voidEntry(row.display_name, row.entry_id)}
                 onPlayed={onPlayed}
-                open={isOpen(game.id)}
-                onOpen={(open) => setCardOpen(game.id, open)}
+                open={isOpen(id)}
+                onOpen={(open) => setCardOpen(id, open)}
               />
             ))
           )}
@@ -798,12 +908,12 @@ function CrewPage() {
                 <select
                   className="input rankings-select"
                   aria-label="Game"
-                  value={ranked.game.id}
+                  value={ranked.group}
                   onChange={(e) => setRankingsGame(e.target.value)}
                 >
-                  {rankedGames.map((game) => (
-                    <option key={game.id} value={game.id}>
-                      {game.name}
+                  {rankedGroups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {groupName(g.id, g.items[0].name)}
                     </option>
                   ))}
                 </select>
@@ -820,6 +930,15 @@ function CrewPage() {
                     </option>
                   ))}
                 </select>
+                {/* On the right of the header: which of the game's modes to rank. */}
+                {groupOf(ranked.group) && (
+                  <ModeSwitch
+                    modes={groupOf(ranked.group)!.modes}
+                    value={ranked.game.id}
+                    onChange={(id) => pickMode(ranked.group, id)}
+                    label={`${groupOf(ranked.group)!.name} mode`}
+                  />
+                )}
               </p>
               {ranked.count > 0 ? (
                 <Rankings game={ranked.game} players={ranked.players} names={names} guests={guests} />
@@ -854,6 +973,8 @@ function CrewPage() {
             <Archive
               rounds={finished}
               order={archiveOrder}
+              modes={modes}
+              onMode={pickMode}
               findGame={findGame}
               names={names}
               isOwner={isOwner}
@@ -881,7 +1002,18 @@ function TodayRound({
   onPlayed,
   open,
   onOpen,
+  modes,
+  onMode,
+  cachedBoard,
+  onBoard,
 }: {
+  /** The board as last seen (for a game with modes), shown until this one loads. */
+  cachedBoard?: BoardRow[];
+  /** Hands each loaded board back ("game:puzzle"), to be kept for next time. */
+  onBoard?: (key: string, rows: BoardRow[]) => void;
+  /** The game's modes the crew plays, when it has more than one: a switch between them. */
+  modes?: { id: string; label: string }[] | null;
+  onMode?: (mode: string) => void;
   /** Expanded or collapsed: kept by the page, so it can open or close them all. */
   open: boolean;
   onOpen: (open: boolean) => void;
@@ -906,11 +1038,13 @@ function TodayRound({
   // Noted on the card only when this game's day doesn't end with the crew's
   // (Krillion on New York time, Poople at 08:00 UTC).
   const ownClock = ends.getTime() !== crewDayEnd(crew, new Date(now)).getTime();
-  const [board, setBoard] = useState<BoardRow[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const [board, setBoard] = useState<BoardRow[]>(() => cachedBoard ?? []);
+  const [loaded, setLoaded] = useState(cachedBoard !== undefined);
   const [error, setError] = useState<string | null>(null);
   const bodyId = useId();
   const toggle = () => onOpen(!open);
+  // A game with modes is named once, with the switch saying which.
+  const name = modes ? groupName(game.id, game.name) : game.name;
 
   const loadBoard = useCallback(
     () =>
@@ -919,10 +1053,11 @@ function TodayRound({
           setBoard(rows);
           setLoaded(true);
           setError(null);
+          onBoard?.(`${game.id}:${puzzleId}`, rows);
         },
         (e) => setError(errorMessage(e)),
       ),
-    [crew.id, game.id, puzzleId],
+    [crew.id, game.id, puzzleId, onBoard],
   );
 
   useEffect(() => {
@@ -940,7 +1075,7 @@ function TodayRound({
 
   return (
     <article
-      className={`game-card ${open ? "" : "collapsed"} ${submitted ? "" : "unplayed"}`}
+      className={`game-card ${open ? "" : "collapsed"} ${submitted || !loaded ? "" : "unplayed"}`}
       style={gameStyle(game)}
       data-game-card={game.id}
     >
@@ -966,17 +1101,17 @@ function TodayRound({
           </button>
           {game.url ? (
             <a className="game-card-name" href={game.url} target="_blank" rel="noreferrer" title={`Play ${game.name}`}>
-              {game.name} <span className="game-card-puzzle">{game.puzzleLabel(puzzleId)}</span> <ExternalArrow />
+              {name} <span className="game-card-puzzle">{game.puzzleLabel(puzzleId)}</span> <ExternalArrow />
             </a>
           ) : (
             <span className="game-card-name">
-              {game.name} <span className="game-card-puzzle">{game.puzzleLabel(puzzleId)}</span>
+              {name} <span className="game-card-puzzle">{game.puzzleLabel(puzzleId)}</span>
             </span>
           )}
         </h3>
         <div className="game-card-right">
           <span className="game-card-summary">
-            {submitted ? "✓ Done" : "Your turn"} · {board.length}/{memberCount} completed
+            {loaded ? `${submitted ? "✓ Done" : "Your turn"} · ${board.length}/${memberCount} completed` : "…"}
           </span>
           {onEdit && (
             <button
@@ -992,7 +1127,11 @@ function TodayRound({
         </div>
       </header>
       <div className="game-card-body stack" id={bodyId} hidden={!open}>
-        {!submitted && (
+        {/* Tabs at the top of the card: which of the game's modes this board is. */}
+        {modes && onMode && <ModeSwitch tabs modes={modes} value={game.id} onChange={onMode} label={`${name} mode`} />}
+        {/* Not until the board has loaded (you may well have played already),
+            unless it couldn't be: then you can still submit. */}
+        {(loaded || error !== null) && !submitted && (
           <SubmitPanel
             crew={crew}
             game={game}
@@ -1010,7 +1149,7 @@ function TodayRound({
             }
           />
         )}
-        {ownClock && !submitted && <OwnClockNote deadline={deadline} />}
+        {ownClock && loaded && !submitted && <OwnClockNote deadline={deadline} />}
         <Scoreboard
           game={game}
           rows={board}
@@ -1189,10 +1328,15 @@ function DayEndedNotice({
 /** closes_at is the midnight that ended the day; this is a moment in the day itself. */
 const roundDay = (round: Round) => new Date(new Date(round.closes_at).getTime() - 60_000);
 
+/** The most games shown as dots on a calendar day; more show as "+2" and so on. */
+const CAL_DOTS = 3;
+
 /** Past rounds on a month calendar: a day with results opens its games in a modal. */
 function Archive({
   rounds,
   order,
+  modes,
+  onMode,
   findGame,
   names,
   isOwner,
@@ -1201,6 +1345,9 @@ function Archive({
   rounds: RoundWithEntries[];
   /** Game ids in the order the crew's Games box lists them; each day's games follow it. */
   order: string[];
+  /** The mode picked for each game with modes (by its main mode's id). */
+  modes: Record<string, string>;
+  onMode: (group: string, mode: string) => void;
   findGame: (id: string) => GameAdapter<unknown>;
   names: Map<string, string>;
   isOwner: boolean;
@@ -1213,7 +1360,7 @@ function Archive({
       const key = dayKey(roundDay(r));
       byDay.set(key, [...(byDay.get(key) ?? []), r]);
     }
-    for (const [key, list] of byDay) byDay.set(key, inSavedOrder(list, (r) => r.game, order));
+    for (const [key, list] of byDay) byDay.set(key, inSavedOrder(list, (r) => mainId(r.game), order));
     return byDay;
   }, [rounds, order]);
 
@@ -1237,7 +1384,8 @@ function Archive({
     new Date(2026, 10, 1 + i).toLocaleDateString(undefined, { weekday: "narrow" }),
   );
   const todayKey = dayKey(new Date());
-  const dayRounds = openDay ? (days.get(openDay) ?? []) : [];
+  // A game's modes played that day are one item, with a switch between them.
+  const dayGroups = groupItems(openDay ? (days.get(openDay) ?? []) : [], (r) => r.game);
 
   return (
     <div className="archive-cal">
@@ -1274,6 +1422,8 @@ function Archive({
           if (!key) return <span key={`b${i}`} />;
           const list = days.get(key);
           const n = Number(key.slice(8));
+          // A dot per game: its modes share one.
+          const dots = list ? groupItems(list, (r) => r.game).map((g) => g.items[0]) : [];
           if (!list) {
             return (
               <span key={key} className={`archive-cal-day ${key === todayKey ? "today" : ""}`}>
@@ -1291,9 +1441,11 @@ function Archive({
             >
               <span>{n}</span>
               <span className="archive-cal-dots" aria-hidden>
-                {list.map((r) => (
+                {/* Three at most, to keep the day tidy; the rest as a count. */}
+                {dots.slice(0, CAL_DOTS).map((r) => (
                   <span key={r.id} className="archive-cal-dot" style={gameStyle(findGame(r.game))} />
                 ))}
+                {dots.length > CAL_DOTS && <span className="archive-cal-more">+{dots.length - CAL_DOTS}</span>}
               </span>
             </button>
           );
@@ -1306,16 +1458,30 @@ function Archive({
         size="large"
       >
         <ul className="list list-archive archive-day-rounds">
-          {dayRounds.map((r) => (
-            <PastRound
-              key={r.id}
-              game={findGame(r.game)}
-              round={r}
-              names={names}
-              isOwner={isOwner}
-              onVoid={onVoid}
-            />
-          ))}
+          {dayGroups.map(({ id, items }) => {
+            const round = items.find((r) => r.game === modes[id]) ?? items[0];
+            const game = findGame(round.game);
+            return (
+              <PastRound
+                key={id}
+                game={game}
+                round={round}
+                names={names}
+                isOwner={isOwner}
+                onVoid={onVoid}
+                switcher={
+                  items.length > 1 ? (
+                    <ModeSwitch
+                      modes={items.map((r) => ({ id: r.game, label: modeLabel(r.game) ?? findGame(r.game).name }))}
+                      value={round.game}
+                      onChange={(mode) => onMode(id, mode)}
+                      label={`${groupName(id, game.name)} mode`}
+                    />
+                  ) : null
+                }
+              />
+            );
+          })}
         </ul>
       </Modal>
     </div>
@@ -1339,7 +1505,10 @@ function PastRound({
   names,
   isOwner,
   onVoid,
+  switcher,
 }: {
+  /** A switch between the game's modes played that day, if more than one was. */
+  switcher?: React.ReactNode;
   game: GameAdapter<unknown>;
   round: RoundWithEntries;
   names: Map<string, string>;
@@ -1362,7 +1531,9 @@ function PastRound({
       <details className="past-round">
         <summary className="list-row">
           <span>
-            <GameTag game={game} /> {game.puzzleLabel(round.puzzle_id)}
+            {/* With a switch, the game is named once and the switch says which mode. */}
+            <GameTag game={switcher ? { ...game, name: groupName(game.id, game.name) } : game} />{" "}
+            {game.puzzleLabel(round.puzzle_id)} {switcher}
           </span>
           <span>
             {winners.length
@@ -1402,12 +1573,21 @@ function CrewGames({
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The list folds away behind its label. It opens on every visit; folding it lasts only this one.
+  const [showList, setShowList] = useState(true);
+  const listId = useId();
+
+  // A game with modes turns all of them on or off (the server does the same).
+  const idsOf = (game: GameAdapter<unknown>) => groupOf(game.id)?.modes.map((m) => m.id) ?? [game.id];
+  const isOn = (game: GameAdapter<unknown>) => idsOf(game).some((id) => games.includes(id));
+  const nameOf = (game: GameAdapter<unknown>) => groupName(game.id, game.name);
 
   async function toggle(game: GameAdapter<unknown>) {
-    const on = !games.includes(game.id);
+    const ids = idsOf(game);
+    const on = !isOn(game);
     if (!on && !skipRemoveGameConfirm()) {
       const dontAsk = await confirmWithOption(
-        `Stop playing ${game.name} in ${crew.name}? You can bring it back later - archived rankings stay.`,
+        `Stop playing ${nameOf(game)} in ${crew.name}? You can bring it back later - archived rankings stay.`,
         "Don't ask again",
       );
       if (dontAsk === null) return;
@@ -1417,7 +1597,7 @@ function CrewGames({
     setError(null);
     try {
       await rpc("set_crew_game", { p_crew: crew.id, p_game: game.id, p_tracked: on });
-      onGames(on ? [...games, game.id] : games.filter((g) => g !== game.id));
+      onGames(on ? [...games, ...ids.filter((id) => !games.includes(id))] : games.filter((g) => !ids.includes(g)));
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -1427,55 +1607,73 @@ function CrewGames({
 
   return (
     <div className="crew-games">
-      <span className="crew-games-label">Games</span>
-      {isOwner ? (
-        <>
-          <ul className="game-toggles">
-            {allGames.map((g) => {
-              const on = games.includes(g.id);
-              return (
-                <li key={g.id}>
-                  <button
-                    type="button"
-                    className="game-toggle"
-                    style={gameStyle(g)}
-                    aria-pressed={on}
-                    disabled={busy !== null}
-                    title={on ? `Stop playing ${g.name}` : `Play ${g.name} in this crew`}
-                    onClick={() => toggle(g)}
-                  >
-                    <span aria-hidden>{on ? "✓" : "+"}</span> {g.name}
+      <button
+        type="button"
+        className="crew-games-label crew-games-toggle"
+        aria-expanded={showList}
+        aria-controls={listId}
+        title={showList ? "Hide the games" : "Show the games"}
+        onClick={() => setShowList(!showList)}
+      >
+        Games
+        {!showList && <span className="crew-games-hint"> (Click to expand)</span>}
+        {/* In the box's top-right corner: points down to open, up to fold away. */}
+        <svg className={`crew-games-chevron${showList ? " open" : ""}`} viewBox="0 0 16 16" aria-hidden>
+          <path d="M4 6l4 4 4-4" />
+        </svg>
+      </button>
+      {showList && (
+        <div className="crew-games-list" id={listId}>
+          {isOwner ? (
+            <>
+              <ul className="game-toggles">
+                {allGames.map((g) => {
+                  const on = isOn(g);
+                  return (
+                    <li key={g.id}>
+                      <button
+                        type="button"
+                        className="game-toggle"
+                        style={gameStyle(g)}
+                        aria-pressed={on}
+                        disabled={busy !== null}
+                        title={on ? `Stop playing ${nameOf(g)}` : `Play ${nameOf(g)} in this crew`}
+                        onClick={() => toggle(g)}
+                      >
+                        <span aria-hidden>{on ? "✓" : "+"}</span> {nameOf(g)}
+                      </button>
+                    </li>
+                  );
+                })}
+                <li>
+                  <button type="button" className="game-toggle add-custom" onClick={onAddCustom}>
+                    <span aria-hidden>+</span> Custom
                   </button>
                 </li>
-              );
-            })}
-            <li>
-              <button type="button" className="game-toggle add-custom" onClick={onAddCustom}>
-                <span aria-hidden>+</span> Custom
-              </button>
-            </li>
-          </ul>
-          {error && <p className="error small">{error}</p>}
-        </>
-      ) : (
-        // Everyone else sees the same list, read-only: what's played is filled in.
-        <ul className="game-toggles">
-          {allGames
-            // A custom game the crew isn't playing is the owner's business.
-            .filter((g) => games.includes(g.id) || !isCustomGameId(g.id))
-            .map((g) => {
-              const on = games.includes(g.id);
-              return (
-                <li key={g.id}>
-                  <span className={`game-toggle static${on ? " on" : ""}`} style={gameStyle(g)}>
-                    {on && <span aria-hidden>✓ </span>}
-                    {g.name}
-                    {!on && <span className="sr-only"> (not played)</span>}
-                  </span>
-                </li>
-              );
-            })}
-        </ul>
+              </ul>
+              {error && <p className="error small">{error}</p>}
+            </>
+          ) : (
+            // Everyone else sees the same list, read-only: what's played is filled in.
+            <ul className="game-toggles">
+              {allGames
+                // A custom game the crew isn't playing is the owner's business.
+                .filter((g) => isOn(g) || !isCustomGameId(g.id))
+                .map((g) => {
+                  const on = isOn(g);
+                  return (
+                    <li key={g.id}>
+                      <span className={`game-toggle static${on ? " on" : ""}`} style={gameStyle(g)}>
+                        {on && <span aria-hidden>✓ </span>}
+                        {nameOf(g)}
+                        {!on && <span className="sr-only"> (not played)</span>}
+                      </span>
+                    </li>
+                  );
+                })}
+            </ul>
+          )}
+        </div>
       )}
     </div>
   );
@@ -1779,32 +1977,34 @@ function ManageCrew({
 
       <section className="manage-card">
         <h3>Transfer ownership (non-guests only)</h3>
-        {heirs.length === 0 ? (
-          <p className="muted small">
+        <div className="row">
+          <select
+            className="input grow"
+            aria-label="New owner"
+            value={heir}
+            disabled={busy !== null || heirs.length === 0}
+            aria-describedby={heirs.length === 0 ? "no-heirs" : undefined}
+            onChange={(e) => setHeir(e.target.value)}
+          >
+            <option value="">{heirs.length === 0 ? "No eligible members" : "Choose a member…"}</option>
+            {heirs.map((m) => (
+              <option key={m.user_id} value={m.user_id}>
+                {m.profiles.display_name}
+              </option>
+            ))}
+          </select>
+          <button
+            className="btn btn-small"
+            disabled={busy !== null || !heirs.some((m) => m.user_id === heir)}
+            onClick={transfer}
+          >
+            {busy === "transfer" ? "Transferring…" : "Transfer"}
+          </button>
+        </div>
+        {heirs.length === 0 && (
+          <p className="muted small" id="no-heirs">
             Nobody to hand it to yet. The new owner has to be in the crew, signed in with Google (not a guest).
           </p>
-        ) : (
-          <>
-            <div className="row">
-              <select
-                className="input grow"
-                aria-label="New owner"
-                value={heir}
-                disabled={busy !== null}
-                onChange={(e) => setHeir(e.target.value)}
-              >
-                <option value="">Choose a member…</option>
-                {heirs.map((m) => (
-                  <option key={m.user_id} value={m.user_id}>
-                    {m.profiles.display_name}
-                  </option>
-                ))}
-              </select>
-              <button className="btn btn-small" disabled={busy !== null || !heir} onClick={transfer}>
-                {busy === "transfer" ? "Transferring…" : "Transfer"}
-              </button>
-            </div>
-          </>
         )}
       </section>
 

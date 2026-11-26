@@ -1133,6 +1133,78 @@ select.input {
 .citem-far {
   background: #ee9a96;
 }
+/* A switch between a game's modes (Costcodle's Checkout and Classic, the
+   Mini's Easy and Hard): on its card, in Rankings and in the archive. */
+.mode-switch {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  overflow: hidden;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.mode-switch-btn {
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.mode-switch-btn + .mode-switch-btn {
+  border-left: 1px solid var(--line);
+}
+.mode-switch-btn[aria-pressed="true"] {
+  background: var(--line);
+  color: var(--card);
+}
+/* On a Today card: tabs across the top of its body, one per mode, divided
+   like the card's other sections. The one on show takes the card's colour. */
+.mode-switch.mode-tabs {
+  display: flex;
+  width: 100%;
+  border: 0;
+  border-bottom: 2px solid var(--line);
+}
+.mode-tabs .mode-switch-btn {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 8px 12px;
+  background: var(--paper);
+  color: var(--muted);
+}
+.mode-tabs .mode-switch-btn + .mode-switch-btn {
+  border-left: 2px solid color-mix(in srgb, var(--game) 60%, var(--line));
+}
+.mode-tabs .mode-switch-btn:hover {
+  color: var(--ink);
+}
+/* The one on show: tinted with the game's colour, with a bar of it underneath. */
+.mode-tabs .mode-switch-btn[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--game) 35%, var(--card));
+  color: var(--ink);
+  box-shadow: inset 0 -3px 0 var(--game);
+  cursor: default;
+}
+/* In Rankings, at the far right of the header, about as tall as its pickers. */
+.rankings-head .mode-switch {
+  margin-left: auto;
+  font-weight: 400;
+}
+.rankings-head .mode-switch-btn {
+  font-size: 14px;
+  padding: 4px 14px;
+}
+
+/* Costcodle Classic: one chip per guess, in a single row. */
+.citems-classic {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+}
 
 /* Nerdle: right character, wrong place. */
 .np {
@@ -1772,6 +1844,12 @@ select.input {
   border: 1px solid var(--line);
 }
 
+.archive-cal-more {
+  font-size: 9px;
+  line-height: 8px;
+  color: var(--muted);
+}
+
 @media (max-width: 480px) {
   .list-archive .archive-day > summary.list-row {
     grid-template-columns: auto 1fr;
@@ -2322,6 +2400,54 @@ body:has(.reorder-row.lifted) {
 
 .crew-games .error {
   flex-basis: 100%;
+}
+
+/* The "Games" label folds the list away; a chevron in the box's top-right
+   corner (part of the same button) says which way it'll go. */
+.crew-games {
+  position: relative;
+  padding-right: 28px;
+}
+.crew-games-toggle {
+  font-family: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.crew-games-chevron {
+  position: absolute;
+  top: 10px;
+  right: 0;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 150ms;
+}
+/* "(Click to expand)" beside the label while folded: plain, not the label's capitals. */
+.crew-games-hint {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--muted);
+}
+.crew-games-chevron.open {
+  transform: rotate(180deg);
+}
+.crew-games-toggle:hover .crew-games-chevron {
+  stroke: var(--ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .crew-games-chevron {
+    transition: none;
+  }
+}
+.crew-games-list {
+  display: contents;
 }
 
 /* Off: dashed outline, tinted with the game's colour. On: filled with it.

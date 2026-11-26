@@ -2,7 +2,7 @@
 
 import { Score } from "./Score";
 import { rankEntries } from "@/games/ranking";
-import { ResultDetail } from "@/games/ui";
+import { ResultDetail, hasResultDetail } from "@/games/ui";
 import { PlayerName } from "./PlayerName";
 import { toggleClock, useClock24h } from "@/lib/clock";
 import { formatTime, ordinal } from "@/lib/time";
@@ -30,6 +30,8 @@ export function Scoreboard({
   const hidden = rows.filter((r) => r.hidden);
   // Your 12/24-hour choice, shared by every scoreboard (click the heading to flip it).
   const clock24h = useClock24h();
+  // Games with nothing to draw (the Mini, Globle, Waffle, custom games) skip the Result column.
+  const withResult = hasResultDetail(game.id);
 
   return (
     <section className="stack">
@@ -42,7 +44,7 @@ export function Scoreboard({
               <th>Rank</th>
               <th>Name</th>
               <th>Score</th>
-              <th>Result</th>
+              {withResult && <th>Result</th>}
               <th>
                 <button
                   type="button"
@@ -73,9 +75,11 @@ export function Scoreboard({
                 <td className="score">
                   <Score text={game.formatScore(r.result)} />
                 </td>
-                <td className="result">
-                  <ResultDetail gameId={game.id} result={r.result} />
-                </td>
+                {withResult && (
+                  <td className="result">
+                    <ResultDetail gameId={game.id} result={r.result} />
+                  </td>
+                )}
                 <td className="time muted small">
                   <time dateTime={r.submitted_at}>{formatTime(r.submitted_at, clock24h)}</time>
                 </td>
@@ -98,11 +102,13 @@ export function Scoreboard({
                     Hidden
                   </span>
                 </td>
-                <td className="result">
-                  <span className="pill hidden-pill" title="Submit your own result to see this">
-                    Hidden
-                  </span>
-                </td>
+                {withResult && (
+                  <td className="result">
+                    <span className="pill hidden-pill" title="Submit your own result to see this">
+                      Hidden
+                    </span>
+                  </td>
+                )}
                 <td className="time muted small">
                   <time dateTime={r.submitted_at}>{formatTime(r.submitted_at, clock24h)}</time>
                 </td>
@@ -113,7 +119,7 @@ export function Scoreboard({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="muted center">
+                <td colSpan={withResult ? 6 : 5} className="muted center">
                   Nobody has submitted yet{closed ? "" : " - be the first"}!
                 </td>
               </tr>
