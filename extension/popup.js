@@ -58,7 +58,7 @@ function todaysPuzzles() {
     globle: days(local, Date.UTC(2022, 0, 1)),
     // One puzzle worldwide each, changing at midnight UTC.
     waffle: days(utc, Date.UTC(2022, 0, 21)),
-    nerdle: days(utc, Date.UTC(2022, 1, 2)),
+    nerdle: days(utc, Date.UTC(2022, 0, 19)),
   };
 }
 

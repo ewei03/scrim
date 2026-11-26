@@ -727,7 +727,7 @@ describe("connections and krillion", () => {
   });
 
   it("checks Nerdle's grid", async () => {
-    const { rows: n } = await db.query<{ e: number }>("select ((now() at time zone 'UTC')::date - date '2022-02-02') as e");
+    const { rows: n } = await db.query<{ e: number }>("select ((now() at time zone 'UTC')::date - date '2022-01-19') as e");
     const E = String(n[0].e);
     await as(ANN, "select set_crew_game($1, 'nerdle', true)", [crew]);
     await expect(submit(EVE, "nerdle", { puzzle: E, solved: true, guesses: 2 })).rejects.toThrow(/coloured grid/);

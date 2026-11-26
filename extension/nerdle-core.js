@@ -6,11 +6,11 @@
 // gameMode: "", solutionIndex }, and the share calls it #solutionIndex + 1.
 // Other modes on the same site set localStorage "gameMode" (and their saved
 // gameMode) to something else; replays use "gameState_replay". One puzzle
-// worldwide, changing at midnight UTC; #1 was 2022-02-03. The grid is worked
+// worldwide, changing at midnight UTC; #1 was 2022-01-20. The grid is worked
 // out the way Nerdle colours it; the solution itself isn't sent. No accounts
 // are read.
 (function (root) {
-  const EPOCH_UTC = Date.UTC(2022, 1, 2); // #0
+  const EPOCH_UTC = Date.UTC(2022, 0, 19); // #0
   const DAY_MS = 86400000;
   const WIDTH = 8;
   const MAX_GUESSES = 6;

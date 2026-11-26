@@ -9,14 +9,14 @@ describe("puzzle numbers", () => {
   it("match the sites", () => {
     expect(worldleNumberFor(new Date(2026, 10, 26, 12))).toBe(1770);
     expect(waffleNumberFor(new Date(Date.UTC(2026, 10, 26, 12)))).toBe(1770);
-    expect(nerdleNumberFor(new Date(Date.UTC(2026, 10, 26, 12)))).toBe(1758);
+    expect(nerdleNumberFor(new Date(Date.UTC(2026, 10, 26, 12)))).toBe(1772);
     expect(globle.puzzleLabel(String(globleNumberFor(new Date(2026, 10, 26, 12))))).toBe("Nov 26");
   });
 
   it("agree with puzzleForDate", () => {
     expect(worldle.puzzleForDate([2026, 11, 26])).toBe("1770");
     expect(waffle.puzzleForDate([2026, 11, 26])).toBe("1770");
-    expect(nerdle.puzzleForDate([2026, 11, 26])).toBe("1758");
+    expect(nerdle.puzzleForDate([2026, 11, 26])).toBe("1772");
   });
 });
 
@@ -74,15 +74,15 @@ describe("parseWaffle", () => {
 
 describe("parseNerdle", () => {
   it("reads the share", () => {
-    const r = parseNerdle("nerdlegame 1758 3/6\n\n⬛️🟪⬛️⬛️🟩⬛️🟪⬛️\n🟩🟩⬛️🟪🟩⬛️🟩🟩\n🟩🟩🟩🟩🟩🟩🟩🟩");
+    const r = parseNerdle("nerdlegame 1772 3/6\n\n⬛️🟪⬛️⬛️🟩⬛️🟪⬛️\n🟩🟩⬛️🟪🟩⬛️🟩🟩\n🟩🟩🟩🟩🟩🟩🟩🟩");
     expect(r).toEqual({
       ok: true,
-      result: { puzzle: "1758", solved: true, guesses: 3, grid: [".p..g.p.", "gg.pg.gg", "gggggggg"] },
+      result: { puzzle: "1772", solved: true, guesses: 3, grid: [".p..g.p.", "gg.pg.gg", "gggggggg"] },
     });
   });
 
   it("turns away other modes and short rows", () => {
-    expect(parseNerdle("mini nerdlegame 1758 3/6\n🟩🟩🟩🟩🟩🟩")).toMatchObject({ ok: false, error: /classic/ });
-    expect(parseNerdle("nerdlegame 1758 1/6\n🟩🟩🟩🟩🟩")).toMatchObject({ ok: false, error: /8 squares/ });
+    expect(parseNerdle("mini nerdlegame 1772 3/6\n🟩🟩🟩🟩🟩🟩")).toMatchObject({ ok: false, error: /classic/ });
+    expect(parseNerdle("nerdlegame 1772 1/6\n🟩🟩🟩🟩🟩")).toMatchObject({ ok: false, error: /8 squares/ });
   });
 });

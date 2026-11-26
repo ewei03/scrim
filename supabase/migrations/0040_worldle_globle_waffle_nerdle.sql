@@ -10,7 +10,7 @@
 -- loss. One puzzle worldwide, #0 on 2022-01-21, changing at midnight UTC.
 --
 -- Nerdle: the eight-character equation in six; ranked like Wordle. One puzzle
--- worldwide, #1 on 2022-02-03, changing at midnight UTC. Results keep the
+-- worldwide, #1 on 2022-01-20, changing at midnight UTC. Results keep the
 -- share's grid ("p" for purple).
 --
 -- Keep in sync with src/games/worldle.ts, globle.ts, waffle.ts and nerdle.ts.
@@ -450,7 +450,7 @@ language sql immutable as $$
     when p_game = 'worldle'        then date '2022-01-21'
     when p_game = 'globle'         then date '2022-01-01'
     when p_game = 'waffle'         then date '2022-01-21'
-    when p_game = 'nerdle'         then date '2022-02-02'
+    when p_game = 'nerdle'         then date '2022-01-19'
     when p_game like 'custom:%'    then date '2020-01-01'
   end + p_puzzle::int
 $$;

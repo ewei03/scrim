@@ -17,10 +17,10 @@ export type NerdleResult = {
 };
 
 /**
- * Nerdle #1 was 2022-02-03. One puzzle worldwide, which changes at midnight
+ * Nerdle #1 was 2022-01-20. One puzzle worldwide, which changes at midnight
  * UTC (unless the player switched Nerdle to local time).
  */
-const EPOCH_UTC = Date.UTC(2022, 1, 2);
+const EPOCH_UTC = Date.UTC(2022, 0, 19);
 const DAY_MS = 86_400_000;
 export const ZONE = "UTC";
 export const WIDTH = 8;
@@ -31,7 +31,7 @@ export function nerdleNumberFor(date: Date): number {
   return Math.round((Date.UTC(y, m - 1, d) - EPOCH_UTC) / DAY_MS);
 }
 
-// "nerdlegame 1758 3/6". Other modes put theirs first ("mini nerdlegame …").
+// "nerdlegame 1772 3/6". Other modes put theirs first ("mini nerdlegame …").
 const HEADER = /(^|\s)nerdlegame\s+(\d[\d,]*)\s+([1-6Xx])\s*\/\s*6/iu;
 const OTHER_MODE = /(micro|mini|midi|maxi|speed|pro|instant)\s+nerdlegame/iu;
 const TILES: Record<string, string> = { "🟩": "g", "🟪": "p", "⬛": ".", "⬜": "." };

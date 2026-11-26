@@ -280,7 +280,7 @@ const CATCH_UP = [
   { game: "worldle", url: "https://worldle.teuteuf.fr/", today: () => localDays(2022, 1, 21) },
   { game: "globle", url: "https://globle-game.com/", today: () => localDays(2022, 1, 1) },
   { game: "waffle", url: "https://wafflegame.net/daily", today: () => utcDays(2022, 1, 21) },
-  { game: "nerdle", url: "https://nerdlegame.com/", today: () => utcDays(2022, 2, 2) },
+  { game: "nerdle", url: "https://nerdlegame.com/", today: () => utcDays(2022, 1, 19) },
 ];
 const VISIT_TIMEOUT_MS = 20000;
 /** Tab id -> resolves the visit early once that tab reports a result. */

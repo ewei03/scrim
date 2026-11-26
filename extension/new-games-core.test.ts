@@ -115,13 +115,13 @@ describe("Waffle", () => {
 describe("Nerdle", () => {
   const save = (guesses: string[], over: object = {}, mode = ""): [string, string][] => [
     ["gameMode", mode],
-    ["gameState", JSON.stringify({ guesses, solution: "12+35=47", gameMode: "", solutionIndex: 1757, ...over })],
+    ["gameState", JSON.stringify({ guesses, solution: "12+35=47", gameMode: "", solutionIndex: 1771, ...over })],
   ];
   const today = nerdleCore.numberAt(NOW);
 
   it("numbers days the same way the app does", () => {
     expect(today).toBe(nerdleNumberFor(new Date(NOW)));
-    expect(today).toBe(1758);
+    expect(today).toBe(1772);
   });
 
   it("colours guesses the way Nerdle does", () => {
@@ -133,7 +133,7 @@ describe("Nerdle", () => {
 
   it("reads a finished classic game", () => {
     expect(nerdleCore.findFinishedGames(save(["10+20=30", "12+35=47"]), today)).toMatchObject([
-      { puzzle: "1758", solved: true, guesses: 2 },
+      { puzzle: "1772", solved: true, guesses: 2 },
     ]);
     const lost = Array(6).fill("10+20=30");
     expect(nerdleCore.findFinishedGames(save(lost), today)).toMatchObject([{ solved: false, guesses: 6 }]);
