@@ -941,7 +941,7 @@ function TodayRound({
         </h3>
         <div className="game-card-right">
           <span className="game-card-summary">
-            {submitted ? "✓ Completed" : "Your turn"} · {board.length}/{memberCount} played
+            {submitted ? "✓ Done" : "Your turn"} · {board.length}/{memberCount} completed
           </span>
           {onEdit && (
             <button

@@ -201,7 +201,7 @@ test("pick the crew's games, including a custom one", async ({ page, context, br
   const wordleHeader = todayCard("Wordle").locator(".game-card-toggle");
   await wordleHeader.click();
   await expect(wordleHeader).toHaveAttribute("aria-expanded", "false");
-  await expect(todayCard("Wordle")).toContainText("Your turn · 0/2 played");
+  await expect(todayCard("Wordle")).toContainText("Your turn · 0/2 completed");
   await wordleHeader.click();
   await expect(wordleHeader).toHaveAttribute("aria-expanded", "true");
 
