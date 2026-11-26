@@ -8,8 +8,10 @@ import { Modal } from "./Modal";
 /**
  * Rearranging today's games: a small list in a modal. Pick a game up, drag
  * it, and it drops into the slot it's over (keyboard: focus it, arrow keys).
- * Saved with OK. Cancel, Escape, × and a click
- * outside leave the order as it was.
+ * Saved with OK, along with whether games you've still to play go on top
+ * (the list here is always your own order: those move up on the page, and
+ * back into place once you've played them). Cancel, Escape, × and a click
+ * outside leave both as they were.
  *
  * Always rendered, like the site's other modals: mounting a <dialog> already
  * open and closing it on unmount (as React's dev double-mount does) fires a
@@ -19,18 +21,21 @@ import { Modal } from "./Modal";
 export function ReorderGames({
   open,
   games,
+  unplayedFirst,
   onSave,
   onClose,
 }: {
   open: boolean;
-  /** In their current order. */
+  /** In your order. */
   games: GameAdapter<unknown>[];
-  onSave: (ids: string[]) => void;
+  /** Whether games you've still to play show first. */
+  unplayedFirst: boolean;
+  onSave: (ids: string[], unplayedFirst: boolean) => void;
   onClose: () => void;
 }) {
   return (
     <Modal open={open} onClose={onClose} title="Reorder games">
-      {open && <ReorderList games={games} onSave={onSave} onClose={onClose} />}
+      {open && <ReorderList games={games} unplayedFirst={unplayedFirst} onSave={onSave} onClose={onClose} />}
     </Modal>
   );
 }
@@ -53,14 +58,17 @@ type Drag = {
 
 function ReorderList({
   games,
+  unplayedFirst,
   onSave,
   onClose,
 }: {
   games: GameAdapter<unknown>[];
-  onSave: (ids: string[]) => void;
+  unplayedFirst: boolean;
+  onSave: (ids: string[], unplayedFirst: boolean) => void;
   onClose: () => void;
 }) {
   const [order, setOrder] = useState(() => games.map((g) => g.id));
+  const [toPlayFirst, setToPlayFirst] = useState(unplayedFirst);
   const [drag, setDrag] = useState<Drag | null>(null);
   const list = useRef<HTMLOListElement>(null);
   const byId = new Map(games.map((g) => [g.id, g]));
@@ -123,6 +131,9 @@ function ReorderList({
   return (
     <>
       <p className="muted small">This order is only visible to you.</p>
+      <label className="check">
+        <input type="checkbox" checked={toPlayFirst} onChange={(e) => setToPlayFirst(e.target.checked)} /> Show unplayed games first (preserves your ordering still)
+      </label>
       <ol className={`reorder-list ${drag ? "sorting" : ""}`} ref={list}>
         {order.map((id, i) => {
           const game = byId.get(id);
@@ -134,7 +145,7 @@ function ReorderList({
               className={`reorder-row ${lifted ? "lifted" : ""}`}
               style={{ ...gameStyle(game), transform: `translateY(${offset(i)}px)` }}
               tabIndex={0}
-              aria-label={`${game.name}, ${i + 1} of ${order.length}. Drag, or use the arrow keys, to move it.`}
+              aria-label={`${game.name}, ${i + 1} of ${order.length}. Drag or use the arrow keys to move it.`}
               onPointerDown={(e) => pickUp(e, id)}
               onPointerMove={follow}
               onPointerUp={putDown}
@@ -164,7 +175,7 @@ function ReorderList({
           type="button"
           className="btn btn-primary"
           onClick={() => {
-            onSave(order);
+            onSave(order, toPlayFirst);
             onClose();
           }}
         >

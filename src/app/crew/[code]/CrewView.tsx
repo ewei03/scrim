@@ -24,7 +24,15 @@ import { useAuth } from "@/lib/auth";
 import { askExtension, useExtension, type ExtensionState } from "@/lib/extension";
 import { crewDayEnd, crewDeadline, crewPuzzle, localTimeZone, roundZone } from "@/lib/rounds";
 import { useClock24h } from "@/lib/clock";
-import { inSavedOrder, saveGameOrder, savedGameOrder, syncGameOrder } from "@/lib/gameOrder";
+import {
+  inSavedOrder,
+  saveGameOrder,
+  savedGameOrder,
+  saveUnplayedFirst,
+  savedUnplayedFirst,
+  syncGameOrder,
+  unplayedFirst,
+} from "@/lib/gameOrder";
 import { saveOpenCards, savedOpenCards } from "@/lib/cardState";
 import { crewStats } from "@/lib/stats";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
@@ -219,6 +227,10 @@ function CrewPage() {
     [userId, crewId, orderKey],
   );
   const [showReorder, setShowReorder] = useState(false);
+  // Whether games you've still to play go on top (set in the same modal).
+  const [toPlayFirst, setToPlayFirst] = useState<{ key: string; on: boolean } | null>(null);
+  const toPlayFirstNow =
+    toPlayFirst?.key === orderKey ? toPlayFirst.on : userId && crewId ? savedUnplayedFirst(userId, crewId) : false;
   // Whose card is open (from their name in the crew box).
   const [viewing, setViewing] = useState<string | null>(null);
   // Whether you've submitted each of today's games, as their boards report it.
@@ -445,16 +457,21 @@ function CrewPage() {
     (g) => g.id,
     gameOrder,
   );
+  // The cards as shown: your order, with games still to play moved up if you
+  // asked for that (each falls back into its place once you've played it).
+  const shown = toPlayFirstNow ? unplayedFirst(tracked, (g) => played[g.id] === false) : tracked;
   const isOpen = (gameId: string) => cardsNow[gameId] ?? true;
   const anyCollapsed = tracked.some((g) => !isOpen(g.id));
   const toPlay = tracked.filter((g) => played[g.id] === false).length;
   // Custom games with scores in them have their scoring locked.
   const playedGames = new Set(rounds.filter((rd) => rd.entries.length > 0).map((rd) => rd.game));
 
-  function reorder(ids: string[]) {
+  function reorder(ids: string[], toPlayOnTop: boolean) {
     if (!userId || !crewId) return;
     setDragged({ key: orderKey, ids });
     saveGameOrder(userId, crewId, ids);
+    setToPlayFirst({ key: orderKey, on: toPlayOnTop });
+    saveUnplayedFirst(userId, crewId, toPlayOnTop);
   }
 
   async function voidEntry(name: string, entryId: string) {
@@ -731,6 +748,7 @@ function CrewPage() {
               <ReorderGames
                 open={showReorder}
                 games={tracked}
+                unplayedFirst={toPlayFirstNow}
                 onSave={reorder}
                 onClose={() => setShowReorder(false)}
               />
@@ -745,7 +763,7 @@ function CrewPage() {
               <p className="muted">The crew owner hasn&apos;t picked any games yet.</p>
             )
           ) : (
-            tracked.map((game) => (
+            shown.map((game) => (
               <TodayRound
                 key={game.id}
                 crew={crew}

@@ -53,6 +53,34 @@ function asOrder(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : [];
 }
 
+/**
+ * Whether games you've still to play go above the ones you've done (each
+ * group in your order), kept in this browser per account and crew.
+ */
+const unplayedKey = (userId: string, crewId: string) => `scrim-unplayed-first:${userId}:${crewId}`;
+
+export function savedUnplayedFirst(userId: string, crewId: string): boolean {
+  try {
+    return localStorage.getItem(unplayedKey(userId, crewId)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function saveUnplayedFirst(userId: string, crewId: string, on: boolean) {
+  try {
+    if (on) localStorage.setItem(unplayedKey(userId, crewId), "1");
+    else localStorage.removeItem(unplayedKey(userId, crewId));
+  } catch {
+    // Storage blocked: it lasts this visit.
+  }
+}
+
+/** Items you've still to play first, then the rest, each group keeping its order. */
+export function unplayedFirst<T>(items: T[], toPlay: (item: T) => boolean): T[] {
+  return [...items.filter(toPlay), ...items.filter((item) => !toPlay(item))];
+}
+
 /** Items in the saved order; ones it doesn't mention (games added since) go last, in their usual order. */
 export function inSavedOrder<T>(items: T[], idOf: (item: T) => string, order: string[]): T[] {
   const rank = new Map(order.map((id, i) => [id, i]));
