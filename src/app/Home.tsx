@@ -10,6 +10,7 @@ import { GameTag, gameStyle } from "@/components/GameTag";
 import { Modal } from "@/components/Modal";
 import { SetupNotice } from "@/components/SetupNotice";
 import { SignIn } from "@/components/SignIn";
+import { SpinningPiece } from "@/components/SpinningPiece";
 import { Welcome } from "@/components/Welcome";
 import { useAuth } from "@/lib/auth";
 import { useExtension } from "@/lib/extension";
@@ -39,19 +40,26 @@ export function Home() {
 function Landing() {
   return (
     <div className="stack-lg page-enter">
-      <section className="hero">
-        <h1>
-          DAILY PUZZLE
-          <br />
-          SHOWDOWNS.
-        </h1>
-        <p>Turn your daily puzzles into a competition!</p>
-      </section>
-      <ol className="steps">
-        <li>Start a crew with your friends</li>
-        <li>Play your favourite games</li>
-        <li>Beat your friends and earn bragging rights!</li>
-      </ol>
+      <div className="landing-top">
+        <div className="stack-lg">
+          <section className="hero">
+            <h1>
+              DAILY PUZZLE
+              <br />
+              SHOWDOWNS.
+            </h1>
+            <p>Turn your daily puzzles into a competition!</p>
+          </section>
+          <ol className="steps">
+            <li>Start a crew with your friends</li>
+            <li>Play your favourite games</li>
+            <li>Beat your friends and earn bragging rights!</li>
+          </ol>
+        </div>
+        <div className="landing-piece">
+          <SpinningPiece />
+        </div>
+      </div>
       <SignIn title="Start scrimming" />
     </div>
   );
