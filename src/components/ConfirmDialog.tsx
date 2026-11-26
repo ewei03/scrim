@@ -93,12 +93,6 @@ export function ConfirmDialogHost() {
   return (
     <Modal open={pending !== null} onClose={() => answer(null)} title="Are you sure?">
       <p className="confirm-message">{pending?.message}</p>
-      {pending?.option && (
-        <label className="check confirm-option">
-          <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} />{" "}
-          {pending.option}
-        </label>
-      )}
       <form
         className="stack confirm-form"
         onSubmit={(e) => {
@@ -122,6 +116,13 @@ export function ConfirmDialogHost() {
           </label>
         )}
         <div className="row confirm-actions">
+          {/* The checkbox shares the buttons' row, at the left, so it adds no height. */}
+          {pending?.option && (
+            <label className="check confirm-option">
+              <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} />{" "}
+              {pending.option}
+            </label>
+          )}
           <button type="button" className="btn" onClick={() => answer(null)}>
             Cancel
           </button>

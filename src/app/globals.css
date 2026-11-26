@@ -2497,8 +2497,14 @@ body:has(.reorder-row.lifted) {
   justify-content: flex-end;
 }
 
+/* Left of Cancel and OK; a long one wraps onto its own line above them. */
+.confirm-actions {
+  flex-wrap: wrap;
+}
 .confirm-option {
-  margin-top: 12px;
+  flex: 1 1 180px;
+  margin-right: auto;
+  font-size: 0.9rem;
 }
 
 /* "Type [crew name] to confirm": the name shown as it's written. */

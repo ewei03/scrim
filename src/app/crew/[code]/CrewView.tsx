@@ -1387,13 +1387,14 @@ function CrewGames({
 
   async function toggle(game: GameAdapter<unknown>) {
     const on = !games.includes(game.id);
-    if (
-      !on &&
-      !(await confirmDialog(
+    if (!on && !skipRemoveGameConfirm()) {
+      const dontAsk = await confirmWithOption(
         `Stop playing ${game.name} in ${crew.name}? You can bring it back later - archived rankings stay.`,
-      ))
-    )
-      return;
+        "Don't ask again",
+      );
+      if (dontAsk === null) return;
+      if (dontAsk) setSkipRemoveGameConfirm();
+    }
     setBusy(game.id);
     setError(null);
     try {
@@ -1514,6 +1515,28 @@ function JoinRequestList({
       {error && <p className="error small">{error}</p>}
     </>
   );
+}
+
+/**
+ * "Don't ask again" when removing a game from a crew. Kept in sessionStorage,
+ * so it lasts until the tab is closed.
+ */
+const SKIP_REMOVE_GAME_CONFIRM = "scrim:skip-remove-game-confirm";
+
+function skipRemoveGameConfirm(): boolean {
+  try {
+    return sessionStorage.getItem(SKIP_REMOVE_GAME_CONFIRM) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function setSkipRemoveGameConfirm() {
+  try {
+    sessionStorage.setItem(SKIP_REMOVE_GAME_CONFIRM, "1");
+  } catch {
+    // Storage blocked: it'll just ask next time.
+  }
 }
 
 /**
