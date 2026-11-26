@@ -1973,7 +1973,7 @@ select.input {
   border-bottom: 0;
 }
 
-/* The game's name is the expand/collapse button. */
+/* The chevron is the expand/collapse button (the whole bar toggles too); the name links to the game. */
 .game-card-toggle {
   font: inherit;
   color: inherit;
@@ -2009,6 +2009,25 @@ select.input {
   border: 1.5px solid currentColor;
   border-radius: var(--radius);
   cursor: pointer;
+}
+
+.game-card-toggle + .game-card-name {
+  margin-left: 8px;
+}
+
+a.game-card-name {
+  color: inherit;
+  text-decoration: none;
+}
+
+a.game-card-name:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+a.game-card-name:focus-visible {
+  outline: 2px dashed #1c1b19;
+  outline-offset: 3px;
 }
 
 .game-card-edit:hover {

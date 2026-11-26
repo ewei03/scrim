@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { confirmByTyping, confirmDialog, confirmWithOption } from "@/components/ConfirmDialog";
 import { CopyLink } from "@/components/CopyLink";
 import { CustomGameForm } from "@/components/CustomGameForm";
+import { ExternalArrow } from "@/components/ExternalArrow";
 import { GearIcon } from "@/components/GearIcon";
 import { GameTag, gameStyle } from "@/components/GameTag";
 import { Modal } from "@/components/Modal";
@@ -932,12 +933,27 @@ function TodayRound({
         }}
       >
         <h3 className="today-title">
-          <button type="button" className="game-card-toggle" aria-expanded={open} aria-controls={bodyId} onClick={toggle}>
+          <button
+            type="button"
+            className="game-card-toggle"
+            aria-expanded={open}
+            aria-controls={bodyId}
+            aria-label={`${open ? "Hide" : "Show"} ${game.name}`}
+            onClick={toggle}
+          >
             <span className="game-card-chevron" aria-hidden>
               {open ? "▾" : "▸"}
             </span>
-            {game.name} <span className="game-card-puzzle">{game.puzzleLabel(puzzleId)}</span>
           </button>
+          {game.url ? (
+            <a className="game-card-name" href={game.url} target="_blank" rel="noreferrer" title={`Play ${game.name}`}>
+              {game.name} <span className="game-card-puzzle">{game.puzzleLabel(puzzleId)}</span> <ExternalArrow />
+            </a>
+          ) : (
+            <span className="game-card-name">
+              {game.name} <span className="game-card-puzzle">{game.puzzleLabel(puzzleId)}</span>
+            </span>
+          )}
         </h3>
         <div className="game-card-right">
           <span className="game-card-summary">
