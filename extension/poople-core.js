@@ -68,7 +68,7 @@
   }
 
   function formatScore(result) {
-    return result.guesses === result.best ? "⭐" : `${result.guesses}/${result.best}`;
+    return String(result.guesses);
   }
 
   const api = { numberAt, findFinishedGames, bestFrom, toResult, shareText, formatScore };

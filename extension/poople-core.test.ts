@@ -40,5 +40,5 @@ it("builds results whose share text the app can parse", () => {
   const result = core.toResult(g);
   expect(parsePoople(core.shareText(result))).toEqual({ ok: true, result });
   expect(core.formatScore(result)).toBe(poople.formatScore(result));
-  expect(core.formatScore(result)).toBe("3/2");
+  expect(core.formatScore(result)).toBe("3");
 });

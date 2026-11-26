@@ -21,12 +21,12 @@ describe("parsePoople", () => {
       ok: true,
       result: { puzzle: "466", guesses: 5, best: 4, grid: ["....", "p...", "pp..", "ppp.", "ppp.", "pppp"] },
     });
-    expect(poople.formatScore(r.ok ? r.result : ({} as never))).toBe("5/4");
+    expect(poople.formatScore(r.ok ? r.result : ({} as never))).toBe("5");
   });
 
-  it("stars the shortest path", () => {
+  it("shows the shortest path as its guesses too", () => {
     const r = parsePoople("Poople #466 1/1\n🟫🟫🟫⬜\n🟫🟫🟫🟫");
-    expect(r.ok && poople.formatScore(r.result)).toBe("⭐");
+    expect(r.ok && poople.formatScore(r.result)).toBe("1");
   });
 
   it("turns away grids that can't happen", () => {
