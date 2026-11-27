@@ -10,6 +10,8 @@ import { costcodleResult } from "@/games/costcodle";
 import { manualCostcodleClassic } from "@/games/costcodle-classic";
 import { manualKrillion } from "@/games/krillion";
 import { manualNerdle } from "@/games/nerdle";
+import { manualPerceptle } from "@/games/perceptle";
+import { manualAngledle } from "@/games/angledle";
 import { manualPoople } from "@/games/poople";
 import { manualStrands } from "@/games/strands";
 import { GAMES } from "@/games/registry";
@@ -772,6 +774,78 @@ describe("connections and krillion", () => {
     await submit(ANN, "nerdle", { puzzle: E, solved: true, guesses: 2, grid: ["gp..p.g.", "gggggggg"] });
     expect(await stored(ANN, "nerdle")).toEqual({ puzzle: E, solved: true, guesses: 2, grid: ["gp..p.g.", "gggggggg"] });
   });
+
+  it("works Perceptle's total out from its five scores", async () => {
+    const { rows: n } = await db.query<{ p: number }>("select ((now() at time zone 'UTC')::date - date '2026-07-17') as p");
+    const P = String(n[0].p);
+    await as(ANN, "select set_crew_game($1, 'perceptle', true)", [crew]);
+    await expect(submit(EVE, "perceptle", { puzzle: P, total: 90 })).rejects.toThrow(/coloured grid/);
+    await expect(submit(EVE, "perceptle", { puzzle: P, total: 90, events: [90, 90, 90, 90] })).rejects.toThrow(/5 scores/);
+    await expect(submit(EVE, "perceptle", { puzzle: P, total: 90, events: [90, 90, 90, 90, 101] })).rejects.toThrow(
+      /between 0 and 100/,
+    );
+    // The claimed total doesn't count: it's the scores' average, rounded.
+    await submit(ANN, "perceptle", { puzzle: P, total: 100, events: [80, 70, 90, 60, 91] });
+    expect(await stored(ANN, "perceptle")).toEqual({ puzzle: P, total: 78, events: [80, 70, 90, 60, 91] });
+  });
+
+  it("takes Minecraftdle's three modes together, closing at midnight in Madrid", async () => {
+    const { rows: n } = await db.query<{ m: number }>(
+      "select ((now() at time zone 'Europe/Madrid')::date - date '2026-11-09') as m",
+    );
+    const M = String(n[0].m);
+    await as(ANN, "select set_crew_game($1, 'minecraftdleitem', true)", [crew]);
+    const { rows: games } = await db.query<{ game: string }>(
+      "select game from crew_games where crew_id = $1 and game like 'minecraftdle%' order by game",
+      [crew],
+    );
+    expect(games.map((g) => g.game)).toEqual(["minecraftdle", "minecraftdleitem", "minecraftdlemob"]);
+
+    await expect(submit(EVE, "minecraftdle", { puzzle: M, guesses: 0 })).rejects.toThrow(/between 1 and 999/);
+    await expect(submit(EVE, "minecraftdle", { puzzle: M, guesses: 2, grid: ["xx", "xx"] })).rejects.toThrow(/does not match/);
+    await expect(submit(EVE, "minecraftdle", { puzzle: M, guesses: 2, grid: ["xx", "ccc"] })).rejects.toThrow(/Invalid grid row/);
+    // A share cut short has no grid: the tries are enough.
+    await submit(ANN, "minecraftdle", { puzzle: M, guesses: 14 });
+    expect(await stored(ANN, "minecraftdle")).toEqual({ puzzle: M, guesses: 14 });
+    // A guess with every trait right but the wrong name is all green too.
+    await submit(ANN, "minecraftdlemob", { puzzle: M, guesses: 3, grid: ["xud", "ccc", "ccc"] });
+    expect(await stored(ANN, "minecraftdlemob")).toEqual({ puzzle: M, guesses: 3, grid: ["xud", "ccc", "ccc"] });
+
+    const { rows } = await db.query<{ ok: boolean }>(
+      `select closes_at = ((date '2026-11-09' + $1::int + 1)::timestamp at time zone 'Europe/Madrid') as ok
+       from rounds where crew_id = $2 and game = 'minecraftdle'`,
+      [M, crew],
+    );
+    expect(rows).toEqual([{ ok: true }]);
+
+    await as(ANN, "select set_crew_game($1, 'minecraftdle', false)", [crew]);
+    const { rows: left } = await db.query("select game from crew_games where crew_id = $1 and game like 'minecraftdle%'", [crew]);
+    expect(left).toEqual([]);
+  });
+
+  it("checks Angledle's grid", async () => {
+    const { rows: n } = await db.query<{ a: number }>("select ((now() at time zone 'UTC')::date - date '2022-01-01') as a");
+    const A = String(n[0].a);
+    await as(ANN, "select set_crew_game($1, 'angledle', true)", [crew]);
+    await expect(submit(EVE, "angledle", { puzzle: A, solved: true, guesses: 2 })).rejects.toThrow(/coloured grid/);
+    await expect(submit(EVE, "angledle", { puzzle: A, solved: true, guesses: 2, grid: ["rc", "gc"] })).rejects.toThrow(
+      /Invalid grid row/,
+    );
+    await expect(submit(EVE, "angledle", { puzzle: A, solved: true, guesses: 2, grid: ["gc", "gc"] })).rejects.toThrow(
+      /does not match/,
+    );
+    await expect(submit(EVE, "angledle", { puzzle: A, solved: true, guesses: 2, grid: ["r", "y"] })).rejects.toThrow(
+      /does not match/,
+    );
+    await expect(submit(EVE, "angledle", { puzzle: A, solved: true, guesses: 2, grid: ["ru", "g"] })).rejects.toThrow(
+      /Invalid grid row/,
+    );
+    await submit(ANN, "angledle", { puzzle: A, solved: true, guesses: 3, grid: ["ru", "gd", "gc"] });
+    expect(await stored(ANN, "angledle")).toEqual({ puzzle: A, solved: true, guesses: 3, grid: ["ru", "gd", "gc"] });
+    // The daily summary's share: no arrows.
+    await submit(EVE, "angledle", { puzzle: A, solved: true, guesses: 2, grid: ["r", "g"] });
+    expect(await stored(EVE, "angledle")).toEqual({ puzzle: A, solved: true, guesses: 2, grid: ["r", "g"] });
+  });
 });
 
 describe("removing a game", () => {
@@ -864,6 +938,11 @@ describe("extension rankings", () => {
     globle: [1, 4, 4, 30].map((guesses) => ({ puzzle: "1", guesses })),
     waffle: [5, 3, 0, null, null].map((s) => manualWaffle("1", s)),
     nerdle: [2, 6, null].map((g) => manualNerdle("1", g)),
+    perceptle: [manualPerceptle("1", 92), manualPerceptle("1", 78), manualPerceptle("1", 78), manualPerceptle("1", 0)],
+    minecraftdle: [1, 4, 4, 30].map((guesses) => ({ puzzle: "1", guesses })),
+    minecraftdleitem: [2, 9].map((guesses) => ({ puzzle: "1", guesses })),
+    minecraftdlemob: [7, 3].map((guesses) => ({ puzzle: "1", guesses })),
+    angledle: [1, 3, 6, null, null].map((g) => manualAngledle("1", g)),
   };
 
   it("judges results the same way as the site", async () => {

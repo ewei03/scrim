@@ -1,11 +1,14 @@
+import { angledle } from "./angledle";
 import { connections } from "./connections";
 import { contexto } from "./contexto";
 import { costcodle } from "./costcodle";
 import { costcodleClassic } from "./costcodle-classic";
 import { globle } from "./globle";
 import { krillion } from "./krillion";
+import { minecraftdle, minecraftdleItem, minecraftdleMob } from "./minecraftdle";
 import { mini, miniHard } from "./mini";
 import { nerdle } from "./nerdle";
+import { perceptle } from "./perceptle";
 import { poople } from "./poople";
 import { strands } from "./strands";
 import type { GameAdapter } from "./types";
@@ -29,6 +32,11 @@ export const GAMES: Record<string, GameAdapter<unknown>> = {
   [globle.id]: globle,
   [waffle.id]: waffle,
   [nerdle.id]: nerdle,
+  [perceptle.id]: perceptle,
+  [minecraftdle.id]: minecraftdle,
+  [minecraftdleItem.id]: minecraftdleItem,
+  [minecraftdleMob.id]: minecraftdleMob,
+  [angledle.id]: angledle,
 };
 
 export function getGame(id: string): GameAdapter<unknown> {

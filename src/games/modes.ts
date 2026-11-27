@@ -1,6 +1,6 @@
 /**
  * Games with more than one mode (keep in sync with game_modes() in
- * supabase/migrations/0041_game_modes.sql). Each mode is its own game (its own id,
+ * supabase/migrations/0042_perceptle_minecraftdle_angledle.sql). Each mode is its own game (its own id,
  * rounds, scoring and rankings), but the crew page shows them as one game:
  * one switch in the Games box turns them all on or off, and a card, the
  * rankings and the archive each have a toggle between the modes'
@@ -25,6 +25,14 @@ export const MODE_GROUPS: ModeGroup[] = [
     modes: [
       { id: "minicrossword", label: "Easy" },
       { id: "minicrosswordhard", label: "Hard" },
+    ],
+  },
+  {
+    name: "Minecraftdle",
+    modes: [
+      { id: "minecraftdle", label: "Block" },
+      { id: "minecraftdleitem", label: "Item" },
+      { id: "minecraftdlemob", label: "Mob" },
     ],
   },
 ];

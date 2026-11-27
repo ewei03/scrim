@@ -43,6 +43,10 @@ function todaysPuzzles() {
   const [y, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(now).split("-").map(Number);
   const newYork = Date.UTC(y, m - 1, d);
   const utc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const [my, mm, md] = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(now).split("-").map(Number);
+  const madrid = Date.UTC(my, mm - 1, md);
+  const sixAm = new Date(now.getTime() - 6 * 3600000);
+  const angledleDay = Date.UTC(sixAm.getFullYear(), sixAm.getMonth(), sixAm.getDate());
   const days = (from, start) => String(Math.round((from - start) / 86400000));
   return {
     wordle: days(local, Date.UTC(2021, 5, 19)),
@@ -58,6 +62,13 @@ function todaysPuzzles() {
     minicrosswordhard: days(local, Date.UTC(2026, 5, 21)),
     worldle: days(local, Date.UTC(2022, 0, 21)),
     globle: days(local, Date.UTC(2022, 0, 1)),
+    perceptle: days(local, Date.UTC(2026, 6, 17)),
+    // One puzzle worldwide per mode, changing at midnight in Madrid.
+    minecraftdle: days(madrid, Date.UTC(2026, 10, 9)),
+    minecraftdleitem: days(madrid, Date.UTC(2026, 10, 9)),
+    minecraftdlemob: days(madrid, Date.UTC(2026, 10, 9)),
+    // By local date, but Angledle's day starts at 6 am.
+    angledle: days(angledleDay, Date.UTC(2022, 0, 1)),
     // One puzzle worldwide each, changing at midnight UTC.
     waffle: days(utc, Date.UTC(2022, 0, 21)),
     nerdle: days(utc, Date.UTC(2022, 0, 19)),
@@ -129,6 +140,11 @@ const AUTO_GAMES = [
   "globle",
   "waffle",
   "nerdle",
+  "perceptle",
+  "minecraftdle",
+  "minecraftdleitem",
+  "minecraftdlemob",
+  "angledle",
 ];
 
 /**
@@ -166,6 +182,11 @@ const GAME_NAMES = {
   globle: "Globle",
   waffle: "Waffle",
   nerdle: "Nerdle",
+  perceptle: "Perceptle",
+  minecraftdle: "Minecraftdle (Block)",
+  minecraftdleitem: "Minecraftdle (Item)",
+  minecraftdlemob: "Minecraftdle (Mob)",
+  angledle: "Angledle",
   minicrossword: "Mini Crossword (Easy)",
   minicrosswordhard: "Mini Crossword (Hard)",
 };
@@ -318,6 +339,16 @@ function describe(game, result) {
   // Same as the site: "3⭐" for three swaps left, "X" for running out.
   if (game === "waffle") return { name: "Waffle", score: result.solved ? `${result.stars}⭐` : "X" };
   if (game === "nerdle") return { name: "Nerdle", score: `${result.solved ? result.guesses : "X"}/6` };
+  // Same as the site: the day's score and its letter, e.g. "78 B".
+  if (game === "perceptle") {
+    const g = result.total >= 95 ? "S" : result.total >= 85 ? "A" : result.total >= 70 ? "B" : result.total >= 55 ? "C" : result.total >= 40 ? "D" : "F";
+    return { name: "Perceptle", score: `${result.total} ${g}` };
+  }
+  // Same as the site: the number of tries.
+  if (game === "minecraftdle" || game === "minecraftdleitem" || game === "minecraftdlemob") {
+    return { name: GAME_NAMES[game], score: String(result.guesses) };
+  }
+  if (game === "angledle") return { name: "Angledle", score: `${result.solved ? result.guesses : "X"}/6` };
   // Same as the site: "1:23", "45s", "+2💡" for reveals.
   if (game === "minicrossword" || game === "minicrosswordhard") {
     const m = Math.floor(result.seconds / 60);

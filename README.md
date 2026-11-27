@@ -5,7 +5,8 @@ share the invite. Everyone plays each day's puzzle on their own time, each day
 crowns a winner, and the crew keeps rankings and every past day.
 
 **Games:** Wordle, NYT Connections, NYT Strands, Krillion, Contexto, Costcodle (Checkout and Classic),
-Poople, the Mini Crossword (Easy and Hard), Worldle, Globle, Waffle (daily) and Nerdle (classic),
+Poople, the Mini Crossword (Easy and Hard), Worldle, Globle, Waffle (daily), Nerdle (classic), Perceptle,
+Minecraftdle (Block, Item and Mob dailies) and Angledle (the daily Guess),
 today's puzzle only. Desktop
 Chrome only. Only free-to-play games are supported (`GameAdapter.free` is typed
 `true`).
@@ -33,7 +34,7 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 | Concept | Lifetime | Notes |
 |---|---|---|
 | **Crew** | permanent | Friend group. The owner picks its games, time zone and spoiler setting. Rankings and past days. Link: `/crew/<code>` |
-| **Round** | one crew, one game, one puzzle | Nobody creates it: the first result for that puzzle starts it. Closes at midnight in the crew's time zone (New York time for Krillion, UTC−8 for Poople, UTC for Waffle and Nerdle) |
+| **Round** | one crew, one game, one puzzle | Nobody creates it: the first result for that puzzle starts it. Closes at midnight in the crew's time zone (New York time for Krillion, UTC−8 for Poople, UTC for Waffle and Nerdle, Madrid time for Minecraftdle) |
 | **Entry** | one per player per round | Validated server-side. Source is `extension`, or `paste` as the fallback |
 
 - **Joining:** opening a crew's invite link joins it, unless someone in the
@@ -165,6 +166,20 @@ game. Pasting the game's share text is the fallback; scores can't be typed in.
 - `nerdle.js` runs on nerdlegame.com and reads classic Nerdle from
   `localStorage["gameState"]` (#`solutionIndex` + 1); other modes are
   ignored. The grid is worked out from the guesses; the solution isn't sent.
+- `perceptle.js` runs on perceptle.com and reads today's five scores from
+  `localStorage["perceptle:YYYY-MM-DD"]` (local date). The total is their
+  average, rounded; highest wins. Practice rounds aren't saved, so they're
+  never sent.
+- `minecraftdle.js` runs on minecraftdle.com and reads each mode's daily from
+  `localStorage["minecraftdle:daily:<blocks|items|mobs>"]` (the app's cache of
+  its server's state) once it's won. Only each guess's trait colours are sent,
+  not the names. The daily can't be lost: fewest tries wins. Its day changes
+  at midnight in Madrid.
+- `angledle.js` runs on angledle.com and reads the daily Guess from
+  `localStorage["adl-v1-game-state"]`; Draw It and Higher/Lower are ignored.
+  Only how close each guess was and which way to go are sent, not the angles.
+  Angledle's day starts at 6 am local time, so a game played between midnight
+  and 6 am is the day before's puzzle, whose round has usually closed.
 - Waffle and Nerdle change at midnight UTC. A player who switched either to
   local time can be a day off from everyone else for part of the day.
 - NYT games count whether or not you're signed in to NYT (saves under

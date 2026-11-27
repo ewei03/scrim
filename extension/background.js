@@ -283,6 +283,11 @@ const CATCH_UP = [
   { game: "globle", url: "https://globle-game.com/", today: () => localDays(2022, 1, 1) },
   { game: "waffle", url: "https://wafflegame.net/daily", today: () => utcDays(2022, 1, 21) },
   { game: "nerdle", url: "https://nerdlegame.com/", today: () => utcDays(2022, 1, 19) },
+  { game: "perceptle", url: "https://perceptle.com/", today: () => localDays(2026, 7, 17) },
+  { game: "minecraftdle", url: "https://minecraftdle.com/blocks", today: () => zoneDays("Europe/Madrid", 2026, 11, 9) },
+  { game: "minecraftdleitem", url: "https://minecraftdle.com/items", today: () => zoneDays("Europe/Madrid", 2026, 11, 9) },
+  { game: "minecraftdlemob", url: "https://minecraftdle.com/mobs", today: () => zoneDays("Europe/Madrid", 2026, 11, 9) },
+  { game: "angledle", url: "https://angledle.com/", today: () => angledleDays() },
 ];
 const VISIT_TIMEOUT_MS = 20000;
 /** Tab id -> resolves the visit early once that tab reports a result. */
@@ -374,6 +379,18 @@ function poopleDays() {
 
 /** Today's puzzle number for games numbered by the New York date. */
 function newYorkDays(y, m, d) {
-  const [ny, nm, nd] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date()).split("-").map(Number);
-  return String(Math.round((Date.UTC(ny, nm - 1, nd) - Date.UTC(y, m - 1, d)) / 86400000));
+  return zoneDays("America/New_York", y, m, d);
+}
+
+/** Today's puzzle number for games numbered by the date in one time zone. */
+function zoneDays(timeZone, y, m, d) {
+  const [zy, zm, zd] = new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date()).split("-").map(Number);
+  return String(Math.round((Date.UTC(zy, zm - 1, zd) - Date.UTC(y, m - 1, d)) / 86400000));
+}
+
+/** Angledle numbers days from 2022-01-01 by local date, but its day starts at 6 am. */
+function angledleDays() {
+  const now = new Date();
+  if (now.getHours() < 6) now.setDate(now.getDate() - 1);
+  return String(Math.round((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(2022, 0, 1)) / 86400000));
 }

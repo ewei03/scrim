@@ -1352,6 +1352,11 @@ select.input {
   background: #820458;
 }
 
+/* Minecraftdle: a wrong trait. */
+.mx {
+  background: #c0392b;
+}
+
 /* Poople: letters that match POOP. */
 .pp {
   background: #8b5a2b;

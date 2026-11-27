@@ -1,11 +1,14 @@
 "use client";
 
+import type { AngledleResult } from "./angledle";
 import type { ConnectionsResult } from "./connections";
 import type { ContextoResult } from "./contexto";
 import { closeness, money, type CostcodleResult } from "./costcodle";
 import type { CostcodleClassicResult } from "./costcodle-classic";
 import { TIERS, type KrillionResult } from "./krillion";
+import type { MinecraftdleResult } from "./minecraftdle";
 import type { NerdleResult } from "./nerdle";
+import { EVENTS, type PerceptleResult } from "./perceptle";
 import { foldPath, type PoopleResult } from "./poople";
 import type { StrandsResult } from "./strands";
 import type { WordleResult } from "./wordle";
@@ -25,6 +28,11 @@ const WITH_DETAIL: ReadonlySet<string> = new Set([
   "worldle",
   "nerdle",
   "poople",
+  "perceptle",
+  "minecraftdle",
+  "minecraftdleitem",
+  "minecraftdlemob",
+  "angledle",
 ]);
 
 export function hasResultDetail(gameId: string): boolean {
@@ -71,6 +79,18 @@ export function ResultDetail({ gameId, result }: { gameId: string; result: unkno
   if (gameId === "poople") {
     const grid = (result as PoopleResult).grid;
     return grid ? <PoopleGrid grid={grid} /> : null;
+  }
+  if (gameId === "perceptle") {
+    const events = (result as PerceptleResult).events;
+    return events ? <PerceptleEvents events={events} /> : null;
+  }
+  if (gameId === "minecraftdle" || gameId === "minecraftdleitem" || gameId === "minecraftdlemob") {
+    const grid = (result as MinecraftdleResult).grid;
+    return grid ? <MinecraftdleGrid grid={grid} /> : null;
+  }
+  if (gameId === "angledle") {
+    const grid = (result as AngledleResult).grid;
+    return grid ? <AngledleRows grid={grid} /> : null;
   }
   return null;
 }
@@ -219,5 +239,70 @@ function PoopleGrid({ grid }: { grid: string[] }) {
       )}
       {tail.map((r, i) => row(r, `t${i}`))}
     </div>
+  );
+}
+
+/** Perceptle: each test's score out of 100, coloured like Costcodle's chips by how good it was. */
+function PerceptleEvents({ events }: { events: number[] }) {
+  const tone = (n: number) => (n >= 85 ? "near" : n >= 55 ? "mid" : "far");
+  return (
+    <span className="citems" aria-label={EVENTS.map((e, i) => `${e.name} ${events[i]}`).join(", ")}>
+      {events.map((n, i) => (
+        <span key={i} className={`citem citem-${tone(n)}`} title={`${EVENTS[i]?.name}: ${n}`}>
+          {EVENTS[i]?.emoji} {n}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * Minecraftdle: a row per guess, a square per trait (green right, red wrong,
+ * yellow for higher or lower). A long game shows its start and finish with
+ * "+N" for the rows in between.
+ */
+function MinecraftdleGrid({ grid }: { grid: string[] }) {
+  const { head, hidden, tail } = foldPath(grid);
+  const row = (r: string, key: string) => (
+    <div key={key} className="wrow">
+      {Array.from(r).map((c, j) => (
+        <span key={j} className={`wtile ${c === "c" ? "wg" : c === "x" ? "mx" : "wy"}`} />
+      ))}
+    </div>
+  );
+  return (
+    <div className="wgrid" aria-label={`Minecraftdle, ${grid.length} tries`}>
+      {head.map((r, i) => row(r, `h${i}`))}
+      {hidden > 0 && (
+        <span className="wfold" title={`${hidden} more tries`}>
+          +{hidden}
+        </span>
+      )}
+      {tail.map((r, i) => row(r, `t${i}`))}
+    </div>
+  );
+}
+
+const ANGLE_DOTS: Record<string, string> = { g: "🟢", y: "🟡", o: "🟠", r: "🔴" };
+const ANGLE_WAYS: Record<string, string> = { u: "↑", d: "↓", c: "✓" };
+const ANGLE_NEAR: Record<string, string> = { g: "within 5°", y: "within 15°", o: "within 30°", r: "over 30° off" };
+
+/** Angledle: a dot per guess for how close it was, and the way to go next. */
+function AngledleRows({ grid }: { grid: string[] }) {
+  const say = (row: string) =>
+    row[1] === "c"
+      ? "got it"
+      : row[1]
+        ? `${ANGLE_NEAR[row[0]]}, go ${row[1] === "u" ? "higher" : "lower"}`
+        : ANGLE_NEAR[row[0]];
+  return (
+    <span className="ktiers" aria-label={`Angledle guesses: ${grid.map(say).join("; ")}`}>
+      {grid.map((row, i) => (
+        <span key={i} title={`Guess ${i + 1}: ${say(row)}`}>
+          {ANGLE_DOTS[row[0]]}
+          {row[1] ? ANGLE_WAYS[row[1]] : null}
+        </span>
+      ))}
+    </span>
   );
 }
