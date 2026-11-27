@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { GoogleButton } from "@/components/GoogleButton";
+import { cleanName, MAX_DISPLAY_NAME, typedName } from "@/lib/names";
 import { errorMessage, supabase } from "@/lib/supabase";
 
 export function SignIn({ title = "Pick a name to get started" }: { title?: string }) {
@@ -15,7 +16,7 @@ export function SignIn({ title = "Pick a name to get started" }: { title?: strin
     setError(null);
     try {
       const { error } = await supabase().auth.signInAnonymously({
-        options: { data: { display_name: name.trim() } },
+        options: { data: { display_name: cleanName(name, MAX_DISPLAY_NAME) } },
       });
       if (error) setError(errorMessage(error));
     } catch (err) {
@@ -32,13 +33,13 @@ export function SignIn({ title = "Pick a name to get started" }: { title?: strin
         <input
           className="input grow"
           placeholder="Your name"
-          maxLength={24}
+          maxLength={MAX_DISPLAY_NAME}
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => setName(typedName(e.target.value))}
           required
           autoFocus
         />
-        <button className="btn btn-primary" disabled={busy || !name.trim()}>
+        <button className="btn btn-primary" disabled={busy || !cleanName(name, MAX_DISPLAY_NAME)}>
           Sign in as guest
         </button>
       </form>

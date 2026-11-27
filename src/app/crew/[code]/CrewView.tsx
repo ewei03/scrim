@@ -36,6 +36,7 @@ import {
   unplayedFirst,
 } from "@/lib/gameOrder";
 import { saveOpenCards, savedOpenCards } from "@/lib/cardState";
+import { cleanName, MAX_CREW_NAME, typedName } from "@/lib/names";
 import { crewStats } from "@/lib/stats";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
 import { dateIn, formatDay, formatTime, timeLeft } from "@/lib/time";
@@ -1813,7 +1814,7 @@ function ManageCrew({
   const [zonesAt, setZonesAt] = useState(() => Date.now());
   const zones = useMemo(() => zoneGroups(timezone, new Date(zonesAt)), [timezone, zonesAt]);
   const [name, setName] = useState(crew.name);
-  const nameChanged = name.trim() !== "" && name.trim() !== crew.name;
+  const nameChanged = cleanName(name, MAX_CREW_NAME) !== "" && cleanName(name, MAX_CREW_NAME) !== crew.name;
 
   async function run(key: string, action: () => Promise<void>) {
     setBusy(key);
@@ -1880,15 +1881,15 @@ function ManageCrew({
           className="row"
           onSubmit={(e) => {
             e.preventDefault();
-            if (nameChanged) updateSettings({ p_name: name.trim() });
+            if (nameChanged) updateSettings({ p_name: cleanName(name, MAX_CREW_NAME) });
           }}
         >
           <input
             className="input grow"
             aria-label="Crew name"
-            maxLength={16}
+            maxLength={MAX_CREW_NAME}
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => setName(typedName(e.target.value))}
             required
           />
           <button className="btn btn-small" disabled={busy !== null || !nameChanged}>

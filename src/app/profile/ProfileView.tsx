@@ -9,6 +9,7 @@ import { GoogleButton } from "@/components/GoogleButton";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useAuth } from "@/lib/auth";
 import { askExtension } from "@/lib/extension";
+import { cleanName, MAX_DISPLAY_NAME, typedName } from "@/lib/names";
 import { errorMessage, supabase } from "@/lib/supabase";
 
 export function ProfileView() {
@@ -31,7 +32,7 @@ function Profile() {
     setError(null);
     const { error } = await supabase()
       .from("profiles")
-      .update({ display_name: name.trim() })
+      .update({ display_name: cleanName(name, MAX_DISPLAY_NAME) })
       .eq("id", user!.id);
     if (error) return setError(errorMessage(error));
     await refreshProfile();
@@ -57,15 +58,15 @@ function Profile() {
           <div className="row">
             <input
               className="input grow"
-              maxLength={16}
+              maxLength={MAX_DISPLAY_NAME}
               value={name}
               onChange={(e) => {
-                setName(e.target.value);
+                setName(typedName(e.target.value));
                 setSaved(false);
               }}
               required
             />
-            <button className="btn btn-primary" disabled={!name.trim() || name.trim() === profile?.display_name}>
+            <button className="btn btn-primary" disabled={!cleanName(name, MAX_DISPLAY_NAME) || cleanName(name, MAX_DISPLAY_NAME) === profile?.display_name}>
               {saved ? "Saved" : "Save"}
             </button>
           </div>

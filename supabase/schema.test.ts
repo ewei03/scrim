@@ -91,7 +91,7 @@ beforeAll(async () => {
   OLD = String(rows[0].n - 5);
 });
 
-type CrewRow = { id: string; invite_code: string };
+type CrewRow = { id: string; invite_code: string; name: string };
 
 /** Crews default to UTC, so a round for T closes at the next UTC midnight. */
 const createCrew = async (user: string, name: string, ...games: string[]) => {
@@ -274,9 +274,9 @@ describe("schema", () => {
     await expect(as(BOB, "select update_crew_settings($1, p_name => 'Mine now')", [crew.id])).rejects.toThrow(
       /Only the crew owner/,
     );
-    await expect(as(ANN, "select update_crew_settings($1, p_name => '   ')", [crew.id])).rejects.toThrow(/1 to 16/);
-    await expect(as(ANN, "select update_crew_settings($1, p_name => $2)", [crew.id, "x".repeat(17)])).rejects.toThrow(
-      /1 to 16/,
+    await expect(as(ANN, "select update_crew_settings($1, p_name => '   ')", [crew.id])).rejects.toThrow(/1 to 24/);
+    await expect(as(ANN, "select update_crew_settings($1, p_name => $2)", [crew.id, "x".repeat(25)])).rejects.toThrow(
+      /1 to 24/,
     );
     const [renamed] = await as<{ name: string; timezone: string }>(
       ANN,
@@ -1052,7 +1052,7 @@ describe("duplicate display names within a crew", () => {
       `insert into auth.users (id, raw_user_meta_data) values ($1, '{"display_name":"Zed"}'), ($2, '{"display_name":"  zED "}')`,
       [ZED, ZED2],
     );
-    crew = await createCrew(ZED, "Zed's Crew");
+    crew = await createCrew(ZED, "Zeds Crew");
   });
 
   it("lets you join a crew where someone already has your name, and opening the link again is fine", async () => {
@@ -1468,10 +1468,39 @@ describe("crew limits", () => {
     await as(GUEST, "select join_crew($1)", [c.invite_code]);
   });
 
-  it("keeps new crew names to 16 characters", async () => {
-    await expect(as(id(3), "select create_crew($1, 'UTC')", ["x".repeat(17)])).rejects.toThrow(/1 to 16/);
-    await expect(as(id(3), "select create_crew('   ', 'UTC')")).rejects.toThrow(/1 to 16/);
-    await createCrew(id(3), "Sixteen Chars Ok");
+  it("keeps new crew names to 24 characters", async () => {
+    await expect(as(id(3), "select create_crew($1, 'UTC')", ["x".repeat(25)])).rejects.toThrow(/1 to 24/);
+    await expect(as(id(3), "select create_crew('   ', 'UTC')")).rejects.toThrow(/1 to 24/);
+    await createCrew(id(3), "Twenty Four Chars Is Ok1");
+  });
+
+  it("keeps crew and display names to letters, numbers and single spaces", async () => {
+    for (const bad of ["Sam's Crew", "Two  Spaces", "Emoji 🎉", "José", "a_b"]) {
+      await expect(as(id(4), "select create_crew($1, 'UTC')", [bad])).rejects.toThrow(/letters, numbers and spaces/);
+      await expect(as(id(4), "update profiles set display_name = $2 where id = $1", [id(4), bad])).rejects.toThrow(
+        /letters, numbers and spaces/,
+      );
+    }
+    const crew = await createCrew(id(4), "  Crew 42 ");
+    expect(crew.name).toBe("Crew 42");
+    await expect(as(id(4), "select update_crew_settings($1, p_name => 'Bad!')", [crew.id])).rejects.toThrow(
+      /letters, numbers and spaces/,
+    );
+    await as(id(4), "update profiles set display_name = $2 where id = $1", [id(4), "Player 2"]);
+    // Older names still work, and new accounts get their name cleaned.
+    await db.exec("alter table profiles disable trigger profiles_display_name_length");
+    await db.query("update profiles set display_name = 'O''Neil' where id = $1", [id(4)]);
+    await db.exec("alter table profiles enable trigger profiles_display_name_length");
+    await db.query("update profiles set is_guest = false where id = $1", [id(4)]);
+    await db.query(
+      `insert into auth.users (id, raw_user_meta_data) values
+       ($1, '{"display_name":"  D''Arcy   Jr. "}'), ($2, '{"display_name":"!!!", "full_name":"Real Name"}'), ($3, '{"name":"🎉"}')`,
+      [id(51), id(52), id(53)],
+    );
+    const names = await as<{ display_name: string }>(ANN, "select display_name from profiles where id = any($1) order by id", [
+      [id(51), id(52), id(53)],
+    ]);
+    expect(names.map((n) => n.display_name)).toEqual(["DArcy Jr", "Real Name", "Player"]);
   });
 
   it("keeps each account to 4 crews, owned and joined together, and checks that first when joining", async () => {

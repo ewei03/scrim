@@ -15,6 +15,7 @@ import { Welcome } from "@/components/Welcome";
 import { useAuth } from "@/lib/auth";
 import { useExtension } from "@/lib/extension";
 import { inviteCode } from "@/lib/invite";
+import { cleanName, MAX_CREW_NAME, typedName } from "@/lib/names";
 import { inSavedOrder, savedGameOrder, syncGameOrder } from "@/lib/gameOrder";
 import { mainId } from "@/games/modes";
 import { errorMessage, rpc, supabase } from "@/lib/supabase";
@@ -65,7 +66,6 @@ function Landing() {
   );
 }
 
-const MAX_CREW_NAME = 16;
 /**
  * Crews one account can be in at once, owned and joined together (join_crew
  * and create_crew enforce it). Guests can't make any.
@@ -73,14 +73,16 @@ const MAX_CREW_NAME = 16;
 const MAX_CREWS = 4;
 
 /**
- * "Sam's Crew", or "Sam's Crew 2", "Sam's Crew 3"… if the user already has a
- * crew by that name (case-insensitive). Stays within the name length limit.
+ * "Sams Crew", or "Sams Crew 2", "Sams Crew 3"… if the user already has a
+ * crew by that name (case-insensitive). Stays within the name length limit and
+ * the allowed characters (no apostrophe, see lib/names).
  */
 function suggestCrewName(displayName: string, crews: Pick<Crew, "name">[]): string {
   const taken = new Set(crews.map((c) => c.name.trim().toLowerCase()));
-  // Long names don't fit "Name's Crew": try the first word, then "My Crew".
-  const first = displayName.trim().split(/\s+/)[0] ?? "";
-  const base = [`${displayName.trim()}'s Crew`, `${first}'s Crew`].find((b) => b.length <= MAX_CREW_NAME - 3) ?? "My Crew";
+  // Long names don't fit "Names Crew": try the first word, then "My Crew".
+  const full = cleanName(displayName, MAX_CREW_NAME);
+  const first = full.split(" ")[0] ?? "";
+  const base = [`${full}s Crew`, `${first}s Crew`].filter((b) => b !== "s Crew").find((b) => b.length <= MAX_CREW_NAME - 3) ?? "My Crew";
   for (let n = 1; ; n++) {
     const suffix = n === 1 ? "" : ` ${n}`;
     const name = base.slice(0, MAX_CREW_NAME - suffix.length).trimEnd() + suffix;
@@ -142,7 +144,7 @@ function Dashboard() {
     setSubmitting(true);
     setCreateError(null);
     try {
-      const crew = await rpc<Crew>("create_crew", { p_name: name.trim(), p_timezone: localTimeZone() });
+      const crew = await rpc<Crew>("create_crew", { p_name: cleanName(name, MAX_CREW_NAME), p_timezone: localTimeZone() });
       // This page is kept (hidden) after navigating, so reset it for next time.
       setCreating(false);
       setName("");
@@ -310,7 +312,7 @@ function Dashboard() {
               placeholder="Crew name"
               maxLength={MAX_CREW_NAME}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(typedName(e.target.value))}
               ref={nameInput}
               required
             />
