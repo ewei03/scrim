@@ -21,7 +21,8 @@ describe("crewStats", () => {
 
   it("counts wins, games and streaks", () => {
     expect(get("bob")).toMatchObject({ played: 3, wins: 2, streak: 2, average: "3.00" });
-    expect(get("ann")).toMatchObject({ played: 2, wins: 2, streak: 2, winRate: 1, average: "2.50" });
+    // Ann skipped day 3, which ends her streak but not her win rate.
+    expect(get("ann")).toMatchObject({ played: 2, wins: 2, streak: 0, maxStreak: 2, winRate: 1, average: "2.50" });
     expect(get("cat")).toMatchObject({ played: 2, wins: 0, streak: 0, average: "5.00" });
     expect(get("dan")).toMatchObject({ played: 0, wins: 0, average: null });
   });
@@ -37,6 +38,17 @@ describe("crewStats", () => {
     const { players } = crewStats(wordle, rounds, ["ann", "bob"]);
     expect(players.find((p) => p.userId === "ann")).toMatchObject({ streak: 1, maxStreak: 3 });
     expect(players.find((p) => p.userId === "bob")).toMatchObject({ streak: 0, maxStreak: 1 });
+  });
+
+  it("breaks a streak on a skipped day", () => {
+    const rounds = [
+      round(1, { ann: 2, bob: 3 }),
+      round(2, { ann: 2, bob: 3 }),
+      round(3, { bob: 3 }),
+      round(4, { ann: 2, bob: 3 }),
+    ];
+    const { players } = crewStats(wordle, rounds, ["ann", "bob"], { byWinRate: true });
+    expect(players.find((p) => p.userId === "ann")).toMatchObject({ played: 3, wins: 3, streak: 1, maxStreak: 2 });
   });
 
   it("orders by wins, then win rate", () => {

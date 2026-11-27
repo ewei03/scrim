@@ -15,17 +15,18 @@ export type PlayerStats = {
   wins: number;
   winRate: number;
   average: string | null;
-  /** Consecutive wins, counting back from the most recent round they played. */
+  /** Consecutive wins, counting back from the most recent round. A skipped day ends it. */
   streak: number;
-  /** Longest run of consecutive wins in the rounds they played. */
+  /** Longest run of consecutive wins. A skipped day breaks a run. */
   maxStreak: number;
 };
 
 export type RankOptions = {
   /**
    * Rank by win rate rather than total wins (the crew's rule), so a skipped
-   * day doesn't push anyone down. Win rate, streak and average only count
-   * days played either way. Mirrored in extension_rankings (SQL).
+   * day doesn't push anyone down. Win rate and average only count days
+   * played either way; streaks count every day, so a skipped day ends one.
+   * Mirrored in extension_rankings (SQL).
    */
   byWinRate?: boolean;
 };
@@ -40,24 +41,30 @@ export function crewStats<R>(
   const byRecent = [...rounds].sort((a, b) => b.closes_at.localeCompare(a.closes_at));
   // Newest first: whether they won each round they played.
   const wonRounds = new Map<string, boolean[]>(memberIds.map((id) => [id, []]));
+  // Newest first, every round: won, lost, or skipped (false), for streaks.
+  const streakRounds = new Map<string, boolean[]>(memberIds.map((id) => [id, []]));
   const results = new Map<string, R[]>(memberIds.map((id) => [id, []]));
 
   for (const round of byRecent) {
+    const won = new Map<string, boolean>();
     for (const e of rankEntries(game, round.entries)) {
       if (!wonRounds.has(e.user_id)) continue; // left the crew
       wonRounds.get(e.user_id)!.push(e.winner);
       results.get(e.user_id)!.push(e.result);
+      won.set(e.user_id, e.winner);
     }
+    for (const id of memberIds) streakRounds.get(id)!.push(won.get(id) ?? false);
   }
 
   const players: PlayerStats[] = memberIds.map((userId) => {
     const won = wonRounds.get(userId)!;
     const wins = won.filter(Boolean).length;
+    const days = streakRounds.get(userId)!;
     let streak = 0;
-    while (streak < won.length && won[streak]) streak++;
+    while (streak < days.length && days[streak]) streak++;
     let maxStreak = 0;
     let run = 0;
-    for (const w of won) {
+    for (const w of days) {
       run = w ? run + 1 : 0;
       maxStreak = Math.max(maxStreak, run);
     }

@@ -1934,7 +1934,7 @@ function ManageCrew({
             disabled={busy !== null}
             onChange={(e) => updateSettings({ p_rank_by_win_rate: e.target.checked })}
           />{" "}
-          Omit skipped days from rankings stats
+          Omit skipped days from rankings stats (excluding streaks)
         </label>
         <label className="field">
           <span>Time Zone</span>
