@@ -52,7 +52,7 @@ export function MemberStats({
   }, [member, games, rounds, rankedIds]);
 
   return (
-    <Modal open={member !== null} onClose={onClose} title={member?.name ?? "Player"} size="large">
+    <Modal open={member !== null} onClose={onClose} title={member?.name ?? "Player"} size="fit">
       {member && (
         <div className="stack member-stats">
           <p className="muted small">

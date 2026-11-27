@@ -2800,6 +2800,14 @@ body:has(.reorder-row.lifted) {
   width: min(440px, calc(100vw - 32px));
 }
 
+/* As wide as its content (a stats table) needs, never narrower than a large
+   dialog and never wider than the screen; past that the table scrolls. */
+.dialog-fit {
+  width: fit-content;
+  min-width: min(640px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+}
+
 /* The site's confirm(): the message, then Cancel and OK at the right. */
 .confirm-message {
   margin: 0;

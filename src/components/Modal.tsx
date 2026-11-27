@@ -17,7 +17,8 @@ export function Modal({
   open: boolean;
   onClose: () => void;
   title: string;
-  size?: "small" | "large";
+  /** "fit" grows past "large" to fit wide content, like a table, up to the screen. */
+  size?: "small" | "large" | "fit";
   /** False for forms, so a stray click outside doesn't lose what was typed. */
   dismissOnBackdrop?: boolean;
   children: React.ReactNode;
@@ -72,7 +73,7 @@ export function Modal({
   return (
     <dialog
       ref={dialog}
-      className={`dialog ${size === "small" ? "dialog-sm" : ""}`}
+      className={`dialog ${size === "small" ? "dialog-sm" : size === "fit" ? "dialog-fit" : ""}`}
       aria-labelledby={titleId}
       // Fires on Escape and on close(); keeps the parent's state in sync. The
       // event comes a moment after close(), so if the dialog is open again by
