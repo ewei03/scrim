@@ -170,6 +170,16 @@ function CrewPage() {
   const [crew, setCrew] = useState<Crew | null>(null);
   // Asked to join a crew that needs approval; waiting for the owner.
   const [pending, setPending] = useState<Crew | null>(null);
+  // Browser tab reads "<crew name> - Scrim" while the crew is shown.
+  const crewName = crew?.name ?? pending?.name;
+  useEffect(() => {
+    if (!crewName) return;
+    const prev = document.title;
+    document.title = `${crewName} - Scrim`;
+    return () => {
+      document.title = prev;
+    };
+  }, [crewName]);
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [removals, setRemovals] = useState<Removal[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
