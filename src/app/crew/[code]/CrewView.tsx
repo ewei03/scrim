@@ -509,7 +509,7 @@ function CrewPage() {
       group: group.id,
       game,
       count: played.length,
-      ...crewStats(game, played, ids, { byWinRate: crew.rank_by_win_rate }),
+      ...crewStats(game, played, ids),
     };
   }, [rankedGroups, rankingsGame, modes, findGame, rankingsPeriod, crew, finishedSinceReset, members, now]);
 
@@ -761,7 +761,6 @@ function CrewPage() {
         games={rankedGames}
         rounds={finishedSinceReset}
         rankedIds={rankedIds}
-        byWinRate={crew.rank_by_win_rate}
         onClose={() => setViewing(null)}
       />
 
@@ -1926,15 +1925,6 @@ function ManageCrew({
             onChange={(e) => updateSettings({ p_require_approval: e.target.checked })}
           />{" "}
           Approve new members before they join
-        </label>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={crew.rank_by_win_rate}
-            disabled={busy !== null}
-            onChange={(e) => updateSettings({ p_rank_by_win_rate: e.target.checked })}
-          />{" "}
-          Omit skipped days from rankings stats (excluding streaks)
         </label>
         <label className="field">
           <span>Time Zone</span>

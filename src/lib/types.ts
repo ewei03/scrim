@@ -17,8 +17,6 @@ export type Crew = {
   allow_guests: boolean;
   /** The invite link asks to join; the owner approves in Manage crew. */
   require_approval: boolean;
-  /** Rankings go by win rate, so skipped days don't push anyone down (a skipped day still ends a streak). */
-  rank_by_win_rate: boolean;
   /** When the owner last reset the rankings: they count only days that end after it. Null if never. */
   rankings_reset_at: string | null;
 };

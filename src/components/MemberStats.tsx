@@ -28,7 +28,6 @@ export function MemberStats({
   games,
   rounds,
   rankedIds,
-  byWinRate,
   onClose,
 }: {
   member: MemberInfo | null;
@@ -38,8 +37,6 @@ export function MemberStats({
   rounds: GameRound[];
   /** Everyone in the rankings (current members), for their place. */
   rankedIds: string[];
-  /** The crew's ranking rule. */
-  byWinRate: boolean;
   onClose: () => void;
 }) {
   const rows = useMemo(() => {
@@ -47,12 +44,12 @@ export function MemberStats({
     return games.flatMap((game) => {
       const played = rounds.filter((r) => r.game === game.id);
       const ids = rankedIds.includes(member.userId) ? rankedIds : [...rankedIds, member.userId];
-      const { players } = crewStats(game, played, ids, { byWinRate });
+      const { players } = crewStats(game, played, ids);
       const me = players.find((p) => p.userId === member.userId);
       if (!me || me.played === 0) return [];
       return [{ game, stats: me, place: sharedRank(players, me), of: players.filter((p) => p.played > 0).length }];
     });
-  }, [member, games, rounds, rankedIds, byWinRate]);
+  }, [member, games, rounds, rankedIds]);
 
   return (
     <Modal open={member !== null} onClose={onClose} title={member?.name ?? "Player"} size="large">

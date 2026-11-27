@@ -47,7 +47,7 @@ describe("crewStats", () => {
       round(3, { bob: 3 }),
       round(4, { ann: 2, bob: 3 }),
     ];
-    const { players } = crewStats(wordle, rounds, ["ann", "bob"], { byWinRate: true });
+    const { players } = crewStats(wordle, rounds, ["ann", "bob"]);
     expect(players.find((p) => p.userId === "ann")).toMatchObject({ played: 3, wins: 3, streak: 1, maxStreak: 2 });
   });
 
@@ -56,17 +56,12 @@ describe("crewStats", () => {
   });
 });
 
-describe("crewStats ranked by win rate", () => {
+describe("crewStats ranking", () => {
   // Ann plays once and wins; Bob plays every day and wins twice.
   const rounds = [round(1, { ann: 2, bob: 3 }), round(2, { bob: 3, cat: 4 }), round(3, { bob: 2, cat: 5 })];
-  const order = (byWinRate: boolean) =>
-    crewStats(wordle, rounds, ["ann", "bob", "cat"], { byWinRate }).players.map((p) => p.userId);
 
-  it("puts the most wins first by default", () => {
-    expect(order(false)).toEqual(["bob", "ann", "cat"]);
-  });
-
-  it("puts the best win rate first with the rule on, so skipped days don't count against you", () => {
-    expect(order(true)).toEqual(["ann", "bob", "cat"]);
+  it("puts the most wins first, ahead of a better win rate", () => {
+    const order = crewStats(wordle, rounds, ["ann", "bob", "cat"]).players.map((p) => p.userId);
+    expect(order).toEqual(["bob", "ann", "cat"]);
   });
 });

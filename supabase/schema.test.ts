@@ -1897,7 +1897,7 @@ describe("crew rules", () => {
     await expect(as(OWNER, "select answer_join_request($1, $2, true)", [c.id, OTHER])).rejects.toThrow(/No request/);
   });
 
-  it("ranks by win rate when the crew says so, in the extension too", async () => {
+  it("ranks by total wins ahead of win rate, in the extension too", async () => {
     const c = await createCrew(OWNER, "By Rate", "wordle");
     await as(ASKER, "select join_crew($1)", [c.invite_code]);
     // The owner plays once and wins; Asker plays every day and wins twice.
@@ -1917,16 +1917,11 @@ describe("crew rules", () => {
       (await as<{ crew_name: string; user_id: string }>(null, "select * from extension_rankings($1)", [token]))
         .filter((r) => r.crew_name === "By Rate")
         .map((r) => r.user_id);
-    const siteOrder = (byWinRate: boolean) =>
-      crewStats(GAMES.wordle, rounds, [OWNER, ASKER], { byWinRate }).players.map((p) => p.userId);
+    const siteOrder = crewStats(GAMES.wordle, rounds, [OWNER, ASKER]).players.map((p) => p.userId);
 
-    // Default: most wins first.
+    // Asker's 2 wins from 3 beat the owner's 1 from 1.
     expect(await extensionOrder()).toEqual([ASKER, OWNER]);
-    expect(siteOrder(false)).toEqual([ASKER, OWNER]);
-    // By win rate: the owner's 1 from 1 beats 2 from 3.
-    await as(OWNER, "select update_crew_settings($1, p_rank_by_win_rate => true)", [c.id]);
-    expect(await extensionOrder()).toEqual([OWNER, ASKER]);
-    expect(siteOrder(true)).toEqual([OWNER, ASKER]);
+    expect(siteOrder).toEqual([ASKER, OWNER]);
   });
 
   it("lets only the owner reset the rankings, which keeps the days but stops counting them", async () => {
