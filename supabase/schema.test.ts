@@ -1042,6 +1042,39 @@ describe("extension rankings", () => {
   });
 });
 
+describe("extension games list", () => {
+  beforeAll(() => clearCrewsOf(ANN));
+
+  it("lists each game your crews play once, custom games with their links", async () => {
+    const one = await createCrew(ANN, "Games One", "wordle", "krillion");
+    const two = await createCrew(ANN, "Games Two", "wordle");
+    const [golf] = await as<{ id: string }>(ANN, "select * from create_custom_game($1, $2)", [
+      two.id,
+      JSON.stringify({ name: "Golf", url: "https://golf.example/", color: "#3eb489", score_type: "points", higher_is_better: false }),
+    ]);
+    const other = await createCrew(BOB, "Not Ann's", "contexto");
+
+    const token = (await as<{ create_extension_token: string }>(ANN, "select create_extension_token()"))[0]
+      .create_extension_token;
+    type Row = { game: string; game_name: string | null; url: string | null };
+    const games = () => as<Row>(null, "select * from extension_games($1)", [token]);
+
+    await expect(as(null, "select * from extension_games('nope')")).rejects.toThrow(/not connected/);
+    const rows = await games();
+    expect(rows.map((r) => r.game).sort()).toEqual([`custom:${golf.id}`, "krillion", "wordle"].sort());
+    expect(rows.find((r) => r.game === `custom:${golf.id}`)).toEqual({
+      game: `custom:${golf.id}`,
+      game_name: "Golf",
+      url: "https://golf.example/",
+    });
+    expect(rows.find((r) => r.game === "wordle")).toEqual({ game: "wordle", game_name: null, url: null });
+
+    await as(ANN, "select delete_crew($1)", [one.id]);
+    expect((await games()).map((r) => r.game).sort()).toEqual([`custom:${golf.id}`, "wordle"].sort());
+    await as(BOB, "select delete_crew($1)", [other.id]);
+  });
+});
+
 describe("duplicate display names within a crew", () => {
   const ZED = "00000000-0000-0000-0000-0000000000f1";
   const ZED2 = "00000000-0000-0000-0000-0000000000f2";
@@ -1719,6 +1752,7 @@ describe("function permissions", () => {
     "create_extension_token",
     "delete_crew",
     "delete_custom_game",
+    "extension_games",
     "extension_rankings",
     "extension_results",
     "extension_submit",
@@ -1738,7 +1772,7 @@ describe("function permissions", () => {
     "update_custom_game",
     "void_entry",
   ];
-  const EXTENSION = ["extension_rankings", "extension_results", "extension_submit"];
+  const EXTENSION = ["extension_games", "extension_rankings", "extension_results", "extension_submit"];
 
   const callable = async (role: string) =>
     (

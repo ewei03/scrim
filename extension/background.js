@@ -115,6 +115,11 @@ async function handle(msg) {
       const reply = await callRpc("extension_rankings", {});
       return reply.ok ? { ok: true, rows: reply.body ?? [] } : reply;
     }
+    case "games": {
+      // The games your crews play, for the popup's Play tab.
+      const reply = await callRpc("extension_games", {});
+      return reply.ok ? { ok: true, rows: reply.body ?? [] } : reply;
+    }
     case "results": {
       // Today's results from the server, wherever they were played. The popup
       // says which puzzle is today's for each game.

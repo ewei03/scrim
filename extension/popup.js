@@ -1,11 +1,17 @@
 (async () => {
   const c = await chrome.storage.local.get(["token", "displayName", "results", "scrimOrigin", "popupView"]);
   const status = document.getElementById("status");
+  if (c.scrimOrigin) document.getElementById("scrim-link").href = c.scrimOrigin;
   if (c.token) {
     status.textContent = `⚡ Connected as ${c.displayName ?? "you"}`;
     status.classList.remove("muted");
   } else {
-    status.textContent = "Not connected. Open Scrim and sign in to connect.";
+    const link = document.createElement("a");
+    link.href = c.scrimOrigin ?? SCRIM_URL;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.textContent = "Open Scrim";
+    status.replaceChildren("Not connected. ", link, " and sign in to connect.");
   }
 
   // Results and rankings belong to a connected account; signed out, there's nothing to show.
@@ -25,6 +31,9 @@
       .catch(() => {});
   }
 })();
+
+/** Where Scrim lives, until the site has told the extension (on connecting). */
+const SCRIM_URL = "https://daily-scrim.vercel.app";
 
 /** Today's results from the server, once loaded: null until then, or if it couldn't be reached. */
 let serverResults = null;
@@ -112,6 +121,8 @@ function renderResults(stored) {
   }
   list.hidden = results.length === 0;
   document.getElementById("results-empty").hidden = results.length > 0;
+  doneToday = new Map(results.map((r) => [r.game, describe(r.game, r.result).score]));
+  renderPlay();
   // Offered while any game Scrim reads by itself has no result today: the same
   // games the check looks for (see catchUp in background.js).
   const missing = AUTO_GAMES.filter(
@@ -191,10 +202,151 @@ const GAME_NAMES = {
   minicrosswordhard: "Mini Crossword (Hard)",
 };
 
-/** Results / Rankings tabs. Remembers the last tab, crew and game. */
+/** Where each game is played (the same links as the site's). */
+const GAME_URLS = {
+  wordle: "https://www.nytimes.com/games/wordle/index.html",
+  connections: "https://www.nytimes.com/games/connections",
+  strands: "https://www.nytimes.com/games/strands",
+  krillion: "https://krillion.io/",
+  contexto: "https://contexto.me/en/",
+  costcodle: "https://costcodle.com/",
+  costcodleclassic: "https://costcodle.com/",
+  poople: "https://poople.io/",
+  worldle: "https://worldle.teuteuf.fr/",
+  globle: "https://globle-game.com/",
+  waffle: "https://wafflegame.net/daily",
+  nerdle: "https://nerdlegame.com/",
+  perceptle: "https://perceptle.com/",
+  minecraftdle: "https://minecraftdle.com/blocks",
+  minecraftdleitem: "https://minecraftdle.com/items",
+  minecraftdlemob: "https://minecraftdle.com/mobs",
+  angledle: "https://angledle.com/",
+  minicrossword: "https://minicrossword.com/",
+  minicrosswordhard: "https://minicrossword.com/hard",
+};
+
+/**
+ * Modes of one game, which share a page (you switch modes on the game's own
+ * page): the Play tab shows them as one link.
+ */
+const GAME_FAMILIES = {
+  costcodle: { name: "Costcodle", url: "https://costcodle.com/" },
+  costcodleclassic: { name: "Costcodle", url: "https://costcodle.com/" },
+  minecraftdle: { name: "Minecraftdle", url: "https://minecraftdle.com/" },
+  minecraftdleitem: { name: "Minecraftdle", url: "https://minecraftdle.com/" },
+  minecraftdlemob: { name: "Minecraftdle", url: "https://minecraftdle.com/" },
+  minicrossword: { name: "Mini Crossword", url: "https://minicrossword.com/" },
+  minicrosswordhard: { name: "Mini Crossword", url: "https://minicrossword.com/" },
+};
+
+/** Rows per page in the Play tab, so the popup stays small. */
+const PLAY_PAGE_SIZE = 5;
+let playPage = 0;
+
+/** The drawn ↗ (the character shows as an emoji on some systems), copied from the header. */
+const ARROW = document.querySelector("#scrim-link .external-arrow");
+
+document.getElementById("play-prev").addEventListener("click", () => {
+  playPage--;
+  renderPlay();
+});
+document.getElementById("play-next").addEventListener("click", () => {
+  playPage++;
+  renderPlay();
+});
+
+/** Today's score per game you've played, from the Results list. */
+let doneToday = new Map();
+/** The games your crews play ({ game, name, url }), once loaded: null until then. */
+let crewGames = null;
+
+/** Play tab: the games your crews play, with a link to each; not-yet-played first. */
+async function loadPlay() {
+  const reply = await chrome.runtime.sendMessage({ type: "games" }).catch(() => null);
+  const rows = reply?.ok
+    ? reply.rows
+    : // Couldn't ask (offline, or an older server): every game Scrim knows.
+      Object.keys(GAME_URLS).map((game) => ({ game }));
+  // One row per game, holding the modes your crews play.
+  const byKey = new Map();
+  for (const r of rows) {
+    const family = GAME_FAMILIES[r.game];
+    const name = family?.name ?? r.game_name ?? GAME_NAMES[r.game];
+    const url = family?.url ?? GAME_URLS[r.game] ?? safeUrl(r.url);
+    if (!name || !url) continue;
+    const key = family ? family.name : r.game;
+    if (!byKey.has(key)) byKey.set(key, { name, url, modes: [] });
+    byKey.get(key).modes.push(r.game);
+  }
+  crewGames = [...byKey.values()];
+  if (reply && !reply.ok && reply.error === "not-connected") crewGames = [];
+  renderPlay();
+}
+
+/** Only web links open from the popup (custom games' links are typed in by crew owners). */
+function safeUrl(url) {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:" ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function renderPlay() {
+  if (!crewGames) return;
+  const list = document.getElementById("play");
+  // A to Z, with games finished today (every mode) at the back.
+  const done = (g) => g.modes.filter((m) => doneToday.has(m)).length;
+  const allDone = (g) => done(g) === g.modes.length;
+  const games = [...crewGames].sort((a, b) => Number(allDone(a)) - Number(allDone(b)) || a.name.localeCompare(b.name));
+  const pages = Math.max(1, Math.ceil(games.length / PLAY_PAGE_SIZE));
+  playPage = Math.min(playPage, pages - 1);
+  list.replaceChildren(
+    ...games.slice(playPage * PLAY_PAGE_SIZE, (playPage + 1) * PLAY_PAGE_SIZE).map((g) => {
+      const a = document.createElement("a");
+      a.href = g.url;
+      a.target = "_blank";
+      a.rel = "noreferrer";
+      const name = document.createElement("span");
+      name.className = "play-name";
+      name.textContent = g.name;
+      const state = document.createElement("span");
+      state.className = "play-state muted";
+      // Finished: a tick. Several modes, some played: how many are done.
+      const n = done(g);
+      if (allDone(g)) state.textContent = "✓";
+      else if (n > 0) state.textContent = `✓ ${n}/${g.modes.length}`;
+      else state.append("Play ", ARROW.cloneNode(true));
+      if (allDone(g)) a.className = "done";
+      a.append(name, state);
+      const li = document.createElement("li");
+      li.append(a);
+      return li;
+    }),
+  );
+  list.hidden = games.length === 0;
+  document.getElementById("play-pager").hidden = pages === 1;
+  document.getElementById("play-page").textContent = `${playPage + 1} / ${pages}`;
+  document.getElementById("play-prev").disabled = playPage === 0;
+  document.getElementById("play-next").disabled = playPage === pages - 1;
+  const status = document.getElementById("play-status");
+  status.hidden = games.length > 0;
+  status.textContent = "Your crews aren't playing any games yet.";
+}
+
+/** Play / Results / Rankings tabs. Remembers the last tab, crew and game. */
 function setUpTabs(view, scrimOrigin) {
-  const tabs = { results: document.getElementById("tab-results"), rankings: document.getElementById("tab-rankings") };
-  const panels = { results: document.getElementById("panel-results"), rankings: document.getElementById("panel-rankings") };
+  const tabs = {
+    play: document.getElementById("tab-play"),
+    results: document.getElementById("tab-results"),
+    rankings: document.getElementById("tab-rankings"),
+  };
+  const panels = {
+    play: document.getElementById("panel-play"),
+    results: document.getElementById("panel-results"),
+    rankings: document.getElementById("panel-rankings"),
+  };
   let loaded = false;
 
   function select(name) {
@@ -204,6 +356,9 @@ function setUpTabs(view, scrimOrigin) {
     }
     view.tab = name;
     save(view);
+    // "Open Scrim": the crew on show in Rankings, otherwise the home page.
+    const home = scrimOrigin ?? SCRIM_URL;
+    document.getElementById("scrim-link").href = name === "rankings" && view.crew ? `${home}/crew/${view.crew}` : home;
     if (name === "rankings" && !loaded) {
       loaded = true;
       loadRankings(view, scrimOrigin);
@@ -211,9 +366,9 @@ function setUpTabs(view, scrimOrigin) {
   }
 
   document.getElementById("tabs").hidden = false;
-  tabs.results.addEventListener("click", () => select("results"));
-  tabs.rankings.addEventListener("click", () => select("rankings"));
-  select(view.tab === "rankings" ? "rankings" : "results");
+  for (const key of Object.keys(tabs)) tabs[key].addEventListener("click", () => select(key));
+  loadPlay();
+  select(Object.hasOwn(tabs, view.tab) ? view.tab : "results");
 }
 
 async function loadRankings(view, scrimOrigin) {
@@ -249,7 +404,9 @@ async function loadRankings(view, scrimOrigin) {
     const games = crews.get(pickCrew.value).games;
     // The server names each game (custom games have their own names).
     pickGame.replaceChildren(
-      ...[...games.entries()].map(([g, players]) => new Option(players[0]?.game_name ?? GAME_NAMES[g] ?? g, g)),
+      ...[...games.entries()].map(
+        ([g, players]) => new Option(PICKER_NAMES[g] ?? GAME_NAMES[g] ?? players[0]?.game_name ?? g, g),
+      ),
     );
     pickGame.value = games.has(view.game) ? view.game : games.keys().next().value;
   }
@@ -282,9 +439,8 @@ async function loadRankings(view, scrimOrigin) {
         return tr;
       }),
     );
-    const link = document.getElementById("open-crew");
-    link.hidden = !scrimOrigin;
-    if (scrimOrigin) link.href = `${scrimOrigin}/crew/${view.crew}`;
+    // The header's "Open Scrim" goes to the crew on show.
+    if (view.tab === "rankings") document.getElementById("scrim-link").href = `${scrimOrigin ?? SCRIM_URL}/crew/${view.crew}`;
   }
 
   pickCrew.addEventListener("change", () => {
@@ -297,6 +453,21 @@ async function loadRankings(view, scrimOrigin) {
   status.hidden = true;
   document.getElementById("rankings").hidden = false;
 }
+
+/**
+ * Shorter names for the Rankings game picker, where the full names of games
+ * with several modes don't fit. (The server names built-in games from their
+ * ids, e.g. "Minicrosswordhard", so its names are only used for custom games.)
+ */
+const PICKER_NAMES = {
+  costcodle: "Costco Checkout",
+  costcodleclassic: "Costco Classic",
+  minecraftdle: "MCdle (Block)",
+  minecraftdleitem: "MCdle (Item)",
+  minecraftdlemob: "MCdle (Mob)",
+  minicrossword: "Mini (Easy)",
+  minicrosswordhard: "Mini (Hard)",
+};
 
 /** Players with identical records share a rank, like on the site. */
 function sharedRank(players, p) {
